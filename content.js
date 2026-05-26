@@ -3,6 +3,7 @@
 
 const MP_API_RE = /api\.csrestored\.fun\/.*(marketplace|\/offers)/i;
 const MP_API_URL = 'https://api.csrestored.fun/inventory/marketplace/';
+const TRADE_API_RE = /api\.csrestored\.fun\/(?:api\/)?trades\b/i;
 
 const RARITY = {
     0: { name:'Contraband',       hex:'#facc15' },
@@ -811,19 +812,245 @@ document.head.appendChild(S);
 
 let inventoryCache   = [];
 let marketplaceCache = [];
-let overlayRunning   = false;
+let tradeItemsCache      = [];
+let tradesListCache      = [];
+let friendInventoryCache = [];
+let overlayRunning       = false;
 let overlayTimer     = null;
 let overlayPageKind  = null;
 
 function isMarketplacePage() {
     return window.location.pathname.includes('/marketplace');
 }
+function isTradePage() {
+    const p = window.location.pathname;
+    return p.includes('/trade-up') || p.includes('/play') || /\/trades(\/|$)/i.test(p);
+}
+function isTradePickerModal() {
+    for (const el of document.querySelectorAll('h1, h2, h3, p, span, div')) {
+        const t = el.textContent?.trim() || '';
+        if (/^send trade offer$/i.test(t)) return true;
+    }
+    return false;
+}
+function isTradeDetailView() {
+    if (isTradePickerModal()) return false;
+    const body = document.body?.innerText || '';
+    return body.includes('Your offer') && body.includes('Their offer');
+}
+function isTheirItemsTabActive() {
+    const tabs = [...document.querySelectorAll('button, p, span, div, a')];
+    let myTab = null;
+    let theirTab = null;
+    for (const el of tabs) {
+        const t = el.textContent?.trim() || '';
+        if (/^my items$/i.test(t)) myTab = el;
+        if (/^their items$/i.test(t)) theirTab = el;
+    }
+    if (myTab && theirTab) {
+        const myBorder = parseFloat(getComputedStyle(myTab).borderBottomWidth) || 0;
+        const theirBorder = parseFloat(getComputedStyle(theirTab).borderBottomWidth) || 0;
+        if (theirBorder > myBorder) return true;
+        if (theirTab.className?.includes?.('text-theme-primary')) return true;
+        if (myTab.className?.includes?.('text-theme-primary')) return false;
+    }
+    return false;
+}
 function isInventoryPage() {
     const p = window.location.pathname.replace(/\/$/, '');
     return p === '/app/inventory';
 }
 function isOverlayPage() {
-    return isInventoryPage() || isMarketplacePage();
+    return isInventoryPage() || isMarketplacePage() || isTradePage()
+        || isTradePickerModal() || isTradeDetailView();
+}
+
+function normalizeInventoryEntry(i) {
+    if (!i) return null;
+    return {
+        offer_id:  null,
+        weapon_id: i.weapon_id != null ? parseInt(i.weapon_id, 10) : null,
+        item_id:   i.item_id != null ? parseInt(i.item_id, 10) : null,
+        float:     i.float != null && !Number.isNaN(parseFloat(i.float)) ? parseFloat(i.float) : null,
+        seed:      i.seed != null ? parseInt(i.seed, 10) : null,
+        stattrak:  !!i.stattrak,
+        stattrak_count: i.stattrak_count != null ? parseInt(i.stattrak_count, 10) : null,
+        rarity:    i.rarity,
+        name:      i.name,
+    };
+}
+
+function mergeItemCache(existing, incoming) {
+    const map = new Map();
+    for (const o of existing) {
+        const k = o.weapon_id ?? `o${o.offer_id}` ?? `${o.item_id}-${o.float}-${o.seed}`;
+        map.set(k, o);
+    }
+    for (const o of incoming) {
+        const k = o.weapon_id ?? `o${o.offer_id}` ?? `${o.item_id}-${o.float}-${o.seed}`;
+        map.set(k, o);
+    }
+    return [...map.values()];
+}
+
+function extractTradeItems(data, depth = 0) {
+    if (!data || depth > 10) return [];
+    const out = [];
+    const visit = (node, d) => {
+        if (!node || d > 10) return;
+        if (Array.isArray(node)) {
+            node.forEach(x => visit(x, d + 1));
+            return;
+        }
+        if (typeof node !== 'object') return;
+        const itemId = node.item_id ?? node.skin_id;
+        const fl = node.skin_float ?? node.float ?? node.wear;
+        if (itemId != null && (fl != null || node.weapon_id != null)) {
+            const n = normalizeOfferEntry(node);
+            if (n) out.push(n);
+        }
+        for (const v of Object.values(node)) {
+            if (v && typeof v === 'object') visit(v, d + 1);
+        }
+    };
+    visit(data, depth);
+    return out;
+}
+
+function looksLikeTradePayload(data) {
+    if (!data || typeof data !== 'object') return false;
+    if (data.all || data.sent || data.received || data.history) return true;
+    if (data.items_from_initiator || data.items_from_recipient) return true;
+    if (data.id != null && (data.items_from_initiator || data.items_from_recipient)) return true;
+    return false;
+}
+
+function collectTradesFromData(data) {
+    const trades = [];
+    const addTrade = (trade, viewerRole) => {
+        if (!trade || typeof trade !== 'object') return;
+        if (!trade.items_from_initiator && !trade.items_from_recipient) return;
+        const t = viewerRole ? { ...trade, _viewerRole: viewerRole } : trade;
+        trades.push(t);
+    };
+    if (Array.isArray(data)) {
+        data.forEach(t => addTrade(t));
+    } else if (data.all || data.sent || data.received || data.history) {
+        for (const key of ['all', 'sent', 'received', 'history']) {
+            if (!Array.isArray(data[key])) continue;
+            const role = key === 'received' ? 'recipient' : key === 'sent' ? 'initiator' : null;
+            data[key].forEach(t => addTrade(t, role));
+        }
+    } else {
+        addTrade(data);
+    }
+    return trades;
+}
+
+function getItemsFromTrade(trade) {
+    const items = [];
+    if (!trade) return items;
+    for (const key of ['items_from_initiator', 'items_from_recipient', 'initiator_items', 'recipient_items']) {
+        const arr = trade[key];
+        if (!Array.isArray(arr)) continue;
+        for (const it of arr) {
+            const n = normalizeOfferEntry(it);
+            if (n) items.push(n);
+        }
+    }
+    if (!items.length) return extractTradeItems(trade);
+    return items;
+}
+
+function parseTradesResponse(data) {
+    const trades = collectTradesFromData(data);
+    if (trades.length) {
+        const byId = new Map(tradesListCache.map(t => [t.id, t]));
+        for (const t of trades) {
+            const prev = byId.get(t.id);
+            if (prev && !t._viewerRole && prev._viewerRole) byId.set(t.id, { ...t, _viewerRole: prev._viewerRole });
+            else byId.set(t.id, t);
+        }
+        tradesListCache = [...byId.values()];
+    }
+    const items = [];
+    for (const trade of trades) items.push(...getItemsFromTrade(trade));
+    if (items.length) tradeItemsCache = mergeItemCache(tradeItemsCache, items);
+    return items;
+}
+
+function cardMatchesItem(card, item) {
+    const imgId = getImgItemId(card);
+    const hasSt = cardHasStatTrak(card);
+    if (imgId != null && imgId === item.item_id && item.stattrak === hasSt) return true;
+    const names = getCardSkinNames(card);
+    if (names && itemMatchesNames(item, names.weapon, names.skin, hasSt)) return true;
+    return false;
+}
+
+function getCurrentTrade() {
+    const cards = getAllCards();
+    if (tradesListCache.length && cards.length) {
+        let best = null;
+        let bestScore = 0;
+        for (const trade of tradesListCache) {
+            const items = getItemsFromTrade(trade);
+            if (!items.length) continue;
+            let score = 0;
+            for (const card of cards) {
+                if (items.some(it => cardMatchesItem(card, it))) score++;
+            }
+            if (score > bestScore) { bestScore = score; best = trade; }
+        }
+        if (best && bestScore > 0) return best;
+    }
+    const tradeId = getTradeIdFromUrl();
+    if (tradeId != null) {
+        const trade = tradesListCache.find(t => t.id == tradeId);
+        if (trade) return trade;
+    }
+    return tradesListCache[0] || null;
+}
+
+function getTradeSideItems(trade, side) {
+    if (!trade) return [];
+    const init = (trade.items_from_initiator || trade.initiator_items || [])
+        .map(normalizeOfferEntry).filter(Boolean);
+    const recip = (trade.items_from_recipient || trade.recipient_items || [])
+        .map(normalizeOfferEntry).filter(Boolean);
+    const role = trade._viewerRole;
+    if (role === 'initiator') return side === 'your' ? init : recip;
+    if (role === 'recipient') return side === 'your' ? recip : init;
+    return side === 'your' ? init : recip;
+}
+
+function getActiveTradeItems() {
+    const trade = getCurrentTrade();
+    if (trade) return getItemsFromTrade(trade);
+    if (tradeItemsCache.length) return tradeItemsCache;
+    return [];
+}
+
+function getTradeIdFromUrl() {
+    const m = window.location.pathname.match(/trade-up\/(\d+)/i);
+    return m ? parseInt(m[1], 10) : null;
+}
+
+function getPickerCache() {
+    if (isTheirItemsTabActive()) return friendInventoryCache;
+    return inventoryCache.map(normalizeInventoryEntry).filter(Boolean);
+}
+
+function getOverlayCache() {
+    if (isMarketplacePage()) return marketplaceCache;
+    if (isTradePickerModal()) return getPickerCache();
+    if (isTradeDetailView()) {
+        const active = getActiveTradeItems();
+        if (active.length) return active;
+        return tradeItemsCache;
+    }
+    if (isTradePage()) return tradeItemsCache;
+    return inventoryCache.map(normalizeInventoryEntry).filter(Boolean);
 }
 
 function normalizeOfferEntry(o) {
@@ -846,6 +1073,7 @@ function normalizeOfferEntry(o) {
         float:     fl != null && !Number.isNaN(parseFloat(fl)) ? parseFloat(fl) : null,
         seed:      seed != null ? parseInt(seed, 10) : null,
         stattrak:  !!(o.stat_trak ?? item?.stat_trak ?? o.stattrak ?? item?.stattrak),
+        stattrak_count: o.stattrak_count ?? item?.stattrak_count ?? null,
         rarity:    o.item_rarity ?? o.rarity ?? item?.rarity,
         name:      o.item_name ?? o.name ?? item?.name,
     };
@@ -869,16 +1097,7 @@ function looksLikeMarketplacePayload(data) {
 }
 
 function mergeMarketplaceCache(existing, incoming) {
-    const map = new Map();
-    for (const o of existing) {
-        const k = o.offer_id ?? `${o.item_id}-${o.float}-${o.seed}`;
-        map.set(k, o);
-    }
-    for (const o of incoming) {
-        const k = o.offer_id ?? `${o.item_id}-${o.float}-${o.seed}`;
-        map.set(k, o);
-    }
-    return [...map.values()];
+    return mergeItemCache(existing, incoming);
 }
 
 function ingestApiPayload(url, data) {
@@ -888,12 +1107,43 @@ function ingestApiPayload(url, data) {
         if (items.length) marketplaceCache = mergeMarketplaceCache(marketplaceCache, items);
         return;
     }
-    if (/\/inventory\/?(?:\?|$)/i.test(url) && !/\/inventory\/marketplace/i.test(url)) {
+    if (TRADE_API_RE.test(url) || (looksLikeTradePayload(data) && !Array.isArray(data))) {
+        parseTradesResponse(data);
+        if ((isTradePage() || isTradeDetailView()) && overlayRunning) scheduleApplyOverlays();
+        return;
+    }
+    if (/\/users\/[^/]+\/inventory/i.test(url)) {
+        const arr = Array.isArray(data) ? data : (data.items || data.inventory || data.data || []);
+        if (Array.isArray(arr) && arr.length) {
+            friendInventoryCache = arr.map(normalizeInventoryEntry).filter(Boolean);
+            if (overlayRunning) scheduleApplyOverlays();
+        }
+        return;
+    }
+    if (/\/inventory\/?(?:\?|$)/i.test(url) && !/\/inventory\/marketplace/i.test(url) && !/\/users\//i.test(url)) {
         const arr = Array.isArray(data) ? data : (data.items || data.inventory || data.data || []);
         if (Array.isArray(arr) && arr.length) {
             inventoryCache = arr.sort((a, b) => parseInt(a.rarity) - parseInt(b.rarity));
+            if (overlayRunning) scheduleApplyOverlays();
         }
     }
+}
+
+let _applyOverlayTimer = null;
+let _applyingOverlays   = false;
+function scheduleApplyOverlays() {
+    clearTimeout(_applyOverlayTimer);
+    _applyOverlayTimer = setTimeout(() => {
+        if (!overlayRunning || _applyingOverlays) return;
+        _applyingOverlays = true;
+        try { applyOverlaysToAll(); } finally { _applyingOverlays = false; }
+    }, 500);
+}
+
+function clearSkinOverlays() {
+    document.querySelectorAll('.csrx-card-wrap').forEach(w => {
+        if (!w.closest('#csrx-win, #csrx-overlay, #csrx-fab, #csrx-toast')) w.remove();
+    });
 }
 
 const _nativeFetch = window.fetch.bind(window);
@@ -948,6 +1198,60 @@ async function fetchMarketplace() {
     return marketplaceCache;
 }
 
+function findOfferSectionRoot(which) {
+    const want = which === 'your' ? 'your offer' : 'their offer';
+    for (const el of document.querySelectorAll('p, span, div, h3, h4')) {
+        const t = (el.textContent || '').trim().toLowerCase().replace(/:$/, '');
+        if (t !== want) continue;
+        let node = el.parentElement;
+        for (let i = 0; i < 10 && node; i++) {
+            if (node.querySelector('[class*="aspect-square"] img')) return node;
+            node = node.parentElement;
+        }
+    }
+    return null;
+}
+
+function getOfferSectionCards(which) {
+    const root = findOfferSectionRoot(which);
+    if (!root) return [];
+    const skip = '#csrx-win, #csrx-overlay, #csrx-fab, #csrx-toast';
+    let cards = [...root.querySelectorAll('[class*="aspect-square"]')]
+        .filter(c => !c.closest(skip) && c.querySelector('img'));
+    if (!cards.length) {
+        cards = [...root.querySelectorAll('[class*="aspect-square"], [class*="rounded-2xl"], [class*="rounded-xl"]')]
+            .filter(c => !c.closest(skip) && c.querySelector('img') && c.offsetWidth >= 60);
+    }
+    return cards.filter(c => !cards.some(o => o !== c && o.contains(c)));
+}
+
+function applyTradeDetailOverlays() {
+    clearSkinOverlays();
+    const yourCards  = getOfferSectionCards('your');
+    const theirCards = getOfferSectionCards('their');
+    const inv        = inventoryCache.map(normalizeInventoryEntry).filter(Boolean);
+    const trade      = getCurrentTrade();
+    const yourItems  = trade ? getTradeSideItems(trade, 'your') : [];
+    const theirItems = trade ? getTradeSideItems(trade, 'their') : [];
+
+    let used = new Set();
+    for (const card of yourCards) {
+        let item = matchOverlayItem(card, inv, used);
+        if (!item && yourItems.length) item = matchOverlayItem(card, yourItems, used);
+        if (!item && tradeItemsCache.length) item = matchOverlayItem(card, tradeItemsCache, used);
+        if (item) injectCardOverlay(card, item);
+    }
+
+    used = new Set();
+    for (const card of theirCards) {
+        let item = theirItems.length ? matchOverlayItem(card, theirItems, used) : null;
+        if (!item && tradeItemsCache.length) item = matchOverlayItem(card, tradeItemsCache, used);
+        if (item) injectCardOverlay(card, item);
+    }
+
+    if (!yourCards.length && !theirCards.length) applyTradeOverlays();
+}
+
 function getOfferIdFromCard(cardEl) {
     const nodes = [cardEl, cardEl.closest('a'), cardEl.parentElement, ...cardEl.querySelectorAll('a')];
     for (const el of nodes) {
@@ -980,8 +1284,90 @@ function getCardSeedHint(cardEl) {
 }
 
 function cardHasStatTrak(cardEl) {
-    const paras = [...cardEl.querySelectorAll('p')];
-    return (paras[0]?.textContent?.trim() || '').toLowerCase().startsWith('stattrak');
+    for (const el of cardEl.querySelectorAll('p, span, div')) {
+        const t = (el.textContent?.trim() || '').toLowerCase();
+        if (t.startsWith('stattrak') || t.startsWith('stt') || t.includes('st™') || t.startsWith('st ')) return true;
+    }
+    return false;
+}
+
+function getStatTrakCount(cardEl) {
+    for (const el of cardEl.querySelectorAll('p, span, div')) {
+        const t = el.textContent?.trim() || '';
+        const m = t.match(/(?:STT|ST™|StatTrak™?)\s*(\d+)/i);
+        if (m) return parseInt(m[1], 10);
+    }
+    return null;
+}
+
+function getCardSkinNames(cardEl) {
+    const lines = [...cardEl.querySelectorAll('p')]
+        .map(p => p.textContent?.trim())
+        .filter(t => t && !['FN', 'MW', 'FT', 'WW', 'BS'].includes(t) && !/^(STT|ST™|StatTrak)/i.test(t));
+    if (lines.length >= 2) {
+        return { weapon: lines[lines.length - 2], skin: lines[lines.length - 1] };
+    }
+    const full = lines.find(t => t.includes(' | '));
+    if (full) {
+        const [weapon, skin] = full.split(' | ').map(s => s.trim());
+        return { weapon, skin };
+    }
+    return null;
+}
+
+function itemMatchesNames(item, weapon, skin, hasSt) {
+    if (!item.name) return false;
+    if (item.stattrak !== hasSt) return false;
+    const parts = item.name.toLowerCase().split(' | ');
+    if (parts.length < 2) return false;
+    const wLow = weapon.toLowerCase();
+    const sLow = skin.toLowerCase();
+    const wOk = parts[0].includes(wLow) || wLow.includes(parts[0]);
+    const sOk = parts[1].includes(sLow) || sLow.includes(parts[1]);
+    return wOk && sOk;
+}
+
+function itemCacheKey(item) {
+    return 'w' + (item.weapon_id ?? `${item.item_id}-${item.float}-${item.seed}`);
+}
+
+function matchItemByName(cardEl, cache, used) {
+    const names = getCardSkinNames(cardEl);
+    if (!names) return null;
+    const hasSt = cardHasStatTrak(cardEl);
+    const cands = cache.filter(i => {
+        if (used.has(itemCacheKey(i))) return false;
+        return itemMatchesNames(i, names.weapon, names.skin, hasSt);
+    });
+    if (cands.length >= 1) {
+        const item = cands[0];
+        used.add(itemCacheKey(item));
+        return item;
+    }
+    return null;
+}
+
+function findCardForTradeItem(item, cards, usedCards) {
+    for (const card of cards) {
+        if (usedCards.has(card) || card.querySelector('.csrx-card-wrap')) continue;
+        if (cardMatchesItem(card, item)) {
+            usedCards.add(card);
+            return card;
+        }
+    }
+    return null;
+}
+
+function applyTradeOverlays() {
+    const items = getActiveTradeItems();
+    if (!items.length) return;
+    const cards = getAllCards();
+    if (!cards.length) return;
+    const usedCards = new Set();
+    for (const item of items) {
+        const card = findCardForTradeItem(item, cards, usedCards);
+        if (card) injectCardOverlay(card, item);
+    }
 }
 
 function matchOverlayItem(cardEl, cache, used) {
@@ -999,32 +1385,41 @@ function matchOverlayItem(cardEl, cache, used) {
     const imgId = getImgItemId(cardEl);
     const wear  = getCardWear(cardEl);
     const hasSt = cardHasStatTrak(cardEl);
+    const trustSiteWear = !isTradeDetailView();
 
     if (imgId != null) {
         const seedHint = isMarketplacePage() ? getCardSeedHint(cardEl) : null;
+        const stCount  = isTradeDetailView() ? getStatTrakCount(cardEl) : null;
         let cands = cache.filter(i =>
             i.item_id === imgId &&
             !used.has('w' + (i.weapon_id ?? i.offer_id ?? `${i.item_id}-${i.float}`)) &&
-            (!wear || getCondition(i.float) === wear) &&
-            (i.stattrak === hasSt || i.stattrak == null)
+            (i.stattrak === hasSt || i.stattrak == null) &&
+            (!trustSiteWear || !wear || getCondition(i.float) === wear)
         );
+        if (stCount != null && cands.length > 1) {
+            const bySt = cands.filter(i => i.stattrak_count === stCount);
+            if (bySt.length) cands = bySt;
+        }
         if (seedHint != null && cands.length > 1) {
             const bySeed = cands.filter(i => i.seed === seedHint);
             if (bySeed.length) cands = bySeed;
         }
-        if (cands.length === 1) {
+        if (cands.length >= 1) {
             const item = cands[0];
-            used.add('w' + (item.weapon_id ?? item.offer_id ?? `${item.item_id}-${item.float}`));
+            used.add(itemCacheKey(item));
             return item;
         }
-        if (cands.length > 1) {
-            const item = cands[0];
-            used.add('w' + (item.weapon_id ?? item.offer_id ?? `${item.item_id}-${item.float}`));
-            return item;
+        if (isTradePickerModal() && isTheirItemsTabActive() && cands.length === 0 && imgId != null) {
+            return null;
         }
     }
 
-    if (!isMarketplacePage()) {
+    if (isTradePage()) {
+        const byName = matchItemByName(cardEl, cache, used);
+        if (byName) return byName;
+    }
+
+    if (!isMarketplacePage() && !isTradeDetailView()) {
         const cards = getAllCards();
         const idx = cards.indexOf(cardEl);
         if (idx >= 0 && idx < cache.length && cache[idx].item_id === imgId) {
@@ -1039,16 +1434,29 @@ function matchOverlayItem(cardEl, cache, used) {
 
 function getImgItemId(cardEl) {
     for (const img of cardEl.querySelectorAll('img')) {
-        for (const attr of ['src', 'srcset']) {
-            const dec = decodeURIComponent(img.getAttribute(attr) || '');
-            const m = dec.match(/\/skins\/(\d+)\.png/);
-            if (m) return parseInt(m[1]);
+        for (const attr of ['src', 'srcset', 'data-src']) {
+            const raw = img.getAttribute(attr) || '';
+            let dec = decodeURIComponent(raw);
+            let m = dec.match(/\/skins\/(\d+)\.png/i);
+            if (m) return parseInt(m[1], 10);
+            m = dec.match(/skins%2F(\d+)\.png/i);
+            if (m) return parseInt(m[1], 10);
         }
     }
     return null;
 }
 
 function getAllCards() {
+    const skip = '#csrx-win, #csrx-overlay, #csrx-fab, #csrx-toast';
+    let cards = [...document.querySelectorAll('[class*="aspect-square"][class*="rounded-2xl"]')]
+        .filter(c => !c.closest(skip) && c.querySelector('img'));
+    if (!cards.length) {
+        cards = [...document.querySelectorAll('[class*="aspect-square"][class*="rounded-xl"]')]
+            .filter(c => !c.closest(skip) && c.querySelector('img'));
+    }
+    if (cards.length) {
+        return cards.filter(c => !cards.some(other => other !== c && other.contains(c)));
+    }
     const selectors = [
         '[class*="aspect-square"][class*="rounded-2xl"][class*="flex-col"]',
         'a[href*="/offer/"] [class*="rounded-2xl"][class*="flex-col"]',
@@ -1110,14 +1518,22 @@ function injectCardOverlay(cardEl, item) {
 }
 
 function applyOverlaysToAll() {
-    const cache = isMarketplacePage() ? marketplaceCache : inventoryCache;
-    if (!cache.length) return;
+    if (isTradeDetailView()) {
+        applyTradeDetailOverlays();
+        return;
+    }
+
+    clearSkinOverlays();
     const cards = getAllCards();
+    if (!cards.length) return;
+
+    const cache = getOverlayCache();
+    if (!cache.length) return;
     const used = new Set();
     cards.forEach(cardEl => {
         if (cardEl.querySelector('.csrx-card-wrap')) return;
         const item = matchOverlayItem(cardEl, cache, used);
-        injectCardOverlay(cardEl, item);
+        if (item) injectCardOverlay(cardEl, item);
     });
 }
 
@@ -1126,16 +1542,16 @@ async function startAlwaysOnOverlay() {
     overlayRunning = true;
     if (isMarketplacePage()) {
         await fetchMarketplace();
+    } else if (isTradePage() || isTradeDetailView() || isTradePickerModal()) {
+        inventoryCache = await fetchInventory();
     } else {
         inventoryCache = await fetchInventory();
     }
     applyOverlaysToAll();
-    overlayTimer = setInterval(async () => {
-        if (isMarketplacePage()) {
-            if (!marketplaceCache.length) await fetchMarketplace();
-        }
+    overlayTimer = setInterval(() => {
+        if (!overlayRunning) return;
         applyOverlaysToAll();
-    }, 1200);
+    }, 2000);
 }
 
 function stopAlwaysOnOverlay() {
@@ -1147,7 +1563,9 @@ function stopAlwaysOnOverlay() {
 
 function checkPageAndRun() {
     const onOverlay = isOverlayPage();
-    const kind = isMarketplacePage() ? 'mp' : 'inv';
+    const kind = isMarketplacePage() ? 'mp'
+        : (isTradePage() || isTradeDetailView() || isTradePickerModal()) ? 'trade'
+        : 'inv';
 
     if (!onOverlay) {
         if (overlayRunning) stopAlwaysOnOverlay();
@@ -1167,6 +1585,11 @@ function checkPageAndRun() {
 
 checkPageAndRun();
 setInterval(checkPageAndRun, 800);
+
+document.addEventListener('click', e => {
+    const t = e.target?.textContent?.trim() || '';
+    if (/^(my items|their items)$/i.test(t) && isTradePickerModal()) scheduleApplyOverlays();
+}, true);
 
 const fab = document.createElement('div');
 fab.id = 'csrx-fab';

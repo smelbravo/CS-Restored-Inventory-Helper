@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "CSR inventory seller",
-  "version": "2.2",
-  "description": "Plugin for CS:R inventory and marketplace",
+  "version": "2.9",
+  "description": "Plugin for CS:R inventory, marketplace, and trade offers",
   "host_permissions": [
     "*://*.csrestored.fun/*",
     "https://api.csrestored.fun/*",
