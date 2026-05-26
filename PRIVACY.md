@@ -43,7 +43,7 @@ The extension interacts with **csrestored.fun** and its API when you are logged 
 
 ## Open source
 
-Source code: [github.com/smelbravo/CSR-Extension](https://github.com/smelbravo/CSR-Extension)
+Source code: [github.com/smelbravo/CS-Restored-Inventory-Helper](https://github.com/smelbravo/CS-Restored-Inventory-Helper)
 
 ## Contact
 

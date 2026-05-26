@@ -138,13 +138,13 @@ Note: Float/seed for other players' items in trades is not supported yet (site A
 ### Privacy policy URL
 
 ```
-https://github.com/smelbravo/CSR-Extension/blob/main/PRIVACY.md
+https://github.com/smelbravo/CS-Restored-Inventory-Helper/blob/main/PRIVACY.md
 ```
 
 ### Support site
 
 ```
-https://github.com/smelbravo/CSR-Extension
+https://github.com/smelbravo/CS-Restored-Inventory-Helper
 ```
 
 ### Notes for reviewer (private)
@@ -164,8 +164,8 @@ How to test:
 
 Data collection: The extension does not transmit data to developer servers. It only reads csrestored.fun API responses in-page to match float/seed to UI cards.
 
-Source code: https://github.com/smelbravo/CSR-Extension
-Support: https://github.com/smelbravo/CSR-Extension/issues
+Source code: https://github.com/smelbravo/CS-Restored-Inventory-Helper
+Support: https://github.com/smelbravo/CS-Restored-Inventory-Helper/issues
 ```
 
 ### Firefox categories
