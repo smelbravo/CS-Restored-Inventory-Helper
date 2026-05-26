@@ -4,7 +4,16 @@ Browser extension for [Counter-Strike: Restored](https://csrestored.fun) — flo
 
 Works in **Firefox** and **Chromium** browsers (Manifest V3).
 
-**Current version:** `2.9`
+**Current version:** `2.9.1`
+
+## Site requirements (CS:Restored)
+
+The extension only works on [csrestored.fun](https://csrestored.fun). To use the site (and this extension), you need:
+
+- **Steam level** greater than 0
+- **CS2 playtime:** at least 25 hours
+
+Log in with Discord on the website after meeting these requirements.
 
 ## Features (current)
 
@@ -56,7 +65,7 @@ On **Send Trade Offer**:
 
 ## Usage
 
-1. Log in on [csrestored.fun](https://csrestored.fun) with Discord
+1. Go to [csrestored.fun](https://csrestored.fun) and log in with Discord (Steam level > 0, 25+ CS2 hours required by the site)
 2. Open **Inventory**, **Marketplace**, or **Play → Trades** — overlays appear automatically after the grid loads
 3. On inventory, click the **star** icon to open CSR Seller when you want to sell items
 
