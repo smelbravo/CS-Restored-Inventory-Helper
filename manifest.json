@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "CSR inventory seller",
+  "version": "2.2",
+  "description": "Plugin for CS:R inventory and marketplace",
+  "host_permissions": [
+    "*://*.csrestored.fun/*",
+    "https://api.csrestored.fun/*",
+    "https://cdn.csrestored.fun/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["*://*.csrestored.fun/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "csr-inventory-seller@csrestored.local",
+      "strict_min_version": "109.0"
+    }
+  }
+}
