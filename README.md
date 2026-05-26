@@ -1,10 +1,10 @@
-# CSR Extension
+# CS:Restored Inventory Helper
 
-Browser extension for [Counter-Strike: Restored](https://csrestored.fun) — float and pattern overlays for **your items** on inventory/marketplace/trades, plus a quick-sell helper for your own items.
+Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.fun) — float and pattern overlays for **your items** on inventory/marketplace/trades, plus a quick-sell helper for your own items.
 
-Works in **Firefox** and **Chromium** browsers (Manifest V3).
+Works in **Firefox**, **Microsoft Edge**, and **Chromium** browsers (Manifest V3).
 
-**Current version:** `2.9.1`
+**Current version:** `2.9.2`
 
 ## Site requirements (CS:Restored)
 
@@ -92,10 +92,101 @@ On **Send Trade Offer**:
 ```
 ├── manifest.json   # Extension manifest (MV3)
 ├── content.js      # Content script (overlays + CSR Seller UI)
+├── icons/          # Store icons (16, 48, 128, 300 px) — add before publish
 ├── PRIVACY.md      # Privacy policy (for store listings)
 ├── LICENSE         # MIT
 └── README.md
 ```
+
+## Store listing copy (Firefox / Edge)
+
+Use this text when submitting to browser stores.
+
+### Name
+
+**CS:Restored Inventory Helper**
+
+### Summary / short description
+
+```
+Float, seed, and quick-sell tools for Counter-Strike: Restored (csrestored.fun).
+```
+
+### Description (public)
+
+```
+CS:Restored Inventory Helper adds float and paint seed overlays to Counter-Strike: Restored (csrestored.fun).
+
+Features:
+• Float + seed badges on your inventory and marketplace item cards
+• Wear abbreviation (FN, MW, FT, WW, BS) with color-coded float dot
+• CSR Seller — quick-sell panel for your inventory (red star button, inventory page only)
+
+Requirements:
+Go to https://csrestored.fun and log in with Discord.
+The site requires:
+• Steam level greater than 0
+• CS2 playtime: at least 25 hours
+
+This is an unofficial extension. It is not affiliated with Valve Corporation or the CS:Restored team.
+
+The extension only runs on csrestored.fun. It reads inventory/marketplace data from the site API locally in your browser to display overlays. It does not collect or send data to external servers.
+
+Note: Float/seed for other players' items in trades is not supported yet (site API limitation).
+```
+
+### Privacy policy URL
+
+```
+https://github.com/smelbravo/CSR-Extension/blob/main/PRIVACY.md
+```
+
+### Support site
+
+```
+https://github.com/smelbravo/CSR-Extension
+```
+
+### Notes for reviewer (private)
+
+```
+This extension only works on https://csrestored.fun when logged in.
+
+Site requirements (enforced by CS:Restored, not the extension):
+• Steam level greater than 0
+• CS2 playtime: at least 25 hours
+
+How to test:
+1. Go to https://csrestored.fun and log in with Discord (reviewer can use their own account if it meets the requirements above)
+2. Open Inventory (/app/inventory) — float/seed badges appear on item cards (bottom-right)
+3. Open Marketplace (/app/inventory/marketplace) — badges appear below the price
+4. On Inventory, click the red star button (bottom-right) to open CSR Seller
+
+Data collection: The extension does not transmit data to developer servers. It only reads csrestored.fun API responses in-page to match float/seed to UI cards.
+
+Source code: https://github.com/smelbravo/CSR-Extension
+Support: https://github.com/smelbravo/CSR-Extension/issues
+```
+
+### Firefox categories
+
+- Jogos e entretenimento
+- Compras
+
+### Edge search terms
+
+```
+csrestored, cs restored, float, seed, inventory, marketplace, skins, counter-strike
+```
+
+### Store assets still needed
+
+| Asset | Size | Required |
+|-------|------|----------|
+| Extension logo | 128×128 min, 300×300 recommended | Yes |
+| Manifest icons | 16, 48, 128 px | Yes (add to `icons/` + manifest) |
+| Small promo tile (Edge) | 440×280 | Yes (Edge) |
+| Screenshots | 640×480 or 1280×800 | Recommended |
 
 ## Branches
 
@@ -105,6 +196,16 @@ On **Send Trade Offer**:
 | `develop` | Active development |
 
 ## Changelog
+
+### v2.9.2
+
+- Rebranded extension name to **CS:Restored Inventory Helper**
+- Updated manifest description and store listing copy (README)
+
+### v2.9.1
+
+- Added `data_collection_permissions` for Firefox Add-ons submission
+- Added `PRIVACY.md` and CS:Restored site requirements to README
 
 ### v2.9
 

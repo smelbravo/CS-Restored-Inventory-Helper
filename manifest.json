@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "CSR inventory seller",
-  "version": "2.9.1",
-  "description": "Plugin for CS:R inventory, marketplace, and trade offers",
+  "name": "CS:Restored Inventory Helper",
+  "version": "2.9.2",
+  "description": "Float, seed, and quick-sell tools for Counter-Strike: Restored (csrestored.fun). Unofficial extension.",
   "host_permissions": [
     "*://*.csrestored.fun/*",
     "https://api.csrestored.fun/*",

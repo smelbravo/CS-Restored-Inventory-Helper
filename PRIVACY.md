@@ -1,12 +1,12 @@
-# Privacy Policy — CSR Extension
+# Privacy Policy — CS:Restored Inventory Helper
 
 **Last updated:** May 2026
 
-CSR Extension is a browser extension for [Counter-Strike: Restored](https://csrestored.fun). This policy explains how the extension handles data.
+CS:Restored Inventory Helper is an unofficial browser extension for [Counter-Strike: Restored](https://csrestored.fun). This policy explains how the extension handles data.
 
 ## Summary
 
-CSR Extension **does not collect, store, or transmit personal data to developer servers**. All processing happens locally in your browser on pages you visit on csrestored.fun.
+CS:Restored Inventory Helper **does not collect, store, or transmit personal data to developer servers**. All processing happens locally in your browser on pages you visit on csrestored.fun.
 
 ## What the extension does
 
