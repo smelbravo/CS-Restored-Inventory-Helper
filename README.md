@@ -92,6 +92,7 @@ On **Send Trade Offer**:
 ```
 ├── manifest.json   # Extension manifest (MV3)
 ├── content.js      # Content script (overlays + CSR Seller UI)
+├── PRIVACY.md      # Privacy policy (for store listings)
 ├── LICENSE         # MIT
 └── README.md
 ```
