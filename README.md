@@ -4,7 +4,7 @@ Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.f
 
 Works in **Firefox**, **Microsoft Edge**, and **Chromium** browsers (Manifest V3).
 
-**Current version:** `2.9.2`
+**Current version:** `2.9.3`
 
 ## Site requirements (CS:Restored)
 
@@ -183,8 +183,8 @@ csrestored, cs restored, float, seed, inventory, marketplace, skins, counter-str
 
 | Asset | Size | Required |
 |-------|------|----------|
-| Extension logo | 128×128 min, 300×300 recommended | Yes |
-| Manifest icons | 16, 48, 128 px | Yes (add to `icons/` + manifest) |
+| Extension logo | 128×128 min, 300×300 recommended | ✅ `icons/icon-300.png` |
+| Manifest icons | 16, 48, 128 px | ✅ In `icons/` |
 | Small promo tile (Edge) | 440×280 | Yes (Edge) |
 | Screenshots | 640×480 or 1280×800 | Recommended |
 
@@ -196,6 +196,10 @@ csrestored, cs restored, float, seed, inventory, marketplace, skins, counter-str
 | `develop` | Active development |
 
 ## Changelog
+
+### v2.9.3
+
+- Added extension icons (16, 48, 128, 300 px) generated from store logo
 
 ### v2.9.2
 
