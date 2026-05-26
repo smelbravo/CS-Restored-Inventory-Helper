@@ -1,14 +1,14 @@
 # CSR Extension
 
-Browser extension for [Counter-Strike: Restored](https://csrestored.fun) — float and pattern overlays on inventory, marketplace, and trades, plus a quick-sell helper for your own items.
+Browser extension for [Counter-Strike: Restored](https://csrestored.fun) — float and pattern overlays for **your items** on inventory/marketplace/trades, plus a quick-sell helper for your own items.
 
 Works in **Firefox** and **Chromium** browsers (Manifest V3).
 
 **Current version:** `2.9`
 
-## Features
+## Features (current)
 
-### Float & pattern overlays
+### Float & pattern overlays (your items)
 
 Shows **wear abbreviation** (FN, MW, FT, WW, BS), **float value** (e.g. `0.1962`), and **paint seed** (`#640`) on item cards. Color-coded float dot (green → yellow → red by wear).
 
@@ -16,9 +16,8 @@ Shows **wear abbreviation** (FN, MW, FT, WW, BS), **float value** (e.g. `0.1962`
 |------|-------|-------|
 | **Inventory** | `/app/inventory` | Badges in the bottom-right corner of each card |
 | **Marketplace** | `/app/inventory/marketplace` | Badges below the price (top-right), so they do not cover the seller username |
-| **Trade Up** | `/app/inventory/trade-up` | Overlays on trade-related views |
-| **Play / Trades** | `/app/play` | Received and sent trade offer detail views |
-| **Send Trade Offer** | Modal on site | **My Items** tab uses your inventory; **Their Items** tab uses the friend's inventory when the site loads it |
+| **Trade views** | `/app/play` and `/app/inventory/trade-up` | Shows float/seed for **your own skins** when the data exists (your inventory) |
+| **Send Trade Offer** | Modal on site | **My Items** tab uses your inventory (works). **Their Items** depends on the site's API (see limitations) |
 
 Data is matched to cards by offer ID, skin image, wear, StatTrak, and name. The extension hooks into the site's own API responses — it does not spam duplicate requests.
 
@@ -33,14 +32,14 @@ Floating panel to sell items from **your** inventory without opening each item m
 
 > The red **star button** (bottom-right on inventory) opens this panel. It is hidden on the marketplace and trade pages.
 
-## Trade overlay behaviour
+## Trade overlay behaviour (current)
 
-On trade detail pages (**Your offer** / **Their offer**):
+- **Your offer / Your items**: float + seed works because it can be read from your inventory (`GET /inventory/`).
+- **Their offer / Other player's items**: **not supported yet** because the site API does not provide float/seed for the other player's items in trades (see limitations).
 
-- **Your offer** — float and seed from your inventory (`/inventory/`) and, when available, from the trades API
-- **Their offer** — float and seed only when the trades API includes them for the other player's items
-
-On **Send Trade Offer → Their Items**, overlays use the friend inventory endpoint (`/users/{id}/inventory`) when the site fetches it. If the API does not return float/seed for another player's items, the extension cannot display them.
+On **Send Trade Offer**:
+- **My Items**: overlays work (your inventory data).
+- **Their Items**: depends on the site returning float/seed in `GET /users/{id}/inventory` (currently not available).
 
 ## Installation (developer / temporary)
 
@@ -101,9 +100,8 @@ On **Send Trade Offer → Their Items**, overlays use the friend inventory endpo
 
 - Fixed excessive network requests — extension no longer calls `/api/trades` on its own; uses data from the site's fetch/XHR hooks only
 - Removed MutationObserver loop that caused repeated overlay refreshes
-- Added support for **Play → Trades** (`/app/play`) received/sent trade views
-- **Your offer** / **Their offer** section-aware overlays on trade detail pages
-- Correct side mapping for received vs sent trades (`initiator` / `recipient`)
+- Added support for **Play → Trades** (`/app/play`) trade views
+- Section-aware matching on trade detail pages (so your items can show float/seed reliably)
 - **Their Items** tab uses separate friend inventory cache (no longer mixes with your inventory)
 - Tab switch listener for Send Trade Offer modal (My Items ↔ Their Items)
 
@@ -131,7 +129,8 @@ On **Send Trade Offer → Their Items**, overlays use the friend inventory endpo
 
 ## Known limitations
 
-- **Other player's items in trades** — if `/api/trades` or `/users/{id}/inventory` does not include `float`, `seed`, and `weapon_id` per item, overlays cannot be shown for those skins. This requires API changes on the CS:R backend.
+- **Other player's items in trades / Their Items**: currently the CS:R API does not expose `float` + `seed` (and ideally `weapon_id`) for the other player's items in trades and in the friend inventory used by the trade modal. Until those fields exist in the API, the extension cannot show accurate float/seed for other players' skins.
+- **Future**: if the site adds those fields to `/api/trades` and `/users/{id}/inventory`, the extension can be updated to show float/seed for other players when sending/receiving trade offers.
 
 ## Disclaimer
 
