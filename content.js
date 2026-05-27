@@ -1642,53 +1642,59 @@ function findBrowseHeading() {
     return candidates[0] || null;
 }
 
-function isAppSidebar(el) {
+function isInLeftNav(el) {
     if (!el) return false;
     let node = el;
-    for (let i = 0; i < 12 && node; i++) {
+    for (let i = 0; i < 8 && node; i++) {
+        const w = node.offsetWidth;
+        const cards = node.querySelectorAll('[class*="aspect-square"] img').length;
         const text = (node.textContent || '').toLowerCase();
-        if (text.includes('matchmaking') && text.includes('leaderboard') && text.includes('history')) {
+        if (w > 0 && w < 300 && cards < 2 && text.includes('matchmaking') && text.includes('leaderboard')) {
             return true;
-        }
-        if (node.offsetWidth > 0 && node.offsetWidth < 300 && node.offsetHeight > 180) {
-            const cards = node.querySelectorAll('[class*="aspect-square"]');
-            if (cards.length < 3) return true;
         }
         node = node.parentElement;
     }
     return false;
 }
 
+function findMainItemGrid() {
+    const cards = getAllCards();
+    if (!cards.length) return null;
+    return getCardGridParent(cards);
+}
+
 function isBrowseBarMisplaced() {
     const bar = document.getElementById('csrx-browse');
     if (!bar) return false;
-    return isAppSidebar(bar) || (bar.offsetWidth > 0 && bar.offsetWidth < 360);
+    if (isInLeftNav(bar)) return true;
+    const grid = findMainItemGrid();
+    if (!grid) return false;
+    if (bar.nextElementSibling === grid) return false;
+    if (grid.previousElementSibling === bar) return false;
+    let sib = bar.nextElementSibling;
+    while (sib && sib !== grid) {
+        if (sib.querySelector?.('[class*="aspect-square"] img')) return true;
+        sib = sib.nextElementSibling;
+    }
+    return grid.compareDocumentPosition(bar) !== Node.DOCUMENT_POSITION_PRECEDING;
 }
 
 function findBrowseMountPoint() {
-    const cards = getAllCards().filter(c => !isAppSidebar(c));
-    if (cards.length) {
-        const grid = getCardGridParent(cards);
-        if (grid && !isAppSidebar(grid)) {
-            const w = grid.offsetWidth || grid.parentElement?.offsetWidth || 0;
-            if (w >= 400 || cards.length >= 4) return { mode: 'before', el: grid };
-        }
-    }
+    const grid = findMainItemGrid();
+    if (grid) return { mode: 'before', el: grid };
 
     const h = findBrowseHeading();
-    if (h && !isAppSidebar(h)) {
+    if (h && !isInLeftNav(h)) {
         let node = h;
         for (let i = 0; i < 10 && node; i++) {
             const next = node.nextElementSibling;
-            if (next && next.querySelector('[class*="aspect-square"] img')) {
+            if (next?.querySelector('[class*="aspect-square"] img')) {
                 return { mode: 'after', el: node };
             }
             node = node.parentElement;
         }
         const row = h.parentElement;
-        if (row && !isAppSidebar(row)) {
-            return { mode: 'after', el: row };
-        }
+        if (row && !isInLeftNav(row)) return { mode: 'after', el: row };
     }
     return null;
 }
@@ -2012,7 +2018,7 @@ function checkPageAndRun() {
             stopBrowseTools();
             browsePageKind = bk;
         }
-        if (!document.getElementById('csrx-browse')) scheduleBrowseInit();
+        if (!document.getElementById('csrx-browse') || isBrowseBarMisplaced()) scheduleBrowseInit();
         else scheduleBrowseFilters();
     }
 
