@@ -1732,6 +1732,51 @@ function getCardSearchText(card, item) {
     return parts.join(' ').toLowerCase();
 }
 
+function getCardFloat(card, item) {
+    if (item?.float != null && !Number.isNaN(item.float)) return item.float;
+    for (const el of card.querySelectorAll('p, span, div')) {
+        const t = el.textContent?.trim() || '';
+        const m = t.match(/(?:FN|MW|FT|WW|BS)\s*[-·•]\s*(\d+\.\d+)/i);
+        if (m) return parseFloat(m[1]);
+    }
+    return null;
+}
+
+function getCardPrice(card, item) {
+    return item?.price ?? getCardPriceFromDom(card) ?? 0;
+}
+
+function sortVisibleBrowseItems(visible, f, mp) {
+    if (visible.length < 2) return false;
+
+    const priceMul = f.priceSort === 'asc' ? 1 : f.priceSort === 'desc' ? -1 : 0;
+    const floatMul = f.floatSort === 'asc' ? 1 : f.floatSort === 'desc' ? -1 : 0;
+    if (!priceMul && !floatMul) return false;
+
+    visible.sort((a, b) => {
+        if (mp && priceMul) {
+            const pa = getCardPrice(a.card, a.item);
+            const pb = getCardPrice(b.card, b.item);
+            if (pa !== pb) return priceMul * (pa - pb);
+        }
+        if (floatMul) {
+            const fa = getCardFloat(a.card, a.item);
+            const fb = getCardFloat(b.card, b.item);
+            const na = fa ?? (floatMul > 0 ? Infinity : -Infinity);
+            const nb = fb ?? (floatMul > 0 ? Infinity : -Infinity);
+            if (na !== nb) return floatMul * (na - nb);
+        }
+        if (!mp && priceMul) {
+            const pa = getCardPrice(a.card, a.item);
+            const pb = getCardPrice(b.card, b.item);
+            if (pa !== pb) return priceMul * (pa - pb);
+        }
+        return (parseInt(a.card.dataset.csrxOrder, 10) || 0)
+            - (parseInt(b.card.dataset.csrxOrder, 10) || 0);
+    });
+    return true;
+}
+
 function getCardPriceFromDom(cardEl) {
     for (const el of cardEl.querySelectorAll('p, span, div')) {
         const t = (el.textContent || '').trim();
@@ -1845,19 +1890,7 @@ function applyBrowseFilters() {
         if (pass) visible.push({ card, item });
     }
 
-    if (mp && f.priceSort && visible.length > 1) {
-        visible.sort((a, b) => {
-            const pa = a.item?.price ?? getCardPriceFromDom(a.card) ?? 0;
-            const pb = b.item?.price ?? getCardPriceFromDom(b.card) ?? 0;
-            return f.priceSort === 'asc' ? pa - pb : pb - pa;
-        });
-        visible.forEach(({ card }) => grid?.appendChild(card));
-    } else if (f.floatSort && visible.length > 1) {
-        visible.sort((a, b) => {
-            const fa = a.item?.float ?? 1;
-            const fb = b.item?.float ?? 1;
-            return f.floatSort === 'asc' ? fa - fb : fb - fa;
-        });
+    if (sortVisibleBrowseItems(visible, f, mp)) {
         visible.forEach(({ card }) => grid?.appendChild(card));
     } else {
         restoreCardOrder(cards, grid);
