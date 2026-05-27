@@ -829,9 +829,9 @@ input[type=range].csrx-range:hover::-moz-range-thumb { transform: scale(1.2); }
     width: 100%;
 }
 #csrx-browse-search {
-    flex: 0 1 340px;
-    min-width: 200px;
-    max-width: 380px;
+    flex: 1 1 220px;
+    min-width: 180px;
+    max-width: 420px;
     height: 36px;
     padding: 0 12px 0 36px;
     border-radius: 8px;
@@ -848,7 +848,8 @@ input[type=range].csrx-range:hover::-moz-range-thumb { transform: scale(1.2); }
     flex-wrap: wrap;
     align-items: center;
     gap: 8px;
-    flex: 1 1 auto;
+    margin-left: auto;
+    flex: 0 1 auto;
 }
 .csrx-browse-filters select {
     height: 36px;
@@ -1390,15 +1391,22 @@ function getStatTrakCount(cardEl) {
 function getCardSkinNames(cardEl) {
     const lines = [...cardEl.querySelectorAll('p')]
         .map(p => p.textContent?.trim())
-        .filter(t => t && !['FN', 'MW', 'FT', 'WW', 'BS'].includes(t) && !/^(STT|ST™|StatTrak)/i.test(t));
-    if (lines.length >= 2) {
-        return { weapon: lines[lines.length - 2], skin: lines[lines.length - 1] };
-    }
+        .filter(t => t
+            && !['FN', 'MW', 'FT', 'WW', 'BS'].includes(t)
+            && !/^(STT|ST™|StatTrak)/i.test(t)
+            && !/^[\d,]+$/.test(t)
+            && !/^\d+\.\d+$/.test(t)
+            && !/^#\d+$/.test(t)
+            && !/^\d+$/.test(t));
     const full = lines.find(t => t.includes(' | '));
     if (full) {
         const [weapon, skin] = full.split(' | ').map(s => s.trim());
         return { weapon, skin };
     }
+    if (lines.length >= 2) {
+        return { weapon: lines[lines.length - 2], skin: lines[lines.length - 1] };
+    }
+    if (lines.length === 1) return { weapon: lines[0], skin: '' };
     return null;
 }
 
@@ -1707,10 +1715,21 @@ function scheduleBrowseInit() {
     }, 150);
 }
 
-function getCardSearchText(card) {
+function getCardSearchText(card, item) {
+    const parts = [];
     const names = getCardSkinNames(card);
-    if (names) return `${names.weapon} ${names.skin}`.toLowerCase();
-    return (card.textContent || '').toLowerCase().replace(/\s+/g, ' ').slice(0, 160);
+    if (names?.weapon) parts.push(names.weapon);
+    if (names?.skin) parts.push(names.skin);
+    if (item?.name) {
+        parts.push(item.name);
+        const split = item.name.split(' | ');
+        if (split.length >= 2) parts.push(split[0].trim(), split[1].trim());
+        else parts.push(item.name.replace(/\s*\|\s*/g, ' '));
+    }
+    if (!parts.length) {
+        parts.push((card.textContent || '').replace(/\s+/g, ' ').slice(0, 200));
+    }
+    return parts.join(' ').toLowerCase();
 }
 
 function getCardPriceFromDom(cardEl) {
@@ -1779,8 +1798,11 @@ function readBrowseFilters() {
 }
 
 function cardPassesBrowseFilters(card, item, f) {
-    const text = getCardSearchText(card);
-    if (f.q && !text.includes(f.q)) return false;
+    if (f.q) {
+        const hay = getCardSearchText(card, item);
+        const terms = f.q.split(/\s+/).filter(Boolean);
+        if (!terms.every(t => hay.includes(t))) return false;
+    }
 
     if (f.rarity !== '') {
         if (!item) return false;
