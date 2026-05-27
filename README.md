@@ -4,7 +4,7 @@ Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.f
 
 Works in **Firefox**, **Microsoft Edge**, and **Chromium** browsers (Manifest V3).
 
-**Current version:** `2.9.3`
+**Current version:** `3.0.0`
 
 ## Site requirements (CS:Restored)
 
@@ -40,6 +40,19 @@ Floating panel to sell items from **your** inventory without opening each item m
 - **Batch size** slider — control how many sell requests run in parallel
 
 > The red **star button** (bottom-right on inventory) opens this panel. It is hidden on the marketplace and trade pages.
+
+### Search & filters (inventory + marketplace)
+
+Bar below the page title with:
+
+- **Search** — filter by weapon or skin name
+- **Rarity** — Contraband through Consumer Grade
+- **Wear** — FN, MW, FT, WW, BS
+- **Float order** — low → high or high → low
+- **Price order** (marketplace only) — cheapest or most expensive first
+- **Clear** — reset all filters
+
+Shows a count (`Showing X of Y items`) when filters are active.
 
 ## Trade overlay behaviour (current)
 
@@ -196,6 +209,11 @@ csrestored, cs restored, float, seed, inventory, marketplace, skins, counter-str
 | `develop` | Active development |
 
 ## Changelog
+
+### v3.0.0
+
+- Search bar and filters on **Inventory** and **Marketplace**
+- Filter by rarity, wear, search text; sort by float; marketplace sort by price (coins)
 
 ### v2.9.3
 

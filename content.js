@@ -807,6 +807,79 @@ input[type=range].csrx-range:hover::-moz-range-thumb { transform: scale(1.2); }
     justify-content: center;
     flex-shrink: 0;
 }
+
+#csrx-browse {
+    width: 100%;
+    margin: 0 0 18px 0;
+    padding: 0;
+    font-family: 'Inter', sans-serif;
+    z-index: 50;
+    position: relative;
+}
+.csrx-browse-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+}
+#csrx-browse-search {
+    flex: 1 1 220px;
+    min-width: 180px;
+    max-width: 420px;
+    height: 36px;
+    padding: 0 12px 0 36px;
+    border-radius: 8px;
+    border: 1px solid #2a2a2a;
+    background: #111 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%23666' stroke-width='2'%3E%3Ccircle cx='6' cy='6' r='4'/%3E%3Cpath d='M9 9l3 3'/%3E%3C/svg%3E") 12px center no-repeat;
+    color: #fff;
+    font-size: 13px;
+    outline: none;
+}
+#csrx-browse-search:focus { border-color: #ef4444; }
+#csrx-browse-search::placeholder { color: #555; }
+.csrx-browse-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+}
+.csrx-browse-filters select {
+    height: 36px;
+    padding: 0 28px 0 10px;
+    border-radius: 8px;
+    border: 1px solid #2a2a2a;
+    background: #111;
+    color: #ddd;
+    font-size: 12px;
+    font-family: 'Inter', sans-serif;
+    cursor: pointer;
+    outline: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='%23666'%3E%3Cpath d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+}
+.csrx-browse-filters select:focus { border-color: #ef4444; }
+#csrx-browse-clear {
+    height: 36px;
+    padding: 0 12px;
+    border-radius: 8px;
+    border: 1px solid #2a2a2a;
+    background: transparent;
+    color: #888;
+    font-size: 12px;
+    font-family: 'Inter', sans-serif;
+    cursor: pointer;
+}
+#csrx-browse-clear:hover { color: #fff; border-color: #444; }
+#csrx-browse-count {
+    margin-top: 8px;
+    font-size: 11px;
+    color: #666;
+}
+.csrx-browse-hidden { display: none !important; }
 `;
 document.head.appendChild(S);
 
@@ -818,6 +891,7 @@ let friendInventoryCache = [];
 let overlayRunning       = false;
 let overlayTimer     = null;
 let overlayPageKind  = null;
+let browsePageKind   = null;
 
 function isMarketplacePage() {
     return window.location.pathname.includes('/marketplace');
@@ -1076,6 +1150,8 @@ function normalizeOfferEntry(o) {
         stattrak_count: o.stattrak_count ?? item?.stattrak_count ?? null,
         rarity:    o.item_rarity ?? o.rarity ?? item?.rarity,
         name:      o.item_name ?? o.name ?? item?.name,
+        price:     o.price != null ? parseInt(String(o.price).replace(/[^\d]/g, ''), 10)
+            : (o.coins != null ? parseInt(String(o.coins).replace(/[^\d]/g, ''), 10) : null),
     };
 }
 
@@ -1104,7 +1180,10 @@ function ingestApiPayload(url, data) {
     if (!data || typeof data !== 'object') return;
     if (MP_API_RE.test(url) || /\/inventory\/marketplace/i.test(url) || looksLikeMarketplacePayload(data)) {
         const items = normalizeOfferList(data);
-        if (items.length) marketplaceCache = mergeMarketplaceCache(marketplaceCache, items);
+        if (items.length) {
+            marketplaceCache = mergeMarketplaceCache(marketplaceCache, items);
+            if (browseToolsActive) scheduleBrowseFilters();
+        }
         return;
     }
     if (TRADE_API_RE.test(url) || (looksLikeTradePayload(data) && !Array.isArray(data))) {
@@ -1125,6 +1204,7 @@ function ingestApiPayload(url, data) {
         if (Array.isArray(arr) && arr.length) {
             inventoryCache = arr.sort((a, b) => parseInt(a.rarity) - parseInt(b.rarity));
             if (overlayRunning) scheduleApplyOverlays();
+            if (browseToolsActive) scheduleBrowseFilters();
         }
     }
 }
@@ -1517,6 +1597,263 @@ function injectCardOverlay(cardEl, item) {
     cardEl.appendChild(wrap);
 }
 
+/* ── Browse: search & filters (inventory + marketplace) ── */
+
+let browseToolsActive = false;
+let browseDebounce    = null;
+
+function isBrowsePage() {
+    return isInventoryPage() || isMarketplacePage();
+}
+
+function findBrowseHeading() {
+    for (const h of document.querySelectorAll('h1, h2')) {
+        const t = (h.textContent || '').trim().toLowerCase();
+        if (t === 'inventory' || t === 'marketplace') return h;
+    }
+    return null;
+}
+
+function findBrowseInsertPoint() {
+    const h = findBrowseHeading();
+    if (!h) return null;
+    let node = h;
+    for (let i = 0; i < 6 && node.parentElement; i++) {
+        node = node.parentElement;
+        const cls = node.className?.toString() || '';
+        if (cls.includes('flex') && node.querySelector('h1, h2')) return node;
+    }
+    return h.parentElement;
+}
+
+function getCardSearchText(card) {
+    const names = getCardSkinNames(card);
+    if (names) return `${names.weapon} ${names.skin}`.toLowerCase();
+    return (card.textContent || '').toLowerCase().replace(/\s+/g, ' ').slice(0, 160);
+}
+
+function getCardPriceFromDom(cardEl) {
+    for (const el of cardEl.querySelectorAll('p, span, div')) {
+        const t = (el.textContent || '').trim();
+        if (!/^[\d,]+$/.test(t)) continue;
+        const n = parseInt(t.replace(/,/g, ''), 10);
+        if (n >= 100) return n;
+    }
+    return null;
+}
+
+function getBrowseCache() {
+    if (isMarketplacePage()) return marketplaceCache;
+    return inventoryCache.map(normalizeInventoryEntry).filter(Boolean);
+}
+
+function buildCardItemMap(cards, cache) {
+    const used = new Set();
+    const map = new Map();
+    for (const card of cards) {
+        let item = matchOverlayItem(card, cache, used);
+        if (!item) item = matchItemByName(card, cache, used);
+        map.set(card, item);
+    }
+    return map;
+}
+
+function getCardGridParent(cards) {
+    if (!cards.length) return null;
+    let parent = cards[0].parentElement;
+    for (let i = 0; i < 4 && parent; i++) {
+        const childCards = [...parent.children].filter(ch =>
+            cards.some(c => c === ch || ch.contains(c))
+        );
+        if (childCards.length >= Math.min(3, cards.length)) return parent;
+        parent = parent.parentElement;
+    }
+    return cards[0].parentElement;
+}
+
+function ensureCardOrder(cards) {
+    cards.forEach((c, i) => {
+        if (c.dataset.csrxOrder == null) c.dataset.csrxOrder = String(i);
+    });
+}
+
+function restoreCardOrder(cards, grid) {
+    if (!grid) return;
+    ensureCardOrder(cards);
+    [...cards].sort((a, b) =>
+        (parseInt(a.dataset.csrxOrder, 10) || 0) - (parseInt(b.dataset.csrxOrder, 10) || 0)
+    ).forEach(c => grid.appendChild(c));
+}
+
+function readBrowseFilters() {
+    const bar = document.getElementById('csrx-browse');
+    if (!bar) return null;
+    return {
+        q: (bar.querySelector('#csrx-browse-search')?.value || '').trim().toLowerCase(),
+        rarity: bar.querySelector('#csrx-browse-rarity')?.value || '',
+        wear: bar.querySelector('#csrx-browse-wear')?.value || '',
+        floatSort: bar.querySelector('#csrx-browse-float')?.value || '',
+        priceSort: bar.querySelector('#csrx-browse-price')?.value || '',
+    };
+}
+
+function cardPassesBrowseFilters(card, item, f) {
+    const text = getCardSearchText(card);
+    if (f.q && !text.includes(f.q)) return false;
+
+    if (f.rarity !== '') {
+        if (!item) return false;
+        if (String(parseInt(item.rarity, 10)) !== f.rarity) return false;
+    }
+
+    const wear = f.wear;
+    if (wear) {
+        const cardWear = item?.float != null ? getCondition(item.float) : getCardWear(card);
+        if (cardWear !== wear) return false;
+    }
+
+    return true;
+}
+
+function applyBrowseFilters() {
+    const bar = document.getElementById('csrx-browse');
+    if (!bar || !isBrowsePage()) return;
+
+    const f = readBrowseFilters();
+    if (!f) return;
+
+    const cards = getAllCards();
+    if (!cards.length) {
+        bar.querySelector('#csrx-browse-count').textContent = '';
+        return;
+    }
+
+    ensureCardOrder(cards);
+    const cache = getBrowseCache();
+    const itemMap = buildCardItemMap(cards, cache);
+    const grid = getCardGridParent(cards);
+    const mp = isMarketplacePage();
+
+    let visible = [];
+    for (const card of cards) {
+        const item = itemMap.get(card);
+        const pass = cardPassesBrowseFilters(card, item, f);
+        card.classList.toggle('csrx-browse-hidden', !pass);
+        if (pass) visible.push({ card, item });
+    }
+
+    if (mp && f.priceSort && visible.length > 1) {
+        visible.sort((a, b) => {
+            const pa = a.item?.price ?? getCardPriceFromDom(a.card) ?? 0;
+            const pb = b.item?.price ?? getCardPriceFromDom(b.card) ?? 0;
+            return f.priceSort === 'asc' ? pa - pb : pb - pa;
+        });
+        visible.forEach(({ card }) => grid?.appendChild(card));
+    } else if (f.floatSort && visible.length > 1) {
+        visible.sort((a, b) => {
+            const fa = a.item?.float ?? 1;
+            const fb = b.item?.float ?? 1;
+            return f.floatSort === 'asc' ? fa - fb : fb - fa;
+        });
+        visible.forEach(({ card }) => grid?.appendChild(card));
+    } else {
+        restoreCardOrder(cards, grid);
+    }
+
+    const countEl = bar.querySelector('#csrx-browse-count');
+    if (countEl) {
+        countEl.textContent = visible.length === cards.length
+            ? `${cards.length} items`
+            : `Showing ${visible.length} of ${cards.length} items`;
+    }
+}
+
+function scheduleBrowseFilters() {
+    clearTimeout(browseDebounce);
+    browseDebounce = setTimeout(applyBrowseFilters, 120);
+}
+
+function clearBrowseFilters() {
+    const bar = document.getElementById('csrx-browse');
+    if (!bar) return;
+    bar.querySelector('#csrx-browse-search').value = '';
+    bar.querySelector('#csrx-browse-rarity').value = '';
+    bar.querySelector('#csrx-browse-wear').value = '';
+    bar.querySelector('#csrx-browse-float').value = '';
+    const price = bar.querySelector('#csrx-browse-price');
+    if (price) price.value = '';
+    applyBrowseFilters();
+}
+
+function buildBrowseBar() {
+    const mp = isMarketplacePage();
+    const wrap = document.createElement('div');
+    wrap.id = 'csrx-browse';
+
+    const rarityOpts = ['<option value="">All rarities</option>']
+        .concat(Object.entries(RARITY).map(([k, v]) =>
+            `<option value="${k}">${v.name}</option>`
+        )).join('');
+
+    const wearOpts = ['<option value="">All wear</option>',
+        '<option value="FN">Factory New</option>',
+        '<option value="MW">Minimal Wear</option>',
+        '<option value="FT">Field-Tested</option>',
+        '<option value="WW">Well-Worn</option>',
+        '<option value="BS">Battle-Scarred</option>',
+    ].join('');
+
+    const floatOpts = ['<option value="">Float order</option>',
+        '<option value="asc">Float: Low → High</option>',
+        '<option value="desc">Float: High → Low</option>',
+    ].join('');
+
+    const priceOpts = mp ? [
+        '<select id="csrx-browse-price" title="Sort by price">',
+        '<option value="">Price order</option>',
+        '<option value="asc">Cheapest first</option>',
+        '<option value="desc">Most expensive first</option>',
+        '</select>',
+    ].join('') : '';
+
+    wrap.innerHTML = `
+<div class="csrx-browse-row">
+    <input id="csrx-browse-search" type="search" placeholder="Search weapon or skin…" autocomplete="off" spellcheck="false">
+    <div class="csrx-browse-filters">
+        <select id="csrx-browse-rarity" title="Filter by rarity">${rarityOpts}</select>
+        <select id="csrx-browse-wear" title="Filter by wear">${wearOpts}</select>
+        <select id="csrx-browse-float" title="Sort by float">${floatOpts}</select>
+        ${priceOpts}
+        <button type="button" id="csrx-browse-clear">Clear</button>
+    </div>
+</div>
+<div id="csrx-browse-count"></div>`;
+
+    wrap.querySelector('#csrx-browse-search').addEventListener('input', scheduleBrowseFilters);
+    wrap.querySelectorAll('select').forEach(el => el.addEventListener('change', applyBrowseFilters));
+    wrap.querySelector('#csrx-browse-clear').addEventListener('click', clearBrowseFilters);
+    return wrap;
+}
+
+function initBrowseTools() {
+    if (!isBrowsePage() || document.getElementById('csrx-browse')) return;
+    const anchor = findBrowseInsertPoint();
+    if (!anchor) return;
+    anchor.insertAdjacentElement('afterend', buildBrowseBar());
+    browseToolsActive = true;
+    applyBrowseFilters();
+}
+
+function stopBrowseTools() {
+    browseToolsActive = false;
+    clearTimeout(browseDebounce);
+    document.getElementById('csrx-browse')?.remove();
+    getAllCards().forEach(c => {
+        c.classList.remove('csrx-browse-hidden');
+        delete c.dataset.csrxOrder;
+    });
+}
+
 function applyOverlaysToAll() {
     if (isTradeDetailView()) {
         applyTradeDetailOverlays();
@@ -1535,6 +1872,7 @@ function applyOverlaysToAll() {
         const item = matchOverlayItem(cardEl, cache, used);
         if (item) injectCardOverlay(cardEl, item);
     });
+    if (isBrowsePage()) scheduleBrowseFilters();
 }
 
 async function startAlwaysOnOverlay() {
@@ -1563,6 +1901,7 @@ function stopAlwaysOnOverlay() {
 
 function checkPageAndRun() {
     const onOverlay = isOverlayPage();
+    const onBrowse  = isBrowsePage();
     const kind = isMarketplacePage() ? 'mp'
         : (isTradePage() || isTradeDetailView() || isTradePickerModal()) ? 'trade'
         : 'inv';
@@ -1570,7 +1909,22 @@ function checkPageAndRun() {
     if (!onOverlay) {
         if (overlayRunning) stopAlwaysOnOverlay();
         overlayPageKind = null;
+        stopBrowseTools();
+        browsePageKind = null;
         return;
+    }
+
+    if (!onBrowse) {
+        stopBrowseTools();
+        browsePageKind = null;
+    } else {
+        const bk = isMarketplacePage() ? 'mp' : 'inv';
+        if (browsePageKind !== bk) {
+            stopBrowseTools();
+            browsePageKind = bk;
+        }
+        if (!document.getElementById('csrx-browse')) initBrowseTools();
+        else scheduleBrowseFilters();
     }
 
     if (overlayRunning && overlayPageKind !== kind) stopAlwaysOnOverlay();
