@@ -148,6 +148,13 @@ S.textContent = `
     transform: scale(1.07) translateY(-2px);
     box-shadow: 0 8px 28px rgba(239,68,68,0.5);
 }
+#csrx-fab img {
+    width: 22px;
+    height: 22px;
+    object-fit: contain;
+    display: block;
+    filter: drop-shadow(0 1px 2px rgba(0,0,0,0.35));
+}
 
 #csrx-win {
     position: fixed;
@@ -191,6 +198,12 @@ S.textContent = `
     display: flex;
     align-items: center;
     justify-content: center;
+}
+.csrx-logo img {
+    width: 18px;
+    height: 18px;
+    object-fit: contain;
+    display: block;
 }
 .csrx-hdr-text { flex: 1; min-width: 0; }
 .csrx-hdr-title {
@@ -2095,12 +2108,23 @@ document.addEventListener('click', e => {
     if (/^(my items|their items)$/i.test(t) && isTradePickerModal()) scheduleApplyOverlays();
 }, true);
 
+function extUrl(p) {
+    try {
+        const rt = (typeof chrome !== 'undefined' && chrome.runtime?.getURL)
+            ? chrome.runtime
+            : (typeof browser !== 'undefined' && browser.runtime?.getURL)
+                ? browser.runtime
+                : null;
+        return rt ? rt.getURL(p) : p;
+    } catch (_) {
+        return p;
+    }
+}
+
 const fab = document.createElement('div');
 fab.id = 'csrx-fab';
-fab.title = 'CSR Seller — vender itens do inventário';
-fab.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
-</svg>`;
+fab.title = 'CS:Restored Inventory Helper';
+fab.innerHTML = `<img alt="Inventory Helper" src="${extUrl('icons/icon-48.png')}">`;
 document.body.appendChild(fab);
 
 const win = document.createElement('div');
@@ -2109,13 +2133,11 @@ win.innerHTML = `
 <div id="csrx-win-top"></div>
 <div id="csrx-hdr">
     <div class="csrx-logo">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
-        </svg>
+        <img alt="CS:Restored Inventory Helper" src="${extUrl('icons/icon-48.png')}">
     </div>
     <div class="csrx-hdr-text">
-        <div class="csrx-hdr-title">CSR Seller</div>
-        <div class="csrx-hdr-sub">Inventory Manager</div>
+        <div class="csrx-hdr-title">Inventory Helper</div>
+        <div class="csrx-hdr-sub">Quick sell + float tools</div>
     </div>
     <div id="csrx-winx">
         <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2.5" stroke-linecap="round">
