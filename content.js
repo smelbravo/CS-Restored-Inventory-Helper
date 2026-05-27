@@ -917,6 +917,98 @@ let overlayRunning       = false;
 let overlayTimer     = null;
 let overlayPageKind  = null;
 let browsePageKind   = null;
+let invIndexByItemId     = new Map();
+let mpIndexByItemId      = new Map();
+let mpIndexByOfferId     = new Map();
+let friendIndexByItemId  = new Map();
+let _currentOverlayCards = null;
+let _overlayBootTimer    = null;
+let _overlayBootGen      = 0;
+let _overlayDomObs       = null;
+let _tradeModalWasOpen   = false;
+let _largeInvWarned      = false;
+const LARGE_INV_WARN     = 500;
+
+function rebuildInvItemIndex() {
+    invIndexByItemId = new Map();
+    for (const raw of inventoryCache) {
+        const item = normalizeInventoryEntry(raw);
+        if (item?.item_id == null) continue;
+        if (!invIndexByItemId.has(item.item_id)) invIndexByItemId.set(item.item_id, []);
+        invIndexByItemId.get(item.item_id).push(item);
+    }
+}
+
+function rebuildMpItemIndex() {
+    mpIndexByItemId = new Map();
+    mpIndexByOfferId = new Map();
+    for (const item of marketplaceCache) {
+        if (item.offer_id != null) mpIndexByOfferId.set(item.offer_id, item);
+        if (item.item_id == null) continue;
+        if (!mpIndexByItemId.has(item.item_id)) mpIndexByItemId.set(item.item_id, []);
+        mpIndexByItemId.get(item.item_id).push(item);
+    }
+}
+
+function rebuildFriendItemIndex() {
+    friendIndexByItemId = new Map();
+    for (const item of friendInventoryCache) {
+        if (item.item_id == null) continue;
+        if (!friendIndexByItemId.has(item.item_id)) friendIndexByItemId.set(item.item_id, []);
+        friendIndexByItemId.get(item.item_id).push(item);
+    }
+}
+
+function candidatesForImgId(imgId) {
+    if (isMarketplacePage()) return mpIndexByItemId.get(imgId) || [];
+    if (isTradePickerModal() && isTheirItemsTabActive()) {
+        return friendIndexByItemId.get(imgId) || [];
+    }
+    return invIndexByItemId.get(imgId) || [];
+}
+
+function maybeWarnLargeInventory() {
+    if (_largeInvWarned || inventoryCache.length < LARGE_INV_WARN) return;
+    if (!isInventoryPage() && !isTradePickerModal()) return;
+    _largeInvWarned = true;
+    toast(`Large inventory (${inventoryCache.length}+ items): float/seed may load slower.`, 'warn');
+}
+
+function scheduleOverlayBootstrap() {
+    const gen = ++_overlayBootGen;
+    const delays = [0, 80, 200, 400, 700, 1100, 1600, 2500, 4000];
+    let step = 0;
+    clearTimeout(_overlayBootTimer);
+    const tick = () => {
+        if (!overlayRunning || gen !== _overlayBootGen) return;
+        applyOverlaysToAll({ urgent: true });
+        const cards = getAllCards();
+        const cache = getOverlayCache();
+        const missing = cards.length > 0 && cache.length > 0
+            && cards.some(c => !c.querySelector('.csrx-card-wrap'));
+        step++;
+        if (missing && step < delays.length) {
+            _overlayBootTimer = setTimeout(tick, delays[step]);
+        }
+    };
+    _overlayBootTimer = setTimeout(tick, delays[0]);
+}
+
+function ensureOverlayDomObserver() {
+    if (_overlayDomObs) return;
+    let debounce = null;
+    _overlayDomObs = new MutationObserver(() => {
+        if (!overlayRunning) return;
+        clearTimeout(debounce);
+        debounce = setTimeout(() => scheduleApplyOverlays(true), 100);
+    });
+    _overlayDomObs.observe(document.body, { childList: true, subtree: true });
+}
+
+function stopOverlayDomObserver() {
+    _overlayDomObs?.disconnect();
+    _overlayDomObs = null;
+}
 
 function isMarketplacePage() {
     return window.location.pathname.includes('/marketplace');
@@ -1208,7 +1300,12 @@ function ingestApiPayload(url, data) {
         const arr = Array.isArray(data) ? data : (data.items || data.inventory || data.data || []);
         if (Array.isArray(arr) && arr.length) {
             inventoryCache = arr.sort((a, b) => parseInt(a.rarity) - parseInt(b.rarity));
-            if (overlayRunning) scheduleApplyOverlays(true);
+            rebuildInvItemIndex();
+            maybeWarnLargeInventory();
+            if (overlayRunning) {
+                scheduleApplyOverlays(true);
+                scheduleOverlayBootstrap();
+            }
             if (isBrowsePage()) scheduleBrowseInit();
             if (browseToolsActive) scheduleBrowseFilters();
         }
@@ -1218,7 +1315,11 @@ function ingestApiPayload(url, data) {
         const items = normalizeOfferList(data);
         if (items.length) {
             marketplaceCache = mergeMarketplaceCache(marketplaceCache, items);
-            if (overlayRunning) scheduleApplyOverlays(true);
+            rebuildMpItemIndex();
+            if (overlayRunning) {
+                scheduleApplyOverlays(true);
+                scheduleOverlayBootstrap();
+            }
             if (isBrowsePage()) scheduleBrowseInit();
             if (browseToolsActive) scheduleBrowseFilters();
         }
@@ -1233,7 +1334,11 @@ function ingestApiPayload(url, data) {
         const arr = Array.isArray(data) ? data : (data.items || data.inventory || data.data || []);
         if (Array.isArray(arr) && arr.length) {
             friendInventoryCache = arr.map(normalizeInventoryEntry).filter(Boolean);
-            if (overlayRunning) scheduleApplyOverlays(true);
+            rebuildFriendItemIndex();
+            if (overlayRunning) {
+                scheduleApplyOverlays(true);
+                scheduleOverlayBootstrap();
+            }
         }
     }
 }
@@ -1242,19 +1347,11 @@ let _applyOverlayTimer = null;
 let _applyingOverlays   = false;
 function scheduleApplyOverlays(urgent) {
     clearTimeout(_applyOverlayTimer);
-    const delay = urgent ? 60 : 350;
     _applyOverlayTimer = setTimeout(() => {
         if (!overlayRunning || _applyingOverlays) return;
         _applyingOverlays = true;
-        const run = () => {
-            try { applyOverlaysToAll(); } finally { _applyingOverlays = false; }
-        };
-        if (urgent || typeof requestIdleCallback !== 'function') {
-            run();
-        } else {
-            requestIdleCallback(run, { timeout: 1500 });
-        }
-    }, delay);
+        try { applyOverlaysToAll({ urgent: !!urgent }); } finally { _applyingOverlays = false; }
+    }, urgent ? 16 : 200);
 }
 
 function clearSkinOverlays() {
@@ -1301,6 +1398,8 @@ async function fetchInventory() {
         const d = await r.json();
         const arr = Array.isArray(d) ? d : (d.items || d.inventory || d.data || []);
         inventoryCache = arr.sort((a, b) => parseInt(a.rarity) - parseInt(b.rarity));
+        rebuildInvItemIndex();
+        maybeWarnLargeInventory();
         return inventoryCache;
     } catch(e) { return inventoryCache; }
 }
@@ -1311,7 +1410,10 @@ async function fetchMarketplace() {
         if (!r.ok) return marketplaceCache;
         const d = await r.json();
         const items = normalizeOfferList(d);
-        if (items.length) marketplaceCache = items;
+        if (items.length) {
+            marketplaceCache = items;
+            rebuildMpItemIndex();
+        }
     } catch (_) {}
     return marketplaceCache;
 }
@@ -1500,7 +1602,9 @@ function matchOverlayItem(cardEl, cache, used) {
 
     const offerId = getOfferIdFromCard(cardEl);
     if (offerId != null) {
-        const byOffer = cache.find(i => i.offer_id === offerId);
+        const byOffer = isMarketplacePage()
+            ? mpIndexByOfferId.get(offerId)
+            : cache.find(i => i.offer_id === offerId);
         if (byOffer && !used.has('o' + offerId)) {
             used.add('o' + offerId);
             return byOffer;
@@ -1515,9 +1619,8 @@ function matchOverlayItem(cardEl, cache, used) {
     if (imgId != null) {
         const seedHint = isMarketplacePage() ? getCardSeedHint(cardEl) : null;
         const stCount  = isTradeDetailView() ? getStatTrakCount(cardEl) : null;
-        let cands = cache.filter(i =>
-            i.item_id === imgId &&
-            !used.has('w' + (i.weapon_id ?? i.offer_id ?? `${i.item_id}-${i.float}`)) &&
+        let cands = candidatesForImgId(imgId).filter(i =>
+            !used.has(itemCacheKey(i)) &&
             (i.stattrak === hasSt || i.stattrak == null) &&
             (!trustSiteWear || !wear || getCondition(i.float) === wear)
         );
@@ -1530,8 +1633,7 @@ function matchOverlayItem(cardEl, cache, used) {
             if (bySeed.length) cands = bySeed;
         }
         if (!cands.length && trustSiteWear && wear && isInventoryPage()) {
-            cands = cache.filter(i =>
-                i.item_id === imgId &&
+            cands = candidatesForImgId(imgId).filter(i =>
                 !used.has(itemCacheKey(i)) &&
                 (i.stattrak === hasSt || i.stattrak == null)
             );
@@ -1551,12 +1653,11 @@ function matchOverlayItem(cardEl, cache, used) {
         if (byName) return byName;
     }
 
-    if (!isMarketplacePage() && !isTradeDetailView()) {
-        const cards = getAllCards();
-        const idx = cards.indexOf(cardEl);
+    if (!isMarketplacePage() && !isTradeDetailView() && _currentOverlayCards) {
+        const idx = _currentOverlayCards.indexOf(cardEl);
         if (idx >= 0 && idx < cache.length && cache[idx].item_id === imgId) {
             const item = cache[idx];
-            const key = 'w' + (item.weapon_id ?? item.offer_id ?? idx);
+            const key = itemCacheKey(item);
             if (!used.has(key)) { used.add(key); return item; }
         }
     }
@@ -2096,21 +2197,27 @@ function applyOverlaysToAll(opts) {
         return;
     }
 
+    _currentOverlayCards = cards;
     const used = new Set();
-    for (const cardEl of cards) {
-        const item = matchOverlayItem(cardEl, cache, used);
-        if (!item) {
-            cardEl.querySelector('.csrx-card-wrap')?.remove();
-            continue;
+    try {
+        for (const cardEl of cards) {
+            const item = matchOverlayItem(cardEl, cache, used);
+            if (!item) {
+                cardEl.querySelector('.csrx-card-wrap')?.remove();
+                continue;
+            }
+            injectCardOverlay(cardEl, item);
         }
-        injectCardOverlay(cardEl, item);
+        pruneOrphanOverlays(cardSet);
+    } finally {
+        _currentOverlayCards = null;
     }
-    pruneOrphanOverlays(cardSet);
 }
 
 async function startAlwaysOnOverlay() {
     if (overlayRunning) return;
     overlayRunning = true;
+    ensureOverlayDomObserver();
     const cacheReady = isMarketplacePage()
         ? marketplaceCache.length > 0
         : inventoryCache.length > 0;
@@ -2123,17 +2230,26 @@ async function startAlwaysOnOverlay() {
         await fetchInventory();
     }
     applyOverlaysToAll({ urgent: true });
+    scheduleOverlayBootstrap();
     if (isBrowsePage()) scheduleBrowseInit();
     overlayTimer = setInterval(() => {
-        if (!overlayRunning) return;
-        applyOverlaysToAll();
-    }, 8000);
+        if (!overlayRunning || document.hidden) return;
+        const cards = getAllCards();
+        const cache = getOverlayCache();
+        if (!cards.length || !cache.length) return;
+        if (cards.some(c => !c.querySelector('.csrx-card-wrap'))) {
+            applyOverlaysToAll({ urgent: true });
+        }
+    }, 6000);
 }
 
 function stopAlwaysOnOverlay() {
     overlayRunning = false;
+    _overlayBootGen++;
+    clearTimeout(_overlayBootTimer);
     clearInterval(overlayTimer);
     overlayTimer = null;
+    stopOverlayDomObserver();
     document.querySelectorAll('.csrx-card-wrap').forEach(el => el.remove());
 }
 
@@ -2166,20 +2282,32 @@ function checkPageAndRun() {
 
     if (overlayRunning && overlayPageKind !== kind) stopAlwaysOnOverlay();
 
+    const modalOpen = isTradePickerModal();
+    if (modalOpen && !_tradeModalWasOpen && overlayRunning) {
+        scheduleOverlayBootstrap();
+    }
+    _tradeModalWasOpen = modalOpen;
+
     if (!overlayRunning) {
         overlayPageKind = kind;
         startAlwaysOnOverlay();
     } else if (kind === 'mp' && !marketplaceCache.length) {
-        fetchMarketplace().then(() => applyOverlaysToAll());
+        fetchMarketplace().then(() => {
+            applyOverlaysToAll({ urgent: true });
+            scheduleOverlayBootstrap();
+        });
     }
 }
 
 checkPageAndRun();
-setInterval(checkPageAndRun, 3000);
+setInterval(checkPageAndRun, 1500);
 
 document.addEventListener('click', e => {
     const t = e.target?.textContent?.trim() || '';
-    if (/^(my items|their items)$/i.test(t) && isTradePickerModal()) scheduleApplyOverlays(true);
+    if (/^(my items|their items)$/i.test(t) && isTradePickerModal()) {
+        scheduleApplyOverlays(true);
+        scheduleOverlayBootstrap();
+    }
 }, true);
 
 function extUrl(p) {

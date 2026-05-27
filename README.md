@@ -4,7 +4,7 @@ Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.f
 
 Works in **Firefox**, **Microsoft Edge**, and **Chromium** browsers (Manifest V3).
 
-**Current version:** `3.0.8`
+**Current version:** `3.0.9`
 
 **Repository:** [github.com/smelbravo/CS-Restored-Inventory-Helper](https://github.com/smelbravo/CS-Restored-Inventory-Helper)
 
@@ -124,6 +124,15 @@ Hidden on marketplace and trade pages.
 
 ## Changelog
 
+### v3.0.9
+
+- **Fix:** float/seed slow to appear or only after tab change (regression from v3.0.8 performance work)
+- Instant overlay refresh when API data arrives (no idle callback delay)
+- Fast retry while SPA loads item cards; DOM observer for new cards (inventory, marketplace, Send Trade Offer)
+- Send Trade Offer modal applies overlays when opened (no need to switch My Items ↔ Their Items)
+- Item lookup index for large inventories (500–1000+ skins) — much faster matching
+- One-time warning toast if inventory has 500+ items
+
 ### v3.0.8
 
 - **Performance:** overlays update incrementally (no full tear-down every 2s) — fixes freezing on large inventories (Brave, Edge, Chrome)
@@ -183,16 +192,19 @@ Hidden on marketplace and trade pages.
 
 ## Performance & troubleshooting
 
-Float/seed badges and the search bar appear **after** the site loads your items and the extension reads inventory data from the page session. On a fast connection this is usually a few seconds; on a slow or busy PC (many browser tabs, Firefox open for a long time, large inventories with 500+ items) it can take longer.
+The **search/filter bar** loads with the page. **Float/seed badges** appear once your item data is loaded and cards are visible — usually within a few seconds.
 
-**If overlays feel slow or the page freezes:**
+### Large inventories (500–1000+ skins)
 
-1. Reload the extension (`about:debugging` → Reload, or reload the unpacked extension in Chrome/Edge)
-2. Open inventory in a **fresh tab** instead of a tab that has been open for hours
-3. Close unused tabs or restart the browser if memory is high
-4. Very large inventories (1000+ items) need more time — the v3.0.8 update reduces freezing but cannot speed up the site itself
+Matching float/seed to items is heavier with very large inventories. The extension shows a **one-time warning** at 500+ items and uses optimized lookups, but you may still see a short delay or brief page slowdown on low-end PCs. If the site becomes unresponsive, reload the page or use a fresh browser tab.
 
-**If float/seed never appear on inventory:** reload the page once while logged in. If it still fails, report your browser and inventory size on [GitHub Issues](https://github.com/smelbravo/CS-Restored-Inventory-Helper/issues).
+**Tips:**
+
+1. Reload the extension after updating (`about:debugging` → Reload)
+2. Use a **fresh tab** if Firefox/Chrome has been open for hours with many tabs
+3. Close unused tabs to free memory
+
+**If float/seed never appear:** reload the page while logged in. On **Send Trade Offer**, overlays should show on **My Items** without switching tabs. Report browser + inventory size on [GitHub Issues](https://github.com/smelbravo/CS-Restored-Inventory-Helper/issues).
 
 ## Known limitations
 
@@ -234,7 +246,10 @@ WHAT IT DOES
 WHERE IT WORKS
 • Inventory (/app/inventory)
 • Marketplace (/app/inventory/marketplace)
-• Trade views (/app/play) — float/seed for your own items only
+• Trade views (/app/play) and Send Trade Offer — float/seed for your own items (My Items)
+
+LARGE INVENTORIES (500+ skins)
+• Float/seed may take a few extra seconds to appear; very large inventories (1000+) can slow the page on weaker PCs
 
 REQUIREMENTS (from the CS:Restored website)
 • Log in with Discord at https://csrestored.fun
@@ -266,7 +281,7 @@ https://github.com/smelbravo/CS-Restored-Inventory-Helper
 ### Notes for reviewer (private)
 
 ```
-Extension: CS:Restored Inventory Helper (v3.0.8)
+Extension: CS:Restored Inventory Helper (v3.0.9)
 Works only on https://csrestored.fun when logged in.
 
 Site requirements (enforced by CS:Restored, not the extension):
