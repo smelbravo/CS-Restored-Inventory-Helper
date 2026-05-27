@@ -810,11 +810,12 @@ input[type=range].csrx-range:hover::-moz-range-thumb { transform: scale(1.2); }
 
 #csrx-browse {
     width: 100%;
-    margin: 0 0 18px 0;
+    margin: 12px 0 16px 0;
     padding: 0;
     font-family: 'Inter', sans-serif;
     z-index: 50;
     position: relative;
+    box-sizing: border-box;
 }
 .csrx-browse-row {
     display: flex;
@@ -1182,6 +1183,7 @@ function ingestApiPayload(url, data) {
         const items = normalizeOfferList(data);
         if (items.length) {
             marketplaceCache = mergeMarketplaceCache(marketplaceCache, items);
+            if (isBrowsePage()) scheduleBrowseInit();
             if (browseToolsActive) scheduleBrowseFilters();
         }
         return;
@@ -1204,6 +1206,7 @@ function ingestApiPayload(url, data) {
         if (Array.isArray(arr) && arr.length) {
             inventoryCache = arr.sort((a, b) => parseInt(a.rarity) - parseInt(b.rarity));
             if (overlayRunning) scheduleApplyOverlays();
+            if (isBrowsePage()) scheduleBrowseInit();
             if (browseToolsActive) scheduleBrowseFilters();
         }
     }
@@ -1601,29 +1604,67 @@ function injectCardOverlay(cardEl, item) {
 
 let browseToolsActive = false;
 let browseDebounce    = null;
+let browseInitTimer   = null;
 
 function isBrowsePage() {
     return isInventoryPage() || isMarketplacePage();
 }
 
-function findBrowseHeading() {
-    for (const h of document.querySelectorAll('h1, h2')) {
-        const t = (h.textContent || '').trim().toLowerCase();
-        if (t === 'inventory' || t === 'marketplace') return h;
-    }
-    return null;
+function isSubNavTab(el) {
+    const row = el.closest('div, nav, section') || el.parentElement;
+    if (!row) return false;
+    const t = (row.textContent || '').toLowerCase();
+    return t.includes('cases') && t.includes('quests') && t.includes('trades');
 }
 
-function findBrowseInsertPoint() {
+function findBrowseHeading() {
+    const label = isMarketplacePage() ? 'marketplace' : 'inventory';
+    const skip = '#csrx-browse,#csrx-win,#csrx-fab,#csrx-overlay,#csrx-toast';
+    const candidates = [];
+    for (const el of document.querySelectorAll('h1, h2, h3, p, span, div')) {
+        if (el.closest(skip)) continue;
+        if (isSubNavTab(el)) continue;
+        const t = (el.textContent || '').trim().toLowerCase();
+        if (t !== label) continue;
+        if (t.length > 24) continue;
+        candidates.push(el);
+    }
+    candidates.sort((a, b) => {
+        const aTab = isSubNavTab(a) ? 1 : 0;
+        const bTab = isSubNavTab(b) ? 1 : 0;
+        if (aTab !== bTab) return aTab - bTab;
+        return a.textContent.length - b.textContent.length;
+    });
+    return candidates[0] || null;
+}
+
+function findBrowseMountPoint() {
+    const cards = getAllCards();
+    if (cards.length) {
+        const grid = getCardGridParent(cards);
+        if (grid) return { mode: 'before', el: grid };
+    }
+
     const h = findBrowseHeading();
     if (!h) return null;
+
     let node = h;
-    for (let i = 0; i < 6 && node.parentElement; i++) {
+    for (let i = 0; i < 10 && node; i++) {
+        const next = node.nextElementSibling;
+        if (next && next.querySelector('[class*="aspect-square"] img')) {
+            return { mode: 'after', el: node };
+        }
         node = node.parentElement;
-        const cls = node.className?.toString() || '';
-        if (cls.includes('flex') && node.querySelector('h1, h2')) return node;
     }
-    return h.parentElement;
+    const row = h.parentElement;
+    return row ? { mode: 'after', el: row } : { mode: 'after', el: h };
+}
+
+function scheduleBrowseInit() {
+    clearTimeout(browseInitTimer);
+    browseInitTimer = setTimeout(() => {
+        if (isBrowsePage() && !document.getElementById('csrx-browse')) initBrowseTools();
+    }, 150);
 }
 
 function getCardSearchText(card) {
@@ -1837,9 +1878,14 @@ function buildBrowseBar() {
 
 function initBrowseTools() {
     if (!isBrowsePage() || document.getElementById('csrx-browse')) return;
-    const anchor = findBrowseInsertPoint();
-    if (!anchor) return;
-    anchor.insertAdjacentElement('afterend', buildBrowseBar());
+    const mount = findBrowseMountPoint();
+    if (!mount?.el) return;
+    const bar = buildBrowseBar();
+    if (mount.mode === 'before') {
+        mount.el.insertAdjacentElement('beforebegin', bar);
+    } else {
+        mount.el.insertAdjacentElement('afterend', bar);
+    }
     browseToolsActive = true;
     applyBrowseFilters();
 }
@@ -1847,6 +1893,7 @@ function initBrowseTools() {
 function stopBrowseTools() {
     browseToolsActive = false;
     clearTimeout(browseDebounce);
+    clearTimeout(browseInitTimer);
     document.getElementById('csrx-browse')?.remove();
     getAllCards().forEach(c => {
         c.classList.remove('csrx-browse-hidden');
@@ -1862,6 +1909,10 @@ function applyOverlaysToAll() {
 
     clearSkinOverlays();
     const cards = getAllCards();
+    if (isBrowsePage()) {
+        scheduleBrowseInit();
+        if (document.getElementById('csrx-browse')) scheduleBrowseFilters();
+    }
     if (!cards.length) return;
 
     const cache = getOverlayCache();
@@ -1872,7 +1923,6 @@ function applyOverlaysToAll() {
         const item = matchOverlayItem(cardEl, cache, used);
         if (item) injectCardOverlay(cardEl, item);
     });
-    if (isBrowsePage()) scheduleBrowseFilters();
 }
 
 async function startAlwaysOnOverlay() {
@@ -1923,7 +1973,7 @@ function checkPageAndRun() {
             stopBrowseTools();
             browsePageKind = bk;
         }
-        if (!document.getElementById('csrx-browse')) initBrowseTools();
+        if (!document.getElementById('csrx-browse')) scheduleBrowseInit();
         else scheduleBrowseFilters();
     }
 
