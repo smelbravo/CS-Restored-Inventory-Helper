@@ -6,14 +6,18 @@ const MP_API_URL = 'https://api.csrestored.fun/inventory/marketplace/';
 const TRADE_API_RE = /api\.csrestored\.fun\/(?:api\/)?trades\b/i;
 
 const RARITY = {
-    0: { name:'Contraband',       hex:'#facc15' },
-    1: { name:'Covert',           hex:'#ef4444' },
-    2: { name:'Classified',       hex:'#e879f9' },
-    3: { name:'Restricted',       hex:'#a855f7' },
-    4: { name:'Mil-Spec',         hex:'#60a5fa' },
-    5: { name:'Industrial Grade', hex:'#7dd3fc' },
-    6: { name:'Consumer Grade',   hex:'#a8a29e' },
+    1: { name:'Consumer Grade',   hex:'#a8a29e' },
+    2: { name:'Industrial Grade', hex:'#7dd3fc' },
+    3: { name:'Mil-Spec',         hex:'#60a5fa' },
+    4: { name:'Restricted',       hex:'#a855f7' },
+    5: { name:'Classified',       hex:'#e879f9' },
+    6: { name:'Covert',           hex:'#ef4444' },
+    7: { name:'Contraband',       hex:'#facc15' },
 };
+
+function rarityEntries() {
+    return Object.entries(RARITY).sort((a, b) => parseInt(a[0], 10) - parseInt(b[0], 10));
+}
 
 function getCondition(f) {
     if (f == null) return '';
@@ -825,9 +829,9 @@ input[type=range].csrx-range:hover::-moz-range-thumb { transform: scale(1.2); }
     width: 100%;
 }
 #csrx-browse-search {
-    flex: 1 1 220px;
-    min-width: 180px;
-    max-width: 420px;
+    flex: 0 1 340px;
+    min-width: 200px;
+    max-width: 380px;
     height: 36px;
     padding: 0 12px 0 36px;
     border-radius: 8px;
@@ -844,7 +848,7 @@ input[type=range].csrx-range:hover::-moz-range-thumb { transform: scale(1.2); }
     flex-wrap: wrap;
     align-items: center;
     gap: 8px;
-    margin-left: auto;
+    flex: 1 1 auto;
 }
 .csrx-browse-filters select {
     height: 36px;
@@ -1638,32 +1642,62 @@ function findBrowseHeading() {
     return candidates[0] || null;
 }
 
-function findBrowseMountPoint() {
-    const cards = getAllCards();
-    if (cards.length) {
-        const grid = getCardGridParent(cards);
-        if (grid) return { mode: 'before', el: grid };
-    }
-
-    const h = findBrowseHeading();
-    if (!h) return null;
-
-    let node = h;
-    for (let i = 0; i < 10 && node; i++) {
-        const next = node.nextElementSibling;
-        if (next && next.querySelector('[class*="aspect-square"] img')) {
-            return { mode: 'after', el: node };
+function isAppSidebar(el) {
+    if (!el) return false;
+    let node = el;
+    for (let i = 0; i < 12 && node; i++) {
+        const text = (node.textContent || '').toLowerCase();
+        if (text.includes('matchmaking') && text.includes('leaderboard') && text.includes('history')) {
+            return true;
+        }
+        if (node.offsetWidth > 0 && node.offsetWidth < 300 && node.offsetHeight > 180) {
+            const cards = node.querySelectorAll('[class*="aspect-square"]');
+            if (cards.length < 3) return true;
         }
         node = node.parentElement;
     }
-    const row = h.parentElement;
-    return row ? { mode: 'after', el: row } : { mode: 'after', el: h };
+    return false;
+}
+
+function isBrowseBarMisplaced() {
+    const bar = document.getElementById('csrx-browse');
+    if (!bar) return false;
+    return isAppSidebar(bar) || (bar.offsetWidth > 0 && bar.offsetWidth < 360);
+}
+
+function findBrowseMountPoint() {
+    const cards = getAllCards().filter(c => !isAppSidebar(c));
+    if (cards.length) {
+        const grid = getCardGridParent(cards);
+        if (grid && !isAppSidebar(grid)) {
+            const w = grid.offsetWidth || grid.parentElement?.offsetWidth || 0;
+            if (w >= 400 || cards.length >= 4) return { mode: 'before', el: grid };
+        }
+    }
+
+    const h = findBrowseHeading();
+    if (h && !isAppSidebar(h)) {
+        let node = h;
+        for (let i = 0; i < 10 && node; i++) {
+            const next = node.nextElementSibling;
+            if (next && next.querySelector('[class*="aspect-square"] img')) {
+                return { mode: 'after', el: node };
+            }
+            node = node.parentElement;
+        }
+        const row = h.parentElement;
+        if (row && !isAppSidebar(row)) {
+            return { mode: 'after', el: row };
+        }
+    }
+    return null;
 }
 
 function scheduleBrowseInit() {
     clearTimeout(browseInitTimer);
     browseInitTimer = setTimeout(() => {
-        if (isBrowsePage() && !document.getElementById('csrx-browse')) initBrowseTools();
+        if (!isBrowsePage()) return;
+        if (!document.getElementById('csrx-browse') || isBrowseBarMisplaced()) initBrowseTools();
     }, 150);
 }
 
@@ -1832,7 +1866,7 @@ function buildBrowseBar() {
     wrap.id = 'csrx-browse';
 
     const rarityOpts = ['<option value="">All rarities</option>']
-        .concat(Object.entries(RARITY).map(([k, v]) =>
+        .concat(rarityEntries().map(([k, v]) =>
             `<option value="${k}">${v.name}</option>`
         )).join('');
 
@@ -1877,7 +1911,12 @@ function buildBrowseBar() {
 }
 
 function initBrowseTools() {
-    if (!isBrowsePage() || document.getElementById('csrx-browse')) return;
+    if (!isBrowsePage()) return;
+    if (document.getElementById('csrx-browse')) {
+        if (!isBrowseBarMisplaced()) return;
+        document.getElementById('csrx-browse').remove();
+        browseToolsActive = false;
+    }
     const mount = findBrowseMountPoint();
     if (!mount?.el) return;
     const bar = buildBrowseBar();
@@ -2057,13 +2096,13 @@ win.innerHTML = `
         <div class="csrx-section">Global</div>
         <div style="display:flex;flex-direction:column;gap:7px;">
             <select id="csrx-rar" class="csrx-sel">
-                <option value="6">Consumer Grade</option>
-                <option value="5">Industrial Grade</option>
-                <option value="4">Mil-Spec</option>
-                <option value="3">Restricted</option>
-                <option value="2">Classified</option>
-                <option value="1">Covert / Knives</option>
-                <option value="0">Contraband</option>
+                <option value="1">Consumer Grade</option>
+                <option value="2">Industrial Grade</option>
+                <option value="3">Mil-Spec</option>
+                <option value="4">Restricted</option>
+                <option value="5">Classified</option>
+                <option value="6">Covert / Knives</option>
+                <option value="7">Contraband</option>
             </select>
             <button id="csrx-massbtn" class="csrx-btn csrx-btn-danger">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
@@ -2333,8 +2372,8 @@ function validateItems(entries,freshInv) {
 function buildMC(entry) {
     const{item,status}=entry;
     const isOk=status==='ok';
-    const rNum=item?parseInt(item.rarity):6;
-    const rInfo=RARITY[rNum]??RARITY[6];
+    const rNum=item?parseInt(item.rarity,10):1;
+    const rInfo=RARITY[rNum]??RARITY[1];
     const hex=rInfo.hex;
 
     const wrap=document.createElement('div');
