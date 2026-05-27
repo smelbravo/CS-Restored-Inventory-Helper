@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "CS:Restored Inventory Helper",
-  "version": "3.0.6",
+  "version": "3.0.7",
   "description": "Float, seed, and quick-sell tools for Counter-Strike: Restored (csrestored.fun). Unofficial extension.",
   "icons": {
     "16": "icons/icon-16.png",

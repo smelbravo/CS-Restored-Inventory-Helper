@@ -133,7 +133,7 @@ S.textContent = `
     right: 24px;
     width: 48px;
     height: 48px;
-    background: #ef4444;
+    background: #0a0a0a;
     border-radius: 12px;
     display: none;
     align-items: center;
@@ -142,18 +142,20 @@ S.textContent = `
     z-index: 2147483640;
     box-shadow: 0 4px 20px rgba(239,68,68,0.35);
     transition: all 0.2s cubic-bezier(0.34,1.56,0.64,1);
-    border: none;
+    border: 2px solid #ef4444;
+    padding: 0;
+    overflow: hidden;
 }
 #csrx-fab:hover {
     transform: scale(1.07) translateY(-2px);
     box-shadow: 0 8px 28px rgba(239,68,68,0.5);
 }
 #csrx-fab img {
-    width: 22px;
-    height: 22px;
-    object-fit: contain;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
     display: block;
-    filter: drop-shadow(0 1px 2px rgba(0,0,0,0.35));
+    border-radius: 10px;
 }
 
 #csrx-win {
@@ -190,20 +192,24 @@ S.textContent = `
 #csrx-hdr:active { cursor: grabbing; }
 
 .csrx-logo {
-    width: 28px;
-    height: 28px;
-    border-radius: 7px;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
     flex-shrink: 0;
-    background: #ef4444;
+    background: #0a0a0a;
+    border: 2px solid #ef4444;
     display: flex;
     align-items: center;
     justify-content: center;
+    overflow: hidden;
+    padding: 0;
 }
 .csrx-logo img {
-    width: 18px;
-    height: 18px;
-    object-fit: contain;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
     display: block;
+    border-radius: 6px;
 }
 .csrx-hdr-text { flex: 1; min-width: 0; }
 .csrx-hdr-title {
@@ -2124,7 +2130,7 @@ function extUrl(p) {
 const fab = document.createElement('div');
 fab.id = 'csrx-fab';
 fab.title = 'CS:Restored Inventory Helper';
-fab.innerHTML = `<img alt="Inventory Helper" src="${extUrl('icons/icon-48.png')}">`;
+fab.innerHTML = `<img alt="CS:R Inventory Helper" src="${extUrl('icons/icon-128.png')}">`;
 document.body.appendChild(fab);
 
 const win = document.createElement('div');
@@ -2133,10 +2139,10 @@ win.innerHTML = `
 <div id="csrx-win-top"></div>
 <div id="csrx-hdr">
     <div class="csrx-logo">
-        <img alt="CS:Restored Inventory Helper" src="${extUrl('icons/icon-48.png')}">
+        <img alt="CS:R Inventory Helper" src="${extUrl('icons/icon-128.png')}">
     </div>
     <div class="csrx-hdr-text">
-        <div class="csrx-hdr-title">Inventory Helper</div>
+        <div class="csrx-hdr-title">CS:R Inventory Helper</div>
         <div class="csrx-hdr-sub">Quick sell + float tools</div>
     </div>
     <div id="csrx-winx">
