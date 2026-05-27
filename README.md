@@ -4,7 +4,7 @@ Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.f
 
 Works in **Firefox**, **Microsoft Edge**, and **Chromium** browsers (Manifest V3).
 
-**Current version:** `3.0.7`
+**Current version:** `3.0.8`
 
 **Repository:** [github.com/smelbravo/CS-Restored-Inventory-Helper](https://github.com/smelbravo/CS-Restored-Inventory-Helper)
 
@@ -81,7 +81,7 @@ Hidden on marketplace and trade pages.
 ## Usage
 
 1. Go to [csrestored.fun](https://csrestored.fun) and log in with Discord
-2. Open **Inventory** or **Marketplace** — float/seed badges and the search/filter bar appear after items load
+2. Open **Inventory** or **Marketplace** — wait for the site to load your items; float/seed badges and the search/filter bar appear shortly after (usually a few seconds)
 3. On inventory, click the **CS:R logo button** (bottom-right) to open the quick-sell panel
 4. On **Play → Trades**, overlays show on your items in trade detail views when data is available
 
@@ -123,6 +123,16 @@ Hidden on marketplace and trade pages.
 | `develop` | Active development |
 
 ## Changelog
+
+### v3.0.8
+
+- **Performance:** overlays update incrementally (no full tear-down every 2s) — fixes freezing on large inventories (Brave, Edge, Chrome)
+- **Performance:** browse filters no longer re-run on a background poll loop
+- Background refresh every 8s; urgent refresh when API data arrives
+- Faster first paint when cache is already available; browse bar retries while the SPA loads
+- **Fix:** inventory float/seed missing (regression: `fetchInventory` did not update `inventoryCache`)
+- **Fix:** inventory API responses no longer misclassified as marketplace data
+- Name-based item matching on inventory when image ID matching fails
 
 ### v3.0.7
 
@@ -171,9 +181,23 @@ Hidden on marketplace and trade pages.
 
 - Inventory/marketplace float overlays, CSR Seller, trade API integration
 
+## Performance & troubleshooting
+
+Float/seed badges and the search bar appear **after** the site loads your items and the extension reads inventory data from the page session. On a fast connection this is usually a few seconds; on a slow or busy PC (many browser tabs, Firefox open for a long time, large inventories with 500+ items) it can take longer.
+
+**If overlays feel slow or the page freezes:**
+
+1. Reload the extension (`about:debugging` → Reload, or reload the unpacked extension in Chrome/Edge)
+2. Open inventory in a **fresh tab** instead of a tab that has been open for hours
+3. Close unused tabs or restart the browser if memory is high
+4. Very large inventories (1000+ items) need more time — the v3.0.8 update reduces freezing but cannot speed up the site itself
+
+**If float/seed never appear on inventory:** reload the page once while logged in. If it still fails, report your browser and inventory size on [GitHub Issues](https://github.com/smelbravo/CS-Restored-Inventory-Helper/issues).
+
 ## Known limitations
 
 - **Other player's items** in trades / Their Items: CS:R API does not expose `float`, `seed`, and `weapon_id` for the other player's items. Third-party tools cannot show accurate values until the site adds these fields to `/api/trades` and `/users/{id}/inventory`.
+- **Pin images** missing on the site are a **CS:R website** issue (assets not uploaded yet), not the extension.
 
 ## Disclaimer
 
@@ -242,26 +266,29 @@ https://github.com/smelbravo/CS-Restored-Inventory-Helper
 ### Notes for reviewer (private)
 
 ```
-Extension: CS:Restored Inventory Helper
+Extension: CS:Restored Inventory Helper (v3.0.8)
 Works only on https://csrestored.fun when logged in.
 
-Site requirements (CS:Restored, not the extension):
-• Steam level > 0
-• CS2 playtime ≥ 25 hours
+Site requirements (enforced by CS:Restored, not the extension):
+• Steam level greater than 0
+• CS2 playtime: at least 25 hours
 
 How to test:
-1. Log in at https://csrestored.fun with Discord
+1. Go to https://csrestored.fun and log in with Discord (reviewer can use their own account if it meets the requirements above).
 2. Inventory (/app/inventory):
-   - Float/seed badges on cards (bottom-right)
-   - Search/filter bar above item grid
-   - Bottom-right CS:R logo button → quick-sell panel (Start Picking, Sell by Rarity)
+   - Float/wear/seed badges on item cards (bottom-right)
+   - Search & filter bar above the item grid (name, rarity, wear, float sort)
+   - Bottom-right CS:R logo button → quick-sell panel (Start Picking, Sell by Rarity, batch size)
 3. Marketplace (/app/inventory/marketplace):
-   - Badges below price
-   - Search (try "M4A4"), filters (rarity, wear, price, float sort)
-4. Play → Trades: float/seed on your items in trade detail when available
+   - Badges below the price on each listing
+   - Same search/filter bar; try searching "M4A4", filters for rarity/wear, price and float sort
+4. Play → Trades (/app/play): open a trade — float/seed on your own items when the site API provides them (other players' items may not show float/seed until the site exposes those fields).
 
-Data collection: none (declares required ["none"] in manifest).
-Source: https://github.com/smelbravo/CS-Restored-Inventory-Helper
+Data collection: The extension declares required ["none"] in the manifest. It does not transmit data to developer servers. It only reads csrestored.fun API responses in the page (via the site's own fetch/XHR) to match float/seed to UI cards and power filters.
+
+Privacy policy: https://github.com/smelbravo/CS-Restored-Inventory-Helper/blob/main/PRIVACY.md
+Source code: https://github.com/smelbravo/CS-Restored-Inventory-Helper
+Support: https://github.com/smelbravo/CS-Restored-Inventory-Helper/issues
 ```
 
 ### Firefox categories

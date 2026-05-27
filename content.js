@@ -1203,10 +1203,22 @@ function mergeMarketplaceCache(existing, incoming) {
 
 function ingestApiPayload(url, data) {
     if (!data || typeof data !== 'object') return;
+
+    if (/\/inventory\/?(?:\?|$)/i.test(url) && !/\/inventory\/marketplace/i.test(url) && !/\/users\//i.test(url)) {
+        const arr = Array.isArray(data) ? data : (data.items || data.inventory || data.data || []);
+        if (Array.isArray(arr) && arr.length) {
+            inventoryCache = arr.sort((a, b) => parseInt(a.rarity) - parseInt(b.rarity));
+            if (overlayRunning) scheduleApplyOverlays(true);
+            if (isBrowsePage()) scheduleBrowseInit();
+            if (browseToolsActive) scheduleBrowseFilters();
+        }
+        return;
+    }
     if (MP_API_RE.test(url) || /\/inventory\/marketplace/i.test(url) || looksLikeMarketplacePayload(data)) {
         const items = normalizeOfferList(data);
         if (items.length) {
             marketplaceCache = mergeMarketplaceCache(marketplaceCache, items);
+            if (overlayRunning) scheduleApplyOverlays(true);
             if (isBrowsePage()) scheduleBrowseInit();
             if (browseToolsActive) scheduleBrowseFilters();
         }
@@ -1214,37 +1226,35 @@ function ingestApiPayload(url, data) {
     }
     if (TRADE_API_RE.test(url) || (looksLikeTradePayload(data) && !Array.isArray(data))) {
         parseTradesResponse(data);
-        if ((isTradePage() || isTradeDetailView()) && overlayRunning) scheduleApplyOverlays();
+        if ((isTradePage() || isTradeDetailView()) && overlayRunning) scheduleApplyOverlays(true);
         return;
     }
     if (/\/users\/[^/]+\/inventory/i.test(url)) {
         const arr = Array.isArray(data) ? data : (data.items || data.inventory || data.data || []);
         if (Array.isArray(arr) && arr.length) {
             friendInventoryCache = arr.map(normalizeInventoryEntry).filter(Boolean);
-            if (overlayRunning) scheduleApplyOverlays();
-        }
-        return;
-    }
-    if (/\/inventory\/?(?:\?|$)/i.test(url) && !/\/inventory\/marketplace/i.test(url) && !/\/users\//i.test(url)) {
-        const arr = Array.isArray(data) ? data : (data.items || data.inventory || data.data || []);
-        if (Array.isArray(arr) && arr.length) {
-            inventoryCache = arr.sort((a, b) => parseInt(a.rarity) - parseInt(b.rarity));
-            if (overlayRunning) scheduleApplyOverlays();
-            if (isBrowsePage()) scheduleBrowseInit();
-            if (browseToolsActive) scheduleBrowseFilters();
+            if (overlayRunning) scheduleApplyOverlays(true);
         }
     }
 }
 
 let _applyOverlayTimer = null;
 let _applyingOverlays   = false;
-function scheduleApplyOverlays() {
+function scheduleApplyOverlays(urgent) {
     clearTimeout(_applyOverlayTimer);
+    const delay = urgent ? 60 : 350;
     _applyOverlayTimer = setTimeout(() => {
         if (!overlayRunning || _applyingOverlays) return;
         _applyingOverlays = true;
-        try { applyOverlaysToAll(); } finally { _applyingOverlays = false; }
-    }, 500);
+        const run = () => {
+            try { applyOverlaysToAll(); } finally { _applyingOverlays = false; }
+        };
+        if (urgent || typeof requestIdleCallback !== 'function') {
+            run();
+        } else {
+            requestIdleCallback(run, { timeout: 1500 });
+        }
+    }, delay);
 }
 
 function clearSkinOverlays() {
@@ -1290,8 +1300,9 @@ async function fetchInventory() {
         if (!r.ok) throw r.status;
         const d = await r.json();
         const arr = Array.isArray(d) ? d : (d.items || d.inventory || d.data || []);
-        return arr.sort((a, b) => parseInt(a.rarity) - parseInt(b.rarity));
-    } catch(e) { return []; }
+        inventoryCache = arr.sort((a, b) => parseInt(a.rarity) - parseInt(b.rarity));
+        return inventoryCache;
+    } catch(e) { return inventoryCache; }
 }
 
 async function fetchMarketplace() {
@@ -1518,6 +1529,13 @@ function matchOverlayItem(cardEl, cache, used) {
             const bySeed = cands.filter(i => i.seed === seedHint);
             if (bySeed.length) cands = bySeed;
         }
+        if (!cands.length && trustSiteWear && wear && isInventoryPage()) {
+            cands = cache.filter(i =>
+                i.item_id === imgId &&
+                !used.has(itemCacheKey(i)) &&
+                (i.stattrak === hasSt || i.stattrak == null)
+            );
+        }
         if (cands.length >= 1) {
             const item = cands[0];
             used.add(itemCacheKey(item));
@@ -1528,7 +1546,7 @@ function matchOverlayItem(cardEl, cache, used) {
         }
     }
 
-    if (isTradePage()) {
+    if (!isMarketplacePage()) {
         const byName = matchItemByName(cardEl, cache, used);
         if (byName) return byName;
     }
@@ -1592,9 +1610,19 @@ function getAllCards() {
     return [];
 }
 
+function overlaySignature(item) {
+    if (!item) return '';
+    const f = item.float != null ? item.float.toFixed(4) : '';
+    const s = item.seed != null ? String(item.seed) : '';
+    return `${f}|${s}`;
+}
+
 function injectCardOverlay(cardEl, item) {
-    if (cardEl.querySelector('.csrx-card-wrap')) return;
     if (!item) return;
+    const existing = cardEl.querySelector('.csrx-card-wrap');
+    if (existing?.dataset.csrxSig === overlaySignature(item)) return;
+
+    existing?.remove();
 
     const pos = getComputedStyle(cardEl).position;
     if (pos === 'static') cardEl.style.position = 'relative';
@@ -1603,6 +1631,8 @@ function injectCardOverlay(cardEl, item) {
     const col = wearColor(f);
     const wrap = document.createElement('div');
     wrap.className = 'csrx-card-wrap' + (isMarketplacePage() ? ' csrx-mp-pos' : '');
+    wrap.dataset.csrxSig = overlaySignature(item);
+    wrap.dataset.csrxKey = itemCacheKey(item);
 
     if (f != null) {
         const pill = document.createElement('div');
@@ -1726,12 +1756,25 @@ function findBrowseMountPoint() {
     return null;
 }
 
+let _browseInitAttempts = 0;
 function scheduleBrowseInit() {
     clearTimeout(browseInitTimer);
     browseInitTimer = setTimeout(() => {
-        if (!isBrowsePage()) return;
-        if (!document.getElementById('csrx-browse') || isBrowseBarMisplaced()) initBrowseTools();
-    }, 150);
+        if (!isBrowsePage()) {
+            _browseInitAttempts = 0;
+            return;
+        }
+        if (!document.getElementById('csrx-browse') || isBrowseBarMisplaced()) {
+            const before = document.getElementById('csrx-browse');
+            initBrowseTools();
+            if ((!before && !document.getElementById('csrx-browse')) && _browseInitAttempts < 12) {
+                _browseInitAttempts++;
+                scheduleBrowseInit();
+                return;
+            }
+        }
+        _browseInitAttempts = 0;
+    }, _browseInitAttempts ? 400 : 0);
 }
 
 function getCardSearchText(card, item) {
@@ -2020,45 +2063,71 @@ function stopBrowseTools() {
     });
 }
 
-function applyOverlaysToAll() {
+function pruneOrphanOverlays(cardSet) {
+    document.querySelectorAll('.csrx-card-wrap').forEach(wrap => {
+        const card = wrap.parentElement;
+        if (!card || !cardSet.has(card) || wrap.closest('#csrx-win, #csrx-overlay, #csrx-fab, #csrx-toast')) {
+            wrap.remove();
+        }
+    });
+}
+
+function applyOverlaysToAll(opts) {
+    const urgent = opts?.urgent === true;
     if (isTradeDetailView()) {
         applyTradeDetailOverlays();
         return;
     }
 
-    clearSkinOverlays();
     const cards = getAllCards();
-    if (isBrowsePage()) {
+    if (isBrowsePage() && (!document.getElementById('csrx-browse') || isBrowseBarMisplaced())) {
         scheduleBrowseInit();
-        if (document.getElementById('csrx-browse')) scheduleBrowseFilters();
     }
-    if (!cards.length) return;
+
+    const cardSet = new Set(cards);
+    if (!cards.length) {
+        if (!urgent) clearSkinOverlays();
+        return;
+    }
 
     const cache = getOverlayCache();
-    if (!cache.length) return;
+    if (!cache.length) {
+        if (!urgent) pruneOrphanOverlays(cardSet);
+        return;
+    }
+
     const used = new Set();
-    cards.forEach(cardEl => {
-        if (cardEl.querySelector('.csrx-card-wrap')) return;
+    for (const cardEl of cards) {
         const item = matchOverlayItem(cardEl, cache, used);
-        if (item) injectCardOverlay(cardEl, item);
-    });
+        if (!item) {
+            cardEl.querySelector('.csrx-card-wrap')?.remove();
+            continue;
+        }
+        injectCardOverlay(cardEl, item);
+    }
+    pruneOrphanOverlays(cardSet);
 }
 
 async function startAlwaysOnOverlay() {
     if (overlayRunning) return;
     overlayRunning = true;
+    const cacheReady = isMarketplacePage()
+        ? marketplaceCache.length > 0
+        : inventoryCache.length > 0;
+    if (cacheReady) applyOverlaysToAll({ urgent: true });
+    if (isBrowsePage()) scheduleBrowseInit();
+
     if (isMarketplacePage()) {
         await fetchMarketplace();
-    } else if (isTradePage() || isTradeDetailView() || isTradePickerModal()) {
-        inventoryCache = await fetchInventory();
     } else {
-        inventoryCache = await fetchInventory();
+        await fetchInventory();
     }
-    applyOverlaysToAll();
+    applyOverlaysToAll({ urgent: true });
+    if (isBrowsePage()) scheduleBrowseInit();
     overlayTimer = setInterval(() => {
         if (!overlayRunning) return;
         applyOverlaysToAll();
-    }, 2000);
+    }, 8000);
 }
 
 function stopAlwaysOnOverlay() {
@@ -2093,7 +2162,6 @@ function checkPageAndRun() {
             browsePageKind = bk;
         }
         if (!document.getElementById('csrx-browse') || isBrowseBarMisplaced()) scheduleBrowseInit();
-        else scheduleBrowseFilters();
     }
 
     if (overlayRunning && overlayPageKind !== kind) stopAlwaysOnOverlay();
@@ -2107,11 +2175,11 @@ function checkPageAndRun() {
 }
 
 checkPageAndRun();
-setInterval(checkPageAndRun, 800);
+setInterval(checkPageAndRun, 3000);
 
 document.addEventListener('click', e => {
     const t = e.target?.textContent?.trim() || '';
-    if (/^(my items|their items)$/i.test(t) && isTradePickerModal()) scheduleApplyOverlays();
+    if (/^(my items|their items)$/i.test(t) && isTradePickerModal()) scheduleApplyOverlays(true);
 }, true);
 
 function extUrl(p) {
