@@ -1,25 +1,22 @@
-# CS:Restored Inventory Helper — v3.1.16
+### v3.1.16
 
-**Previous release:** v3.0.9
+- **Confirm Sale:** per-item market price, **List on Market**, and **Quick Sell** with local price formula (rarity + float + StatTrak)
+- **Quick Sell & Market** panel — pick skins, sell by rarity, review before selling
+- Search & filters on **Inventory**, **Marketplace**, and **Create Offer** (name, rarity, wear, float, price sort)
+- Compact **search** in **Send Trade Offer** (My Items / Their Items); **Clear** resets the grid
+- **Fix:** trade search hides entire grid cells — no empty squares when filtering
+- **Fix:** search clears when switching My Items ↔ Their Items
+- **Fix:** Send Trade Offer modal detection — no broken layout on Trades page after picking a friend
+- **Fix:** inventory/marketplace/create offer skins visible again (card filter regression)
+- Rarity label **Covert / Knives / Gloves** in all filters and Quick Sell panel
+- Wider dropdowns for rarity and **Float: Low → High**
+- Market list max **999,999** coins; Confirm Sale layout and browse bar UI polish
 
-See [README.md](README.md) for full documentation.
+### Install
 
-## Highlights since v3.0.9
+1. Download `CS-Restored-Inventory-Helper-v3.1.16.zip` below
+2. Unzip
+3. **Firefox:** `about:debugging` → This Firefox → Load Temporary Add-on → `manifest.json`
+4. **Chrome / Edge / Brave:** Extensions → Developer mode → Load unpacked → select the unzipped folder
 
-- **Confirm Sale:** List on Market + Quick Sell with local price formula (v3.1.0–v3.1.3)
-- **Search & filters** on Inventory, Marketplace, Create Offer; compact search in Send Trade Offer (v3.1.4–v3.1.8)
-- **Trade search fixes:** grid cell hiding, Clear, tab switch reset, modal detection (v3.1.11–v3.1.15)
-- **UI:** Covert / Knives / Gloves rarity label; wider rarity and float dropdowns (v3.1.9–v3.1.16)
-
-## Install
-
-1. Download `CS-Restored-Inventory-Helper-v3.1.16.zip` from [GitHub Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases/tag/v3.1.16)
-2. Extract and load unpacked (Chrome/Edge) or temporary add-on (Firefox) — see README
-
-## Build zip locally
-
-```bash
-python build-zip.py
-```
-
-Output: `../releases/CS-Restored-Inventory-Helper-v3.1.16.zip`
+**Full changelog:** https://github.com/smelbravo/CS-Restored-Inventory-Helper#changelog
