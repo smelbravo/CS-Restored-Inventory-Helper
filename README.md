@@ -107,7 +107,9 @@ Compact **search bar** inside the trade modal (My Items and Their Items):
 
 | Version | Tag | Notes |
 |---------|-----|-------|
-| **3.1.16** | [v3.1.16](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases/tag/v3.1.16) | [RELEASE_NOTES-v3.1.16.md](RELEASE_NOTES-v3.1.16.md) |
+| **3.1.16** | [v3.1.16](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases/tag/v3.1.16) | [release-notes/v3.1.16.md](release-notes/v3.1.16.md) |
+
+All published release notes: [release-notes/](release-notes/)
 
 Build the install zip locally:
 
@@ -152,6 +154,7 @@ Creates `../releases/CS-Restored-Inventory-Helper-v{version}.zip` (AMO-compatibl
 ├── manifest.json   # Extension manifest (MV3)
 ├── content.js      # Content script (overlays, filters, quick-sell UI)
 ├── icons/          # Extension icons (16, 48, 128, 300 px)
+├── release-notes/  # GitHub release notes (v1.0.0 – latest)
 ├── PRIVACY.md      # Privacy policy (store listings)
 ├── LICENSE         # MIT
 └── README.md
