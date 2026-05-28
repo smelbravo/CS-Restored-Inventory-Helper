@@ -12,7 +12,7 @@ const RARITY = {
     3: { name:'Mil-Spec',         hex:'#60a5fa' },
     4: { name:'Restricted',       hex:'#a855f7' },
     5: { name:'Classified',       hex:'#e879f9' },
-    6: { name:'Covert',           hex:'#ef4444' },
+    6: { name:'Covert / Knives / Gloves', hex:'#ef4444' },
     7: { name:'Contraband',       hex:'#facc15' },
 };
 
@@ -1269,12 +1269,14 @@ input[type=range].csrx-range:hover::-moz-range-thumb { transform: scale(1.2); }
     overflow: hidden;
 }
 #csrx-browse.csrx-browse-trade {
-    margin: 6px 0 10px !important;
+    margin: 8px 0 6px !important;
     margin-left: 0 !important;
     width: 100% !important;
     max-width: 100%;
-    padding: 0 2px;
+    padding: 0;
     box-sizing: border-box;
+    flex: 0 0 100%;
+    align-self: stretch;
 }
 #csrx-browse.csrx-browse-trade .csrx-browse-row {
     gap: 5px;
@@ -1334,6 +1336,10 @@ input[type=range].csrx-range:hover::-moz-range-thumb { transform: scale(1.2); }
     background-position: right 10px center;
 }
 .csrx-browse-filters select:focus { border-color: #ef4444; }
+#csrx-browse-rarity {
+    min-width: 178px;
+    max-width: 198px;
+}
 #csrx-browse.csrx-browse-trade .csrx-browse-filters select {
     height: 30px;
     max-width: 100px;
@@ -1356,14 +1362,32 @@ input[type=range].csrx-range:hover::-moz-range-thumb { transform: scale(1.2); }
     height: 30px;
     font-size: 10px;
     padding: 0 8px;
+    flex: 0 0 auto;
 }
 #csrx-browse-count {
     margin-top: 6px;
     font-size: 10px;
     color: #666;
 }
-.csrx-browse-hidden { display: none !important; }
-.csrx-browse-slot-hidden { display: none !important; }
+.csrx-browse-hidden,
+.csrx-browse-slot-hidden {
+    display: none !important;
+    visibility: hidden !important;
+    width: 0 !important;
+    height: 0 !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    overflow: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+.csrx-browse-hidden *,
+.csrx-browse-slot-hidden * {
+    visibility: hidden !important;
+}
 `;
 document.head.appendChild(S);
 
@@ -1385,6 +1409,18 @@ let _overlayBootTimer    = null;
 let _overlayBootGen      = 0;
 let _overlayDomObs       = null;
 let _tradeModalWasOpen   = false;
+let _lastTradeTheirTab   = null;
+
+function resetTradePickerBrowseOnTabSwitch() {
+    resetTradePickerBrowseClasses();
+    const bar = document.getElementById('csrx-browse');
+    if (bar) {
+        const search = bar.querySelector('#csrx-browse-search');
+        if (search) search.value = '';
+        bar.remove();
+    }
+    browseToolsActive = false;
+}
 let _largeInvWarned      = false;
 const LARGE_INV_WARN     = 500;
 
@@ -1482,24 +1518,65 @@ function isTradePage() {
     const p = window.location.pathname;
     return p.includes('/trade-up') || p.includes('/play') || /\/trades(\/|$)/i.test(p);
 }
-function isTradePickerModal() {
-    for (const el of document.querySelectorAll('h1, h2, h3, p, span, div')) {
-        const t = el.textContent?.trim() || '';
-        if (/^send trade offer$/i.test(t)) return true;
+function findTradePickerModalRoot() {
+    for (const el of document.querySelectorAll('h1, h2, h3')) {
+        if (!/^send trade offer$/i.test((el.textContent || '').trim())) continue;
+        let node = el;
+        for (let i = 0; i < 24 && node; i++) {
+            const st = getComputedStyle(node);
+            const z = parseInt(st.zIndex, 10);
+            if (node.getAttribute('role') === 'dialog') return node;
+            if (st.position === 'fixed' && node.offsetWidth > 280) return node;
+            if (!Number.isNaN(z) && z >= 40 && node.offsetWidth > 280) return node;
+            node = node.parentElement;
+        }
     }
-    return false;
+    return null;
+}
+
+function isTradePickerModal() {
+    const root = findTradePickerModalRoot();
+    if (!root) return false;
+    const t = (root.innerText || '').slice(0, 1500);
+    return (/my items/i.test(t) && /their items/i.test(t))
+        || /select your items/i.test(t)
+        || /select their items/i.test(t)
+        || /trading with/i.test(t);
 }
 
 function isCreateOfferModal() {
-    for (const el of document.querySelectorAll('h1, h2, h3, h4, p, span')) {
-        const t = (el.textContent || '').trim();
-        if (/^create offer$/i.test(t)) return true;
+    for (const el of document.querySelectorAll('h1, h2, h3, h4')) {
+        if (!/^create offer$/i.test((el.textContent || '').trim())) continue;
+        let node = el;
+        for (let i = 0; i < 24 && node; i++) {
+            const st = getComputedStyle(node);
+            const z = parseInt(st.zIndex, 10);
+            if (node.getAttribute('role') === 'dialog') return true;
+            if (st.position === 'fixed' && node.offsetWidth > 280) return true;
+            if (!Number.isNaN(z) && z >= 40 && node.offsetWidth > 280) return true;
+            node = node.parentElement;
+        }
     }
     return false;
 }
 
 function isItemPickerModal() {
     return isTradePickerModal() || isCreateOfferModal();
+}
+
+function isPickerSkeletonCard(card) {
+    if (!isItemPickerModal()) return false;
+    let node = card;
+    for (let i = 0; i < 4 && node; i++) {
+        const cls = node.className || '';
+        if (/animate-pulse|skeleton/i.test(cls)) return true;
+        node = node.parentElement;
+    }
+    const img = card.querySelector('img');
+    if (!img) return true;
+    const r = img.getBoundingClientRect();
+    if (r.width > 0 && r.width < 6 && r.height > 0 && r.height < 6) return true;
+    return false;
 }
 function isTradeDetailView() {
     if (isTradePickerModal()) return false;
@@ -2180,14 +2257,123 @@ function getImgItemId(cardEl) {
     return null;
 }
 
+/** Card element inside a trade grid cell (may differ from the cell wrapper). */
+function getTradePickerCardEl(slot) {
+    if (!slot) return slot;
+    if (String(slot.className || '').includes('aspect-square')) return slot;
+    return slot.querySelector('[class*="aspect-square"][class*="rounded"]')
+        || slot.querySelector('[class*="aspect-square"]')
+        || slot;
+}
+
+function isTradeGridChild(el) {
+    if (!el || el.nodeType !== 1) return false;
+    if (el.id === 'csrx-browse') return false;
+    const cls = String(el.className || '');
+    if (cls.includes('aspect-square')) return true;
+    if (el.querySelector('[class*="aspect-square"]')) return true;
+    if (el.querySelector('img')) return true;
+    return false;
+}
+
+function findTradePickerGridContainer() {
+    const root = findTradePickerModalRoot();
+    if (!root) return null;
+    let best = null;
+    let bestScore = 0;
+    for (const el of root.querySelectorAll('div')) {
+        if (el.closest('#csrx-browse')) continue;
+        const kids = [...el.children].filter(isTradeGridChild);
+        if (kids.length < 4) continue;
+        const st = getComputedStyle(el);
+        let score = kids.length * 100;
+        if (st.display.includes('grid')) score += 500;
+        else if (st.display === 'flex') score += 200;
+        if (score > bestScore) {
+            bestScore = score;
+            best = el;
+        }
+    }
+    return best;
+}
+
 /** Empty grid slots in Send Trade Offer (no skin loaded yet). */
-function isEmptyPickerSlot(card) {
+function isEmptyPickerSlot(slot) {
     if (!isTradePickerModal()) return false;
-    if (getImgItemId(card) != null) return false;
-    if (getCardWear(card)) return false;
+    const card = getTradePickerCardEl(slot);
     const t = (card.textContent || '').replace(/\s+/g, ' ').trim();
-    if (/stattrak/i.test(t) || t.includes('|')) return false;
-    return t.length < 12;
+    if (!t || t.length < 3) return true;
+    if (card.querySelector('.csrx-card-wrap')) return false;
+    if (t.includes('|')) return false;
+    if (getCardWear(card)) return false;
+    if (/★/.test(t) && t.length > 5) return false;
+    if (/stattrak/i.test(t) && t.length > 8) return false;
+    const img = card.querySelector('img');
+    if (img) {
+        const r = img.getBoundingClientRect();
+        if (r.width > 16 && r.height > 16 && t.length > 6) return false;
+    }
+    if (getImgItemId(card) != null && t.length > 12) return false;
+    return t.length < 10;
+}
+
+function getTradePickerSlots() {
+    const grid = findTradePickerGridContainer();
+    if (grid) {
+        return [...grid.children].filter(ch =>
+            ch.nodeType === 1 && ch.id !== 'csrx-browse' && !ch.closest('#csrx-browse')
+        );
+    }
+    const root = findTradePickerModalRoot();
+    if (!root) return [];
+    const skip = '#csrx-browse, #csrx-win, #csrx-overlay, #csrx-fab, #csrx-toast';
+    const nodes = [...root.querySelectorAll('[class*="aspect-square"]')]
+        .filter(el => !el.closest(skip));
+    return nodes.filter(el => !nodes.some(other => other !== el && other.contains(el)));
+}
+
+function resetTradePickerBrowseClasses() {
+    const root = findTradePickerModalRoot();
+    if (!root) return;
+    for (const slot of getTradePickerSlots()) {
+        slot.classList.remove('csrx-browse-hidden', 'csrx-browse-slot-hidden');
+        slot.querySelectorAll('.csrx-browse-hidden, .csrx-browse-slot-hidden').forEach(el => {
+            el.classList.remove('csrx-browse-hidden', 'csrx-browse-slot-hidden');
+        });
+    }
+    root.querySelectorAll('.csrx-browse-hidden, .csrx-browse-slot-hidden').forEach(el => {
+        if (el.closest('#csrx-browse, #csrx-win, #csrx-overlay')) return;
+        el.classList.remove('csrx-browse-hidden', 'csrx-browse-slot-hidden');
+    });
+}
+
+function applyTradePickerBrowseFilters(f) {
+    resetTradePickerBrowseClasses();
+    const slots = getTradePickerSlots();
+    const realSlots = slots.filter(s => !isEmptyPickerSlot(s));
+    const cardEls = realSlots.map(getTradePickerCardEl);
+    const cache = getBrowseCache();
+    const itemMap = buildCardItemMap(cardEls, cache);
+
+    let visible = 0;
+    for (const slot of slots) {
+        if (isEmptyPickerSlot(slot)) {
+            slot.classList.add('csrx-browse-slot-hidden');
+            continue;
+        }
+        const card = getTradePickerCardEl(slot);
+        const pass = cardPassesBrowseFilters(card, itemMap.get(card), f);
+        if (!pass) slot.classList.add('csrx-browse-hidden');
+        else visible++;
+    }
+    return { visible, total: realSlots.length };
+}
+
+function hideTradePickerEmptySlots() {
+    if (!isTradePickerModal()) return;
+    for (const el of getTradePickerSlots()) {
+        if (isEmptyPickerSlot(el)) el.classList.add('csrx-browse-slot-hidden');
+    }
 }
 
 function getAllCards() {
@@ -2199,7 +2385,13 @@ function getAllCards() {
             .filter(c => !c.closest(skip) && c.querySelector('img'));
     }
     if (cards.length) {
-        return cards.filter(c => !cards.some(other => other !== c && other.contains(c)));
+        cards = cards.filter(c => !cards.some(other => other !== c && other.contains(c)));
+        if (isTradePickerModal()) {
+            const root = findTradePickerModalRoot();
+            if (root) cards = cards.filter(c => root.contains(c));
+            cards = cards.filter(c => !isPickerSkeletonCard(c));
+        }
+        return cards;
     }
     const selectors = [
         '[class*="aspect-square"][class*="rounded-2xl"][class*="flex-col"]',
@@ -2325,6 +2517,7 @@ function updateBrowseBarLayout() {
         bar.style.marginLeft = '';
         bar.style.width = '';
         bar.style.maxWidth = '';
+        repositionTradeBrowseBar();
     } else {
         const inset = measureSidebarInset();
         if (inset > 0) {
@@ -2338,7 +2531,82 @@ function updateBrowseBarLayout() {
     }
 }
 
+function findTradePickerItemsLabel() {
+    if (!isTradePickerModal()) return null;
+    const pattern = isTheirItemsTabActive()
+        ? /^select their items$/i
+        : /^select your items$/i;
+    const root = findTradePickerModalRoot();
+    const nodes = root
+        ? [...root.querySelectorAll('p, span, label, h4, h3')]
+        : [...document.querySelectorAll('p, span, label, h4, h3')];
+    for (const el of nodes) {
+        const t = (el.textContent || '').trim();
+        if (!pattern.test(t) || t.length > 48) continue;
+        return el;
+    }
+    return null;
+}
+
+function findTradePickerBrowseMount() {
+    const root = findTradePickerModalRoot();
+    if (!root) return null;
+    const label = findTradePickerItemsLabel();
+    if (!label || !root.contains(label)) return null;
+
+    const wrap = (label.closest('div') && root.contains(label.closest('div')))
+        ? label.closest('div')
+        : label;
+    return { mode: 'after', el: wrap };
+}
+
+function cleanupOrphanTradeBrowse() {
+    const bar = document.getElementById('csrx-browse');
+    if (!bar?.classList.contains('csrx-browse-trade')) return;
+    const root = findTradePickerModalRoot();
+    if (!isTradePickerModal() || !root || !root.contains(bar)) {
+        bar.remove();
+        browseToolsActive = false;
+    }
+}
+
+function isBarVisible(el) {
+    if (!el?.isConnected) return false;
+    const st = getComputedStyle(el);
+    if (st.display === 'none' || st.visibility === 'hidden') return false;
+    const r = el.getBoundingClientRect();
+    return r.width > 0 && r.height > 0;
+}
+
+function isTradeBrowseBarMisplaced() {
+    const bar = document.getElementById('csrx-browse');
+    if (!bar) return false;
+    if (!isBarVisible(bar)) return true;
+    const mount = findTradePickerBrowseMount();
+    if (!mount?.el) return false;
+    if (mount.mode === 'before') return mount.el.previousElementSibling !== bar;
+    return mount.el.nextElementSibling !== bar;
+}
+
+function repositionTradeBrowseBar() {
+    if (!isTradePickerModal()) return;
+    cleanupOrphanTradeBrowse();
+    const bar = document.getElementById('csrx-browse');
+    if (!bar) return;
+    const root = findTradePickerModalRoot();
+    const mount = findTradePickerBrowseMount();
+    if (!root || !mount?.el || !root.contains(mount.el)) return;
+    if (mount.mode === 'before') {
+        if (mount.el.previousElementSibling !== bar) {
+            mount.el.insertAdjacentElement('beforebegin', bar);
+        }
+    } else if (mount.el.nextElementSibling !== bar) {
+        mount.el.insertAdjacentElement('afterend', bar);
+    }
+}
+
 function findModalPickerBrowseMount() {
+    if (isTradePickerModal()) return findTradePickerBrowseMount();
     const cards = getAllCards();
     if (!cards.length) return null;
     const grid = getCardGridParent(cards);
@@ -2398,7 +2666,7 @@ function findMainItemGrid() {
 function isBrowseBarMisplaced() {
     const bar = document.getElementById('csrx-browse');
     if (!bar) return false;
-    if (isItemPickerModal()) return false;
+    if (isTradePickerModal()) return isTradeBrowseBarMisplaced();
     if (isInLeftNav(bar)) return true;
     const grid = findMainItemGrid();
     if (!grid) return false;
@@ -2454,6 +2722,7 @@ function scheduleBrowseInit() {
         }
         _browseInitAttempts = 0;
         updateBrowseBarLayout();
+        if (isTradePickerModal()) repositionTradeBrowseBar();
     }, _browseInitAttempts ? 400 : 0);
 }
 
@@ -2551,8 +2820,30 @@ function buildCardItemMap(cards, cache) {
     return map;
 }
 
+function getPickerGridContainer(cards) {
+    const counts = new Map();
+    for (const c of cards) {
+        let p = c.parentElement;
+        for (let i = 0; i < 10 && p; i++) {
+            counts.set(p, (counts.get(p) || 0) + 1);
+            p = p.parentElement;
+        }
+    }
+    const minCount = Math.max(3, Math.floor(cards.length * 0.4));
+    let best = null;
+    let bestN = 0;
+    for (const [p, n] of counts) {
+        if (n >= minCount && n > bestN) {
+            bestN = n;
+            best = p;
+        }
+    }
+    return best || cards[0].parentElement;
+}
+
 function getCardGridParent(cards) {
     if (!cards.length) return null;
+    if (isItemPickerModal()) return getPickerGridContainer(cards);
     let parent = cards[0].parentElement;
     for (let i = 0; i < 4 && parent; i++) {
         const childCards = [...parent.children].filter(ch =>
@@ -2615,6 +2906,8 @@ function applyBrowseFilters() {
     const bar = document.getElementById('csrx-browse');
     if (!bar || !isBrowsePage()) return;
 
+    if (isTradePickerModal()) repositionTradeBrowseBar();
+
     const f = readBrowseFilters();
     if (!f) return;
 
@@ -2629,6 +2922,18 @@ function applyBrowseFilters() {
     const itemMap = buildCardItemMap(cards, cache);
     const grid = getCardGridParent(cards);
     const mp = isMarketplacePage();
+
+    const tradePicker = isTradePickerModal();
+    if (tradePicker) {
+        const { visible: visCount, total } = applyTradePickerBrowseFilters(f);
+        const countEl = bar.querySelector('#csrx-browse-count');
+        if (countEl) {
+            countEl.textContent = visCount === total
+                ? `${total} items`
+                : `Showing ${visCount} of ${total} items`;
+        }
+        return;
+    }
 
     let visible = [];
     for (const card of cards) {
@@ -2666,18 +2971,35 @@ function clearBrowseFilters() {
     const bar = document.getElementById('csrx-browse');
     if (!bar) return;
     bar.querySelector('#csrx-browse-search').value = '';
-    bar.querySelector('#csrx-browse-rarity').value = '';
-    bar.querySelector('#csrx-browse-wear').value = '';
-    bar.querySelector('#csrx-browse-float').value = '';
+    const rar = bar.querySelector('#csrx-browse-rarity');
+    const wear = bar.querySelector('#csrx-browse-wear');
+    const flt = bar.querySelector('#csrx-browse-float');
+    if (rar) rar.value = '';
+    if (wear) wear.value = '';
+    if (flt) flt.value = '';
     const price = bar.querySelector('#csrx-browse-price');
     if (price) price.value = '';
+    if (isTradePickerModal()) resetTradePickerBrowseClasses();
     applyBrowseFilters();
 }
 
 function buildBrowseBar() {
     const mp = isMarketplacePage();
+    const tradeCompact = isTradePickerModal();
     const wrap = document.createElement('div');
     wrap.id = 'csrx-browse';
+
+    if (tradeCompact) {
+        wrap.innerHTML = `
+<div class="csrx-browse-row">
+    <input id="csrx-browse-search" type="search" placeholder="Search weapon or skin…" autocomplete="off" spellcheck="false">
+    <button type="button" id="csrx-browse-clear">Clear</button>
+</div>
+<div id="csrx-browse-count"></div>`;
+        wrap.querySelector('#csrx-browse-search').addEventListener('input', scheduleBrowseFilters);
+        wrap.querySelector('#csrx-browse-clear').addEventListener('click', clearBrowseFilters);
+        return wrap;
+    }
 
     const rarityOpts = ['<option value="">All rarities</option>']
         .concat(rarityEntries().map(([k, v]) =>
@@ -2726,6 +3048,7 @@ function buildBrowseBar() {
 
 function initBrowseTools() {
     if (!isBrowsePage()) return;
+    const prevSearch = document.getElementById('csrx-browse-search')?.value || '';
     if (document.getElementById('csrx-browse')) {
         if (!isBrowseBarMisplaced()) return;
         document.getElementById('csrx-browse').remove();
@@ -2733,7 +3056,15 @@ function initBrowseTools() {
     }
     const mount = findBrowseMountPoint();
     if (!mount?.el) return;
+    if (isTradePickerModal()) {
+        const root = findTradePickerModalRoot();
+        if (!root || !root.contains(mount.el)) return;
+    }
     const bar = buildBrowseBar();
+    if (prevSearch) {
+        const inp = bar.querySelector('#csrx-browse-search');
+        if (inp) inp.value = prevSearch;
+    }
     if (mount.mode === 'before') {
         mount.el.insertAdjacentElement('beforebegin', bar);
     } else {
@@ -2748,13 +3079,14 @@ function stopBrowseTools() {
     browseToolsActive = false;
     clearTimeout(browseDebounce);
     clearTimeout(browseInitTimer);
+    if (isTradePickerModal()) resetTradePickerBrowseClasses();
     document.getElementById('csrx-browse')?.remove();
     getAllCards().forEach(c => {
         c.classList.remove('csrx-browse-hidden', 'csrx-browse-slot-hidden');
         delete c.dataset.csrxOrder;
     });
-    document.querySelectorAll('.csrx-browse-slot-hidden').forEach(c => {
-        c.classList.remove('csrx-browse-slot-hidden');
+    document.querySelectorAll('.csrx-browse-slot-hidden, .csrx-browse-hidden').forEach(c => {
+        c.classList.remove('csrx-browse-slot-hidden', 'csrx-browse-hidden');
     });
 }
 
@@ -2807,6 +3139,7 @@ function applyOverlaysToAll(opts) {
     } finally {
         _currentOverlayCards = null;
     }
+    if (isTradePickerModal()) hideTradePickerEmptySlots();
 }
 
 async function startAlwaysOnOverlay() {
@@ -2850,6 +3183,7 @@ function stopAlwaysOnOverlay() {
 }
 
 function checkPageAndRun() {
+    cleanupOrphanTradeBrowse();
     const onOverlay = isOverlayPage();
     const onBrowse  = isBrowsePage();
     const kind = isMarketplacePage() ? 'mp'
@@ -2879,6 +3213,16 @@ function checkPageAndRun() {
     if (overlayRunning && overlayPageKind !== kind) stopAlwaysOnOverlay();
 
     const pickerOpen = isItemPickerModal();
+    if (pickerOpen && isTradePickerModal()) {
+        const their = isTheirItemsTabActive();
+        if (_lastTradeTheirTab !== null && _lastTradeTheirTab !== their) {
+            resetTradePickerBrowseOnTabSwitch();
+            scheduleBrowseInit();
+        }
+        _lastTradeTheirTab = their;
+    } else if (!pickerOpen) {
+        _lastTradeTheirTab = null;
+    }
     if (pickerOpen && !_tradeModalWasOpen) {
         if (overlayRunning) scheduleOverlayBootstrap();
         scheduleBrowseInit();
@@ -2905,9 +3249,10 @@ setInterval(checkPageAndRun, 1500);
 document.addEventListener('click', e => {
     const t = e.target?.textContent?.trim() || '';
     if (/^(my items|their items)$/i.test(t) && isItemPickerModal()) {
+        resetTradePickerBrowseOnTabSwitch();
         scheduleApplyOverlays(true);
         scheduleOverlayBootstrap();
-        scheduleBrowseInit();
+        setTimeout(scheduleBrowseInit, 50);
     }
 }, true);
 
@@ -2984,13 +3329,7 @@ win.innerHTML = `
         <div class="csrx-section">Global</div>
         <div style="display:flex;flex-direction:column;gap:7px;">
             <select id="csrx-rar" class="csrx-sel">
-                <option value="1">Consumer Grade</option>
-                <option value="2">Industrial Grade</option>
-                <option value="3">Mil-Spec</option>
-                <option value="4">Restricted</option>
-                <option value="5">Classified</option>
-                <option value="6">Covert / Knives</option>
-                <option value="7">Contraband</option>
+                ${rarityEntries().map(([k, v]) => `<option value="${k}">${v.name}</option>`).join('')}
             </select>
             <button id="csrx-massbtn" class="csrx-btn csrx-btn-danger">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">

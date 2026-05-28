@@ -4,7 +4,7 @@ Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.f
 
 Works in **Firefox**, **Microsoft Edge**, and **Chromium** browsers (Manifest V3).
 
-**Current version:** `3.1.7` (on branch `fix/extension-UI-bugs`)
+**Current version:** `3.1.15` (on branch `develop`)
 
 **Repository:** [github.com/smelbravo/CS-Restored-Inventory-Helper](https://github.com/smelbravo/CS-Restored-Inventory-Helper)
 
@@ -28,7 +28,7 @@ Shows **wear abbreviation** (FN, MW, FT, WW, BS), **float value** (e.g. `0.1962`
 | **Inventory** | `/app/inventory` | Badges in the bottom-right corner of each card |
 | **Marketplace** | `/app/inventory/marketplace` | Badges below the price (top-right) |
 | **Trade views** | `/app/play`, `/app/inventory/trade-up` | Float/seed for **your** items when inventory data is available |
-| **Send Trade Offer** | Modal on site | Float/seed + search/filters on item grid; **Their Items** depends on site API (see limitations) |
+| **Send Trade Offer** | Modal on site | Search on item grid (My Items / Their Items); filters on Inventory, Marketplace, Create Offer; **Their Items** float/seed depends on site API (see limitations) |
 
 Data is matched by offer ID, skin image, wear, StatTrak, and name. The extension reads data from the site's own API responses in your browser session — it does not send data to external servers or spam duplicate API calls.
 
@@ -39,13 +39,13 @@ Horizontal bar above the item grid (same layout on both pages):
 | Control | Inventory | Marketplace |
 |---------|-----------|---------------|
 | **Search** | Weapon or skin name | Weapon or skin name (uses API `item_name`) |
-| **Rarity** | Consumer → Contraband | Same |
+| **Rarity** | Consumer → Covert / Knives / Gloves → Contraband | Same |
 | **Wear** | FN, MW, FT, WW, BS | Same |
 | **Float order** | Low → High / High → Low | Same |
 | **Price order** | — | Cheapest / Most expensive (coins) |
 | **Clear** | Reset all filters | Reset all filters |
 
-- Filters can be **combined** (e.g. Covert + FN + Cheapest + Float Low→High on marketplace)
+- Filters can be **combined** (e.g. Covert / Knives / Gloves + FN + Cheapest + Float Low→High on marketplace)
 - Shows `Showing X of Y items` when filters hide cards
 - Sorting reorders the visible grid without reloading the page
 
@@ -75,6 +75,15 @@ When you open **Review & Sell**, the **Confirm Sale** modal shows each verified 
 **List on Market** uses `POST /inventory/marketplace/add` with `{ weapon_id, price }`. If listing fails the first time, list one item manually on the site once — the extension learns the exact API body from that request for the rest of the session.
 
 **Quick sell prices** use the same formula as the site (rarity base price × float factor; StatTrak ×1.5). No need to open each skin in Weapon Details first.
+
+### Search in Send Trade Offer (v3.1.7+)
+
+Compact **search bar** inside the trade modal (My Items and Their Items):
+
+- Search by weapon or skin name; **Clear** resets the grid
+- Switching **My Items ↔ Their Items** clears the search automatically
+- Empty inventory slots are hidden; filtered items collapse without empty grid squares
+- Full rarity/wear/float filters remain on Inventory, Marketplace, and Create Offer
 
 ## Trade overlay behaviour
 
@@ -142,6 +151,41 @@ When you open **Review & Sell**, the **Confirm Sale** modal shows each verified 
 | `develop` | Active development |
 
 ## Changelog
+
+### v3.1.15
+
+- **Fix:** Send Trade Offer — search clears when switching My Items ↔ Their Items
+
+### v3.1.14
+
+- **Fix:** trade search hides entire grid cells (not just skin icons); no empty squares when filtering
+
+### v3.1.13
+
+- **Fix:** trade picker filter targets outer grid slots; **Clear** restores full inventory
+
+### v3.1.12
+
+- **Fix:** Send Trade Offer modal detection — no giant search bar on Trades page after picking a friend
+
+### v3.1.11
+
+- **Fix:** trade search bar stays under “Select Your/Their Items” on both tabs
+
+### v3.1.10
+
+- **UI:** wider rarity dropdown for **Covert / Knives / Gloves**
+
+### v3.1.9
+
+- **UI:** rarity label **Covert / Knives / Gloves** in all filters and Quick Sell panel
+
+### v3.1.8
+
+- **Fix:** Send Trade Offer — compact search bar under “Select Your Items” (no grid break / skeleton rows)
+- **Fix:** trade picker no longer reorders DOM cards (React layout stays intact)
+- **Fix:** empty inventory slots hidden more reliably in Send Trade Offer
+- **Note:** Send Trade Offer uses search only (filters stay on Inventory, Marketplace, Create Offer)
 
 ### v3.1.7
 
@@ -341,7 +385,7 @@ https://github.com/smelbravo/CS-Restored-Inventory-Helper
 ### Notes for reviewer (private)
 
 ```
-Extension: CS:Restored Inventory Helper (v3.0.9)
+Extension: CS:Restored Inventory Helper (v3.1.15)
 Works only on https://csrestored.fun when logged in.
 
 Site requirements (enforced by CS:Restored, not the extension):
@@ -358,9 +402,9 @@ How to test:
    - Badges below the price on each listing
    - Same search/filter bar; try searching "M4A4", filters for rarity/wear, price and float sort
 4. Send Trade Offer (site modal):
-   - Open the Send Trade Offer modal
-   - My Items: float/seed should appear without switching tabs
-   - Their Items: depends on the site API (may not have float/seed)
+   - Open Send Trade Offer → pick a friend → modal opens normally
+   - My Items / Their Items: compact search under “Select … Items”; Clear resets; tab switch clears search
+   - Float/seed on My Items; Their Items depends on site API
 5. Play → Trades (/app/play): open a trade — float/seed on your own items when the site API provides them (other players' items may not show float/seed until the site exposes those fields).
 
 Large inventories:
