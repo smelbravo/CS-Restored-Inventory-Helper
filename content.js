@@ -53,6 +53,29 @@ function formatCoins(n) {
     return Number(n).toLocaleString('en-US') + ' coins';
 }
 
+const MAX_MARKET_PRICE_COINS = 999999;
+
+function parseMarketPriceInput(raw) {
+    const s = String(raw ?? '').replace(/,/g, '').trim();
+    if (!s) return null;
+    const n = parseInt(s, 10);
+    if (!Number.isFinite(n) || n < 1) return null;
+    return Math.min(n, MAX_MARKET_PRICE_COINS);
+}
+
+function clampMarketPriceInput(inp) {
+    if (!inp) return null;
+    const raw = String(inp.value ?? '').replace(/,/g, '').trim();
+    if (!raw) return null;
+    const n = parseInt(raw, 10);
+    if (!Number.isFinite(n) || n < 1) return null;
+    if (n > MAX_MARKET_PRICE_COINS) {
+        inp.value = String(MAX_MARKET_PRICE_COINS);
+        return MAX_MARKET_PRICE_COINS;
+    }
+    return n;
+}
+
 const quickSellByWeaponId = new Map();
 let cachedSiteUserId = null;
 let _qsDomObs = null;
@@ -321,9 +344,10 @@ function saveMarketListFromRequest(url, method, bodyRaw) {
 }
 
 function buildMarketListPayload(wid, price) {
+    const p = Math.min(Math.max(1, parseInt(price, 10) || 0), MAX_MARKET_PRICE_COINS);
     let tpl = null;
     try { tpl = JSON.parse(sessionStorage.getItem('csrx_mp_list_body') || 'null'); } catch (_) {}
-    if (!tpl || typeof tpl !== 'object') return { weapon_id: wid, price };
+    if (!tpl || typeof tpl !== 'object') return { weapon_id: wid, price: p };
 
     const body = JSON.parse(JSON.stringify(tpl));
     const walk = (obj) => {
@@ -332,17 +356,23 @@ function buildMarketListPayload(wid, price) {
             const lk = k.toLowerCase();
             if ((lk === 'weapon_id' || lk === 'weaponid' || lk === 'skin_id') && typeof obj[k] === 'number') {
                 obj[k] = wid;
-            } else if (/price|coins|amount|cost/.test(lk) && typeof obj[k] === 'number') {
-                obj[k] = price;
+            } else if (
+                (lk === 'price' || lk === 'price_coins' || lk === 'list_price' || lk === 'market_price')
+                && typeof obj[k] === 'number'
+            ) {
+                obj[k] = p;
+            } else if (/quick|instant|sell|vendor|scrap/i.test(lk) && typeof obj[k] === 'number') {
+                delete obj[k];
             } else if (typeof obj[k] === 'object') {
                 walk(obj[k]);
             }
         }
     };
     walk(body);
-    if ('weapon_id' in body) body.weapon_id = wid;
-    if ('price' in body) body.price = price;
-    if ('coins' in body) body.coins = price;
+    body.weapon_id = wid;
+    body.price = p;
+    if ('price_coins' in body) body.price_coins = p;
+    if ('coins' in body && !('price' in tpl)) body.coins = p;
     return body;
 }
 
@@ -1239,9 +1269,15 @@ input[type=range].csrx-range:hover::-moz-range-thumb { transform: scale(1.2); }
     overflow: hidden;
 }
 #csrx-browse.csrx-browse-trade {
+    margin: 6px 0 10px !important;
     margin-left: 0 !important;
     width: 100% !important;
     max-width: 100%;
+    padding: 0 2px;
+    box-sizing: border-box;
+}
+#csrx-browse.csrx-browse-trade .csrx-browse-row {
+    gap: 5px;
 }
 .csrx-browse-row {
     display: flex;
@@ -1327,6 +1363,7 @@ input[type=range].csrx-range:hover::-moz-range-thumb { transform: scale(1.2); }
     color: #666;
 }
 .csrx-browse-hidden { display: none !important; }
+.csrx-browse-slot-hidden { display: none !important; }
 `;
 document.head.appendChild(S);
 
@@ -2128,13 +2165,23 @@ function getImgItemId(cardEl) {
     return null;
 }
 
+function isRealSkinCard(card) {
+    if (!card) return false;
+    const img = card.querySelector('img');
+    if (!img?.src) return false;
+    if (!/skins\/\d+\.png/i.test(img.src) && !/item_id|weapon/i.test(img.src)) return false;
+    const t = (card.textContent || '').replace(/\s+/g, ' ').trim();
+    if (t.length < 4) return false;
+    return true;
+}
+
 function getAllCards() {
     const skip = '#csrx-win, #csrx-overlay, #csrx-fab, #csrx-toast';
     let cards = [...document.querySelectorAll('[class*="aspect-square"][class*="rounded-2xl"]')]
-        .filter(c => !c.closest(skip) && c.querySelector('img'));
+        .filter(c => !c.closest(skip) && c.querySelector('img') && isRealSkinCard(c));
     if (!cards.length) {
         cards = [...document.querySelectorAll('[class*="aspect-square"][class*="rounded-xl"]')]
-            .filter(c => !c.closest(skip) && c.querySelector('img'));
+            .filter(c => !c.closest(skip) && c.querySelector('img') && isRealSkinCard(c));
     }
     if (cards.length) {
         return cards.filter(c => !cards.some(other => other !== c && other.contains(c)));
@@ -2278,16 +2325,14 @@ function updateBrowseBarLayout() {
 
 function findTradePickerBrowseMount() {
     const cards = getAllCards();
-    const grid = cards.length ? getCardGridParent(cards) : null;
+    if (!cards.length) return null;
+    const grid = getCardGridParent(cards);
     if (!grid) return null;
-    for (const el of document.querySelectorAll('p, span, label, div')) {
+    for (const el of document.querySelectorAll('p, span, label')) {
         const t = (el.textContent || '').trim();
         if (!/^select your items$/i.test(t)) continue;
-        let node = el;
-        for (let i = 0; i < 10 && node; i++) {
-            if (node.contains(grid)) return { mode: 'before', el: grid };
-            node = node.parentElement;
-        }
+        const host = el.closest('div, section');
+        if (host && host.contains(grid)) return { mode: 'before', el: grid };
     }
     return { mode: 'before', el: grid };
 }
@@ -2576,6 +2621,11 @@ function applyBrowseFilters() {
 
     let visible = [];
     for (const card of cards) {
+        if (!isRealSkinCard(card)) {
+            card.classList.add('csrx-browse-slot-hidden');
+            continue;
+        }
+        card.classList.remove('csrx-browse-slot-hidden');
         const item = itemMap.get(card);
         const pass = cardPassesBrowseFilters(card, item, f);
         card.classList.toggle('csrx-browse-hidden', !pass);
@@ -2689,8 +2739,11 @@ function stopBrowseTools() {
     clearTimeout(browseInitTimer);
     document.getElementById('csrx-browse')?.remove();
     getAllCards().forEach(c => {
-        c.classList.remove('csrx-browse-hidden');
+        c.classList.remove('csrx-browse-hidden', 'csrx-browse-slot-hidden');
         delete c.dataset.csrxOrder;
+    });
+    document.querySelectorAll('.csrx-browse-slot-hidden').forEach(c => {
+        c.classList.remove('csrx-browse-slot-hidden');
     });
 }
 
@@ -3097,7 +3150,10 @@ async function apiSell(wid) {
 
 async function apiListOnMarket(weaponId, priceCoins) {
     const wid = parseInt(weaponId, 10);
-    const price = parseInt(String(priceCoins).replace(/[^\d]/g, ''), 10);
+    const price = Math.min(
+        parseInt(String(priceCoins).replace(/[^\d]/g, ''), 10) || 0,
+        MAX_MARKET_PRICE_COINS
+    );
     if (!wid || !price || price < 1) return { ok: false };
 
     let storedUrl = null;
@@ -3111,9 +3167,8 @@ async function apiListOnMarket(weaponId, priceCoins) {
     ].filter(Boolean))];
 
     const payloads = [...new Set([
-        JSON.stringify(buildMarketListPayload(wid, price)),
         JSON.stringify({ weapon_id: wid, price }),
-        JSON.stringify({ weapon_id: wid, coins: price }),
+        JSON.stringify(buildMarketListPayload(wid, price)),
         JSON.stringify({ weapon_id: wid, price_coins: price }),
     ])].map(s => JSON.parse(s));
 
@@ -3346,13 +3401,16 @@ function buildMC(entry) {
         priceBlock.appendChild(mLbl);
         const mRow=document.createElement('div');mRow.className='mc-market-row';
         const mInp=document.createElement('input');
-        mInp.type='number';
-        mInp.min='1';
-        mInp.step='1';
+        mInp.type='text';
+        mInp.inputMode='numeric';
+        mInp.pattern='[0-9,]*';
         mInp.className='mc-market-price';
         mInp.placeholder='Enter price…';
         mInp.value='';
-        mInp.inputMode='numeric';
+        mInp.setAttribute('maxlength', '9');
+        mInp.title=`Max ${MAX_MARKET_PRICE_COINS.toLocaleString('en-US')} coins`;
+        mInp.addEventListener('input', () => clampMarketPriceInput(mInp));
+        mInp.addEventListener('blur', () => clampMarketPriceInput(mInp));
         mRow.appendChild(mInp);
         mRow.appendChild(rm);
         priceBlock.appendChild(mRow);
@@ -3516,17 +3574,26 @@ async function runListOnMarket(toList) {
 function collectMarketListItems() {
     const toList = [];
     let missing = 0;
+    let overMax = 0;
     getConfirmedModalItems().forEach(({ item, cardEl, wrapEl }) => {
         const inp = wrapEl.querySelector('.mc-market-price');
-        const price = parseInt(inp?.value, 10);
-        if (!price || price < 1) {
+        const raw = String(inp?.value ?? '').replace(/,/g, '').trim();
+        const entered = parseInt(raw, 10);
+        if (entered > MAX_MARKET_PRICE_COINS) {
+            overMax++;
+            if (inp) inp.value = String(MAX_MARKET_PRICE_COINS);
+            inp?.focus();
+            return;
+        }
+        const price = parseMarketPriceInput(inp?.value);
+        if (!price) {
             missing++;
             inp?.focus();
             return;
         }
         toList.push({ item, price, cardEl, wrapEl });
     });
-    return { toList, missing };
+    return { toList, missing, overMax };
 }
 
 document.getElementById('csrx-mquick').addEventListener('click', async () => {
@@ -3545,7 +3612,11 @@ document.getElementById('csrx-mquick').addEventListener('click', async () => {
 
 document.getElementById('csrx-mlist').addEventListener('click', async () => {
     if (selling) return;
-    const { toList, missing } = collectMarketListItems();
+    const { toList, missing, overMax } = collectMarketListItems();
+    if (overMax > 0) {
+        toast(`Market price cannot exceed ${MAX_MARKET_PRICE_COINS.toLocaleString('en-US')} coins`, 'warn');
+        return;
+    }
     if (missing > 0) {
         toast('Enter a market price (coins) for each item', 'warn');
         return;
