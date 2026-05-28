@@ -4,7 +4,7 @@ Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.f
 
 Works in **Firefox**, **Microsoft Edge**, and **Chromium** browsers (Manifest V3).
 
-**Current version:** `3.1.4` (on branch `fix/extension-UI-bugs`)
+**Current version:** `3.1.5` (on branch `fix/extension-UI-bugs`)
 
 **Repository:** [github.com/smelbravo/CS-Restored-Inventory-Helper](https://github.com/smelbravo/CS-Restored-Inventory-Helper)
 
@@ -142,6 +142,11 @@ When you open **Review & Sell**, the **Confirm Sale** modal shows each verified 
 | `develop` | Active development |
 
 ## Changelog
+
+### v3.1.5
+
+- **UI:** smaller search bar and filters; sidebar offset only when nav is expanded
+- **UI:** Confirm Sale market price input empty by default; remove (×) beside input
 
 ### v3.1.4
 

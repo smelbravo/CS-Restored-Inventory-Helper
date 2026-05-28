@@ -972,13 +972,12 @@ input[type=range].csrx-range:hover::-moz-range-thumb { transform: scale(1.2); }
     z-index: 6;
 }
 
-.mc-price-head {
+.mc-market-row {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: 6px;
 }
-.mc-price-head .mc-market-lbl { flex: 1; min-width: 0; }
+.mc-market-row .mc-market-price { flex: 1; min-width: 0; }
 
 .mc-body { padding: 0 9px 9px; display: flex; flex-direction: column; flex: 1; }
 
@@ -1248,21 +1247,28 @@ input[type=range].csrx-range:hover::-moz-range-thumb { transform: scale(1.2); }
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 10px;
+    gap: 6px;
     width: 100%;
 }
 #csrx-browse-search {
-    flex: 1 1 220px;
-    min-width: 180px;
-    max-width: 420px;
-    height: 36px;
-    padding: 0 12px 0 36px;
-    border-radius: 8px;
+    flex: 1 1 160px;
+    min-width: 120px;
+    max-width: 280px;
+    height: 32px;
+    padding: 0 10px 0 32px;
+    border-radius: 7px;
     border: 1px solid #2a2a2a;
-    background: #111 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%23666' stroke-width='2'%3E%3Ccircle cx='6' cy='6' r='4'/%3E%3Cpath d='M9 9l3 3'/%3E%3C/svg%3E") 12px center no-repeat;
+    background: #111 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%23666' stroke-width='2'%3E%3Ccircle cx='5' cy='5' r='3.5'/%3E%3Cpath d='M8 8l2.5 2.5'/%3E%3C/svg%3E") 10px center no-repeat;
     color: #fff;
-    font-size: 13px;
+    font-size: 12px;
     outline: none;
+}
+#csrx-browse.csrx-browse-trade #csrx-browse-search {
+    flex: 1 1 120px;
+    min-width: 100px;
+    max-width: 100%;
+    height: 30px;
+    font-size: 11px;
 }
 #csrx-browse-search:focus { border-color: #ef4444; }
 #csrx-browse-search::placeholder { color: #555; }
@@ -1270,18 +1276,19 @@ input[type=range].csrx-range:hover::-moz-range-thumb { transform: scale(1.2); }
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     margin-left: auto;
     flex: 0 1 auto;
 }
 .csrx-browse-filters select {
-    height: 36px;
-    padding: 0 28px 0 10px;
-    border-radius: 8px;
+    height: 32px;
+    max-width: 118px;
+    padding: 0 24px 0 8px;
+    border-radius: 7px;
     border: 1px solid #2a2a2a;
     background: #111;
     color: #ddd;
-    font-size: 12px;
+    font-size: 11px;
     font-family: 'Inter', sans-serif;
     cursor: pointer;
     outline: none;
@@ -1291,21 +1298,32 @@ input[type=range].csrx-range:hover::-moz-range-thumb { transform: scale(1.2); }
     background-position: right 10px center;
 }
 .csrx-browse-filters select:focus { border-color: #ef4444; }
+#csrx-browse.csrx-browse-trade .csrx-browse-filters select {
+    height: 30px;
+    max-width: 100px;
+    font-size: 10px;
+    padding: 0 20px 0 6px;
+}
 #csrx-browse-clear {
-    height: 36px;
-    padding: 0 12px;
-    border-radius: 8px;
+    height: 32px;
+    padding: 0 10px;
+    border-radius: 7px;
     border: 1px solid #2a2a2a;
     background: transparent;
     color: #888;
-    font-size: 12px;
+    font-size: 11px;
     font-family: 'Inter', sans-serif;
     cursor: pointer;
 }
 #csrx-browse-clear:hover { color: #fff; border-color: #444; }
+#csrx-browse.csrx-browse-trade #csrx-browse-clear {
+    height: 30px;
+    font-size: 10px;
+    padding: 0 8px;
+}
 #csrx-browse-count {
-    margin-top: 8px;
-    font-size: 11px;
+    margin-top: 6px;
+    font-size: 10px;
     color: #666;
 }
 .csrx-browse-hidden { display: none !important; }
@@ -2203,15 +2221,17 @@ function isBrowsePage() {
     return isInventoryPage() || isMarketplacePage() || isTradePickerModal();
 }
 
+/** Sidebar inset only when the left nav is expanded (wide), not the collapsed icon rail. */
 function measureSidebarInset() {
+    if (!isInventoryPage() && !isMarketplacePage()) return 0;
     let inset = 0;
     for (const el of document.querySelectorAll('aside, nav, div')) {
         const r = el.getBoundingClientRect();
         if (r.left > 12) continue;
-        if (r.width < 48 || r.width > 380) continue;
+        if (r.width < 130 || r.width > 380) continue;
         if (r.height < window.innerHeight * 0.35) continue;
         const t = (el.innerText || '').toLowerCase();
-        if (!t.includes('matchmaking') && !t.includes('leaderboard')) continue;
+        if (!t.includes('matchmaking') || !t.includes('inventory')) continue;
         if (t.length > 400) continue;
         inset = Math.max(inset, Math.round(r.right));
     }
@@ -2241,11 +2261,18 @@ function updateBrowseBarLayout() {
     bar.classList.toggle('csrx-browse-under-modal', !trade && isWeaponDetailsOpen());
     if (trade) {
         bar.style.marginLeft = '';
-        bar.style.width = '100%';
+        bar.style.width = '';
+        bar.style.maxWidth = '';
     } else {
         const inset = measureSidebarInset();
-        bar.style.marginLeft = inset > 0 ? `${inset}px` : '';
-        bar.style.width = inset > 0 ? `calc(100% - ${inset}px)` : '100%';
+        if (inset > 0) {
+            bar.style.marginLeft = `${inset}px`;
+            bar.style.width = `calc(100% - ${inset}px)`;
+        } else {
+            bar.style.marginLeft = '';
+            bar.style.width = '';
+        }
+        bar.style.maxWidth = '';
     }
 }
 
@@ -3315,21 +3342,20 @@ function buildMC(entry) {
         rm.title='Remove from sale list';
         rm.innerHTML=`<svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
 
-        const priceHead=document.createElement('div');priceHead.className='mc-price-head';
         const mLbl=document.createElement('div');mLbl.className='mc-market-lbl';mLbl.textContent='Market price (coins)';
-        priceHead.appendChild(mLbl);
-        priceHead.appendChild(rm);
-        priceBlock.appendChild(priceHead);
+        priceBlock.appendChild(mLbl);
+        const mRow=document.createElement('div');mRow.className='mc-market-row';
         const mInp=document.createElement('input');
         mInp.type='number';
         mInp.min='1';
         mInp.step='1';
         mInp.className='mc-market-price';
         mInp.placeholder='Enter price…';
+        mInp.value='';
         mInp.inputMode='numeric';
-        const suggested=getSuggestedMarketPrice(item);
-        if(suggested!=null)mInp.value=String(suggested);
-        priceBlock.appendChild(mInp);
+        mRow.appendChild(mInp);
+        mRow.appendChild(rm);
+        priceBlock.appendChild(mRow);
         body.appendChild(priceBlock);
 
         if(item.stattrak){const st=document.createElement('div');st.className='mc-st';st.textContent=`StatTrak™ ${item.stattrak_count??''}`;body.appendChild(st);}
