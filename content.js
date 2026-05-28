@@ -1340,6 +1340,10 @@ input[type=range].csrx-range:hover::-moz-range-thumb { transform: scale(1.2); }
     min-width: 178px;
     max-width: 198px;
 }
+#csrx-browse-float {
+    min-width: 148px;
+    max-width: 162px;
+}
 #csrx-browse.csrx-browse-trade .csrx-browse-filters select {
     height: 30px;
     max-width: 100px;

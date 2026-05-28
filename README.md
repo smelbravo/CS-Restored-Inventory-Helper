@@ -4,7 +4,7 @@ Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.f
 
 Works in **Firefox**, **Microsoft Edge**, and **Chromium** browsers (Manifest V3).
 
-**Current version:** `3.1.15` (on branch `develop`)
+**Current version:** `3.1.16` (on branch `main`)
 
 **Repository:** [github.com/smelbravo/CS-Restored-Inventory-Helper](https://github.com/smelbravo/CS-Restored-Inventory-Helper)
 
@@ -151,6 +151,10 @@ Compact **search bar** inside the trade modal (My Items and Their Items):
 | `develop` | Active development |
 
 ## Changelog
+
+### v3.1.16
+
+- **UI:** wider float sort dropdown — full **Float: Low → High** label visible
 
 ### v3.1.15
 
@@ -385,7 +389,7 @@ https://github.com/smelbravo/CS-Restored-Inventory-Helper
 ### Notes for reviewer (private)
 
 ```
-Extension: CS:Restored Inventory Helper (v3.1.15)
+Extension: CS:Restored Inventory Helper (v3.1.16)
 Works only on https://csrestored.fun when logged in.
 
 Site requirements (enforced by CS:Restored, not the extension):
