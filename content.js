@@ -3,6 +3,7 @@
 
 const MP_API_RE = /api\.csrestored\.fun\/.*(marketplace|\/offers)/i;
 const MP_API_URL = 'https://api.csrestored.fun/inventory/marketplace/';
+const MP_ADD_URL = 'https://api.csrestored.fun/inventory/marketplace/add';
 const TRADE_API_RE = /api\.csrestored\.fun\/(?:api\/)?trades\b/i;
 
 const RARITY = {
@@ -52,19 +53,51 @@ function formatCoins(n) {
     return Number(n).toLocaleString('en-US') + ' coins';
 }
 
-function getQuickSellPrice(item) {
-    if (!item) return null;
-    if (item._csrxQuickSell != null) return item._csrxQuickSell;
+const quickSellByWeaponId = new Map();
+
+function extractQuickSellFromItem(item) {
+    if (!item || typeof item !== 'object') return null;
     const keys = [
         'quick_sell_price', 'quick_sell', 'insta_sell_price', 'insta_sell',
         'instant_sell_price', 'instant_sell', 'sell_price', 'sell_value',
         'quicksell_price', 'vendor_price', 'scrap_value', 'base_sell_price',
+        'sell_coins', 'coins_sell', 'insta_sell_coins', 'quick_sell_coins',
+        'sell_amount', 'vendor_coins', 'scrap_coins', 'coins_received',
     ];
     for (const k of keys) {
         const p = parseCoinVal(item[k]);
         if (p != null) return p;
     }
+    const stack = [item];
+    while (stack.length) {
+        const o = stack.pop();
+        if (!o || typeof o !== 'object') continue;
+        for (const [k, v] of Object.entries(o)) {
+            if (v && typeof v === 'object') stack.push(v);
+            else if (/sell|vendor|scrap|instant|quick/i.test(k)) {
+                const p = parseCoinVal(v);
+                if (p != null) return p;
+            }
+        }
+    }
     return null;
+}
+
+function cacheQuickSellFromInventory(arr) {
+    if (!Array.isArray(arr)) return;
+    for (const raw of arr) {
+        const p = extractQuickSellFromItem(raw);
+        const wid = raw?.weapon_id != null ? parseInt(raw.weapon_id, 10) : null;
+        if (wid && p != null) quickSellByWeaponId.set(wid, p);
+    }
+}
+
+function getQuickSellPrice(item) {
+    if (!item) return null;
+    if (item._csrxQuickSell != null) return item._csrxQuickSell;
+    const wid = item.weapon_id != null ? parseInt(item.weapon_id, 10) : null;
+    if (wid && quickSellByWeaponId.has(wid)) return quickSellByWeaponId.get(wid);
+    return extractQuickSellFromItem(item);
 }
 
 function getSuggestedMarketPrice(item) {
@@ -78,23 +111,53 @@ function getSuggestedMarketPrice(item) {
     return qs != null ? Math.max(1, Math.round(qs * 1.15)) : null;
 }
 
-function getStoredMarketListUrl(weaponId) {
+function parseRequestBody(bodyRaw) {
+    if (bodyRaw == null) return null;
     try {
-        const tpl = sessionStorage.getItem('csrx_mp_list_url');
-        if (tpl) return tpl.replace('{id}', String(weaponId));
+        if (typeof bodyRaw === 'string') return JSON.parse(bodyRaw);
+        if (typeof bodyRaw === 'object') return bodyRaw;
     } catch (_) {}
     return null;
 }
 
-function noteMarketListEndpoint(url, method) {
+function saveMarketListFromRequest(url, method, bodyRaw) {
     if (!url?.includes('api.csrestored.fun')) return;
     if ((method || 'GET').toUpperCase() !== 'POST') return;
     if (/\/inventory\/sell\//i.test(url) && !/marketplace/i.test(url)) return;
-    if (!/marketplace|\/list|\/offer/i.test(url)) return;
+    const isMpAdd = /\/marketplace\/add\/?$/i.test(url) || (/\/marketplace/i.test(url) && /\/add/i.test(url));
+    if (!isMpAdd && !/marketplace.*\/(create|list|offer)/i.test(url)) return;
+
+    const bodyObj = parseRequestBody(bodyRaw);
     try {
-        const tpl = url.replace(/\/\d+(?=\/|$)/g, '/{id}');
-        sessionStorage.setItem('csrx_mp_list_url', tpl);
+        sessionStorage.setItem('csrx_mp_list_url', url);
+        if (bodyObj) sessionStorage.setItem('csrx_mp_list_body', JSON.stringify(bodyObj));
     } catch (_) {}
+}
+
+function buildMarketListPayload(wid, price) {
+    let tpl = null;
+    try { tpl = JSON.parse(sessionStorage.getItem('csrx_mp_list_body') || 'null'); } catch (_) {}
+    if (!tpl || typeof tpl !== 'object') return { weapon_id: wid, price };
+
+    const body = JSON.parse(JSON.stringify(tpl));
+    const walk = (obj) => {
+        if (!obj || typeof obj !== 'object') return;
+        for (const k of Object.keys(obj)) {
+            const lk = k.toLowerCase();
+            if ((lk === 'weapon_id' || lk === 'weaponid' || lk === 'skin_id') && typeof obj[k] === 'number') {
+                obj[k] = wid;
+            } else if (/price|coins|amount|cost/.test(lk) && typeof obj[k] === 'number') {
+                obj[k] = price;
+            } else if (typeof obj[k] === 'object') {
+                walk(obj[k]);
+            }
+        }
+    };
+    walk(body);
+    if ('weapon_id' in body) body.weapon_id = wid;
+    if ('price' in body) body.price = price;
+    if ('coins' in body) body.coins = price;
+    return body;
 }
 
 const S = document.createElement('style');
@@ -1428,6 +1491,7 @@ function ingestApiPayload(url, data) {
         const arr = Array.isArray(data) ? data : (data.items || data.inventory || data.data || []);
         if (Array.isArray(arr) && arr.length) {
             inventoryCache = arr.sort((a, b) => parseInt(a.rarity) - parseInt(b.rarity));
+            cacheQuickSellFromInventory(inventoryCache);
             rebuildInvItemIndex();
             maybeWarnLargeInventory();
             if (overlayRunning) {
@@ -1493,11 +1557,12 @@ window.fetch = async function (...args) {
     const req = args[0];
     const init = args[1] || {};
     const url = typeof req === 'string' ? req : (req?.url || '');
-    const method = (typeof req === 'object' && req?.method) || init.method || 'GET';
+    const method = ((typeof req === 'object' && req?.method) || init.method || 'GET').toUpperCase();
+    const bodyRaw = init.body ?? (typeof req === 'object' && req?.body);
     const res = await _nativeFetch(...args);
     try {
         if (url.includes('api.csrestored.fun')) {
-            if (res.ok) noteMarketListEndpoint(url, method);
+            if (res.ok && method === 'POST') saveMarketListFromRequest(url, method, bodyRaw);
             const data = await res.clone().json();
             ingestApiPayload(url, data);
         }
@@ -1514,11 +1579,12 @@ window.fetch = async function (...args) {
         return open.call(this, method, url, ...rest);
     };
     XMLHttpRequest.prototype.send = function (...args) {
+        const bodyRaw = args[0];
         this.addEventListener('load', function () {
             try {
                 if (!this._csrxUrl?.includes('api.csrestored.fun')) return;
                 if (this.status >= 200 && this.status < 300) {
-                    noteMarketListEndpoint(this._csrxUrl, this._csrxMethod);
+                    saveMarketListFromRequest(this._csrxUrl, this._csrxMethod, bodyRaw);
                 }
                 ingestApiPayload(this._csrxUrl, JSON.parse(this.responseText));
             } catch (_) {}
@@ -1534,6 +1600,7 @@ async function fetchInventory() {
         const d = await r.json();
         const arr = Array.isArray(d) ? d : (d.items || d.inventory || d.data || []);
         inventoryCache = arr.sort((a, b) => parseInt(a.rarity) - parseInt(b.rarity));
+        cacheQuickSellFromInventory(inventoryCache);
         rebuildInvItemIndex();
         maybeWarnLargeInventory();
         return inventoryCache;
@@ -2670,6 +2737,7 @@ async function apiInv() {
         if(!r.ok) throw r.status;
         const d=await r.json();
         const arr=Array.isArray(d)?d:(d.items||d.inventory||d.data||[]);
+        cacheQuickSellFromInventory(arr);
         return arr.sort((a,b)=>parseInt(a.rarity)-parseInt(b.rarity));
     } catch(e){return [];}
 }
@@ -2687,26 +2755,27 @@ async function apiSell(wid) {
 async function apiListOnMarket(weaponId, priceCoins) {
     const wid = parseInt(weaponId, 10);
     const price = parseInt(String(priceCoins).replace(/[^\d]/g, ''), 10);
-    if (!wid || !price || price < 1) return false;
+    if (!wid || !price || price < 1) return { ok: false };
 
-    const bodies = [
-        { weapon_id: wid, price },
-        { weapon_id: wid, price_coins: price },
-        { weapon_id: wid, coins: price },
-        { price, weapon_id: wid },
-    ];
-    const urls = [
-        getStoredMarketListUrl(wid),
-        `https://api.csrestored.fun/inventory/marketplace/${wid}`,
-        `https://api.csrestored.fun/inventory/marketplace/list`,
-        `https://api.csrestored.fun/inventory/marketplace/create`,
-        `https://api.csrestored.fun/inventory/marketplace/`,
-        `https://api.csrestored.fun/inventory/list/${wid}`,
-        `https://api.csrestored.fun/inventory/market/${wid}`,
-    ].filter(Boolean);
+    let storedUrl = null;
+    try { storedUrl = sessionStorage.getItem('csrx_mp_list_url'); } catch (_) {}
+
+    const urls = [...new Set([
+        storedUrl,
+        MP_ADD_URL,
+        'https://api.csrestored.fun/inventory/marketplace/create',
+        'https://api.csrestored.fun/inventory/marketplace/list',
+    ].filter(Boolean))];
+
+    const payloads = [...new Set([
+        JSON.stringify(buildMarketListPayload(wid, price)),
+        JSON.stringify({ weapon_id: wid, price }),
+        JSON.stringify({ weapon_id: wid, coins: price }),
+        JSON.stringify({ weapon_id: wid, price_coins: price }),
+    ])].map(s => JSON.parse(s));
 
     for (const url of urls) {
-        for (const body of bodies) {
+        for (const body of payloads) {
             try {
                 const r = await fetch(url, {
                     method: 'POST',
@@ -2715,37 +2784,50 @@ async function apiListOnMarket(weaponId, priceCoins) {
                     body: JSON.stringify(body),
                 });
                 if (r.ok) {
-                    noteMarketListEndpoint(url, 'POST');
-                    return true;
+                    saveMarketListFromRequest(url, 'POST', JSON.stringify(body));
+                    return { ok: true };
                 }
             } catch (_) {}
         }
     }
-    return false;
+    return { ok: false };
+}
+
+async function fetchQuickSellForWeapon(wid, item) {
+    const fromItem = getQuickSellPrice(item);
+    if (fromItem != null) return fromItem;
+
+    const infoUrls = [
+        `https://api.csrestored.fun/inventory/sell/${wid}`,
+        `https://api.csrestored.fun/inventory/${wid}`,
+        `https://api.csrestored.fun/inventory/item/${wid}`,
+        `https://api.csrestored.fun/inventory/items/${wid}`,
+        `https://api.csrestored.fun/inventory/sell-price/${wid}`,
+    ];
+    for (const url of infoUrls) {
+        try {
+            const r = await fetch(url, { credentials: 'include' });
+            if (!r.ok) continue;
+            const d = await r.json();
+            const raw = d?.item ?? d?.weapon ?? d?.data ?? d;
+            const p = extractQuickSellFromItem(raw) ?? parseCoinVal(
+                d?.price ?? d?.sell_price ?? d?.quick_sell ?? d?.coins ?? d?.amount
+            );
+            if (p != null) {
+                quickSellByWeaponId.set(wid, p);
+                return p;
+            }
+        } catch (_) {}
+    }
+    return null;
 }
 
 async function enrichQuickSellPrices(entries) {
     const need = entries.filter(e => e.item && getQuickSellPrice(e.item) == null);
-    if (!need.length) return;
-    const priceUrls = (wid) => [
-        `https://api.csrestored.fun/inventory/sell-price/${wid}`,
-        `https://api.csrestored.fun/inventory/${wid}/sell-price`,
-        `https://api.csrestored.fun/inventory/quick-sell/${wid}`,
-    ];
-    for (const entry of need.slice(0, 20)) {
+    for (const entry of need.slice(0, 25)) {
         const wid = entry.item.weapon_id;
-        for (const url of priceUrls(wid)) {
-            try {
-                const r = await fetch(url, { credentials: 'include' });
-                if (!r.ok) continue;
-                const d = await r.json();
-                const p = parseCoinVal(d?.price ?? d?.sell_price ?? d?.quick_sell_price ?? d?.coins ?? d);
-                if (p != null) {
-                    entry.item._csrxQuickSell = p;
-                    break;
-                }
-            } catch (_) {}
-        }
+        const p = await fetchQuickSellForWeapon(wid, entry.item);
+        if (p != null) entry.item._csrxQuickSell = p;
     }
 }
 
@@ -3094,7 +3176,7 @@ async function runListOnMarket(toList) {
     for (let i = 0; i < toList.length; i += spd) {
         const chunk = toList.slice(i, i + spd);
         await Promise.all(chunk.map(async ({ item, price, cardEl, wrapEl }) => {
-            const ok = await apiListOnMarket(item.weapon_id, price);
+            const { ok } = await apiListOnMarket(item.weapon_id, price);
             if (ok) {
                 listed++;
                 if (cardEl) { cardEl.style.transition = 'opacity .5s'; cardEl.style.opacity = '.1'; cleanCard(cardEl); }
@@ -3153,7 +3235,7 @@ document.getElementById('csrx-mlist').addEventListener('click', async () => {
     if (listed > 0) {
         toast(`Listed ${listed} on marketplace${failed ? ` · ${failed} failed` : ''}`, 'success');
     } else {
-        toast('Could not list on marketplace — list one item on the site first, then retry', 'error');
+        toast('Could not list on marketplace — open Marketplace, create one offer on the site, then retry', 'error');
     }
     if (selMode) exitSel();
     if (listed > 0) setTimeout(() => location.reload(), 1800);
