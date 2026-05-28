@@ -4,7 +4,7 @@ Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.f
 
 Works in **Firefox**, **Microsoft Edge**, and **Chromium** browsers (Manifest V3).
 
-**Current version:** `3.0.9`
+**Current version:** `3.1.0` (on branch `feature/confirm-sale-market-listing`)
 
 **Repository:** [github.com/smelbravo/CS-Restored-Inventory-Helper](https://github.com/smelbravo/CS-Restored-Inventory-Helper)
 
@@ -123,6 +123,12 @@ Hidden on marketplace and trade pages.
 | `develop` | Active development |
 
 ## Changelog
+
+### v3.1.0 (in development)
+
+- **Confirm Sale:** per-item **market price** input + **List on Market** button
+- **Confirm Sale:** **Quick Sell** button (site default instant sell) + **quick sell price** shown on each card
+- Learns marketplace list API URL when you list an item on the site (session)
 
 ### v3.0.9
 
@@ -297,7 +303,14 @@ How to test:
 3. Marketplace (/app/inventory/marketplace):
    - Badges below the price on each listing
    - Same search/filter bar; try searching "M4A4", filters for rarity/wear, price and float sort
-4. Play → Trades (/app/play): open a trade — float/seed on your own items when the site API provides them (other players' items may not show float/seed until the site exposes those fields).
+4. Send Trade Offer (site modal):
+   - Open the Send Trade Offer modal
+   - My Items: float/seed should appear without switching tabs
+   - Their Items: depends on the site API (may not have float/seed)
+5. Play → Trades (/app/play): open a trade — float/seed on your own items when the site API provides them (other players' items may not show float/seed until the site exposes those fields).
+
+Large inventories:
+- With 500–1000+ items, float/seed may take a few extra seconds to appear and may slow the page on weaker PCs.
 
 Data collection: The extension declares required ["none"] in the manifest. It does not transmit data to developer servers. It only reads csrestored.fun API responses in the page (via the site's own fetch/XHR) to match float/seed to UI cards and power filters.
 

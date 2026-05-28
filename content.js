@@ -42,6 +42,61 @@ function sName(i) {
     return s ?? '';
 }
 
+function parseCoinVal(v) {
+    if (v == null) return null;
+    const n = parseInt(String(v).replace(/[^\d]/g, ''), 10);
+    return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function formatCoins(n) {
+    return Number(n).toLocaleString('en-US') + ' coins';
+}
+
+function getQuickSellPrice(item) {
+    if (!item) return null;
+    if (item._csrxQuickSell != null) return item._csrxQuickSell;
+    const keys = [
+        'quick_sell_price', 'quick_sell', 'insta_sell_price', 'insta_sell',
+        'instant_sell_price', 'instant_sell', 'sell_price', 'sell_value',
+        'quicksell_price', 'vendor_price', 'scrap_value', 'base_sell_price',
+    ];
+    for (const k of keys) {
+        const p = parseCoinVal(item[k]);
+        if (p != null) return p;
+    }
+    return null;
+}
+
+function getSuggestedMarketPrice(item) {
+    if (!item) return null;
+    const keys = ['suggested_price', 'market_price', 'recommended_price', 'list_price', 'default_price'];
+    for (const k of keys) {
+        const p = parseCoinVal(item[k]);
+        if (p != null) return p;
+    }
+    const qs = getQuickSellPrice(item);
+    return qs != null ? Math.max(1, Math.round(qs * 1.15)) : null;
+}
+
+function getStoredMarketListUrl(weaponId) {
+    try {
+        const tpl = sessionStorage.getItem('csrx_mp_list_url');
+        if (tpl) return tpl.replace('{id}', String(weaponId));
+    } catch (_) {}
+    return null;
+}
+
+function noteMarketListEndpoint(url, method) {
+    if (!url?.includes('api.csrestored.fun')) return;
+    if ((method || 'GET').toUpperCase() !== 'POST') return;
+    if (/\/inventory\/sell\//i.test(url) && !/marketplace/i.test(url)) return;
+    if (!/marketplace|\/list|\/offer/i.test(url)) return;
+    try {
+        const tpl = url.replace(/\/\d+(?=\/|$)/g, '/{id}');
+        sessionStorage.setItem('csrx_mp_list_url', tpl);
+    } catch (_) {}
+}
+
 const S = document.createElement('style');
 S.textContent = `
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
@@ -795,6 +850,79 @@ input[type=range].csrx-range:hover::-moz-range-thumb { transform: scale(1.2); }
     box-shadow: 0 4px 20px rgba(239,68,68,0.45);
 }
 
+.mc-price-block {
+    margin-top: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+.mc-qs-price {
+    font-size: 9px;
+    font-weight: 600;
+    color: #86efac;
+    letter-spacing: 0.02em;
+}
+.mc-qs-price.unknown { color: #555; font-weight: 500; }
+.mc-market-lbl {
+    font-size: 8px;
+    font-weight: 500;
+    color: #444;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+.mc-market-price {
+    width: 100%;
+    height: 28px;
+    padding: 0 8px;
+    border-radius: 6px;
+    border: 1px solid #2a2a2a;
+    background: #0a0a0a;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    font-family: 'Inter', sans-serif;
+}
+.mc-market-price:focus {
+    outline: none;
+    border-color: #ef4444;
+    box-shadow: 0 0 0 2px rgba(239,68,68,0.15);
+}
+.mc-market-price::placeholder { color: #333; font-weight: 400; }
+
+#csrx-mfoot { flex-wrap: wrap; }
+#csrx-mfoot-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+#csrx-mlist {
+    background: #1a1a1a;
+    color: #fff;
+    border-color: #333;
+    min-width: 120px;
+    justify-content: center;
+}
+#csrx-mlist:hover:not(:disabled) {
+    background: #222;
+    border-color: #ef4444;
+    color: #fff;
+}
+#csrx-mquick {
+    background: #ef4444;
+    color: #fff;
+    border-color: #ef4444;
+    box-shadow: 0 2px 14px rgba(239,68,68,0.3);
+    min-width: 120px;
+    justify-content: center;
+}
+#csrx-mquick:hover:not(:disabled) {
+    background: #dc2626;
+    border-color: #dc2626;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 20px rgba(239,68,68,0.45);
+}
+
 #csrx-toast {
     position: fixed;
     bottom: 22px;
@@ -1362,10 +1490,14 @@ function clearSkinOverlays() {
 
 const _nativeFetch = window.fetch.bind(window);
 window.fetch = async function (...args) {
+    const req = args[0];
+    const init = args[1] || {};
+    const url = typeof req === 'string' ? req : (req?.url || '');
+    const method = (typeof req === 'object' && req?.method) || init.method || 'GET';
     const res = await _nativeFetch(...args);
     try {
-        const url = typeof args[0] === 'string' ? args[0] : (args[0]?.url || '');
         if (url.includes('api.csrestored.fun')) {
+            if (res.ok) noteMarketListEndpoint(url, method);
             const data = await res.clone().json();
             ingestApiPayload(url, data);
         }
@@ -1378,12 +1510,16 @@ window.fetch = async function (...args) {
     const send = XMLHttpRequest.prototype.send;
     XMLHttpRequest.prototype.open = function (method, url, ...rest) {
         this._csrxUrl = String(url || '');
+        this._csrxMethod = method;
         return open.call(this, method, url, ...rest);
     };
     XMLHttpRequest.prototype.send = function (...args) {
         this.addEventListener('load', function () {
             try {
                 if (!this._csrxUrl?.includes('api.csrestored.fun')) return;
+                if (this.status >= 200 && this.status < 300) {
+                    noteMarketListEndpoint(this._csrxUrl, this._csrxMethod);
+                }
                 ingestApiPayload(this._csrxUrl, JSON.parse(this.responseText));
             } catch (_) {}
         });
@@ -2420,7 +2556,7 @@ overlay.innerHTML = `
     <div id="csrx-mhdr">
         <div class="csrx-mhdr-left">
             <div class="csrx-mhdr-title">Confirm <span>Sale</span></div>
-            <div class="csrx-mhdr-sub" id="csrx-mhdr-sub">Review items before selling</div>
+            <div class="csrx-mhdr-sub" id="csrx-mhdr-sub">List on market or quick sell</div>
         </div>
         <div id="csrx-mxbtn">
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2.5" stroke-linecap="round">
@@ -2447,13 +2583,23 @@ overlay.innerHTML = `
             <div class="csrx-summ-sub"   id="csrx-summ-sub">ready to sell</div>
         </div>
         <button id="csrx-mcancel" class="m-btn">Cancel</button>
-        <button id="csrx-msell" class="m-btn">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-                <line x1="12" y1="1" x2="12" y2="23"/>
-                <path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>
-            </svg>
-            Sell Items
-        </button>
+        <div id="csrx-mfoot-actions">
+            <button id="csrx-mlist" class="m-btn" type="button">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                    <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/>
+                    <line x1="3" y1="6" x2="21" y2="6"/>
+                    <path d="M16 10a4 4 0 01-8 0"/>
+                </svg>
+                List on Market
+            </button>
+            <button id="csrx-mquick" class="m-btn" type="button">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                    <line x1="12" y1="1" x2="12" y2="23"/>
+                    <path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>
+                </svg>
+                Quick Sell
+            </button>
+        </div>
     </div>
 </div>`;
 document.body.appendChild(overlay);
@@ -2536,6 +2682,71 @@ async function apiSell(wid) {
         });
         return r.ok;
     } catch(e){return false;}
+}
+
+async function apiListOnMarket(weaponId, priceCoins) {
+    const wid = parseInt(weaponId, 10);
+    const price = parseInt(String(priceCoins).replace(/[^\d]/g, ''), 10);
+    if (!wid || !price || price < 1) return false;
+
+    const bodies = [
+        { weapon_id: wid, price },
+        { weapon_id: wid, price_coins: price },
+        { weapon_id: wid, coins: price },
+        { price, weapon_id: wid },
+    ];
+    const urls = [
+        getStoredMarketListUrl(wid),
+        `https://api.csrestored.fun/inventory/marketplace/${wid}`,
+        `https://api.csrestored.fun/inventory/marketplace/list`,
+        `https://api.csrestored.fun/inventory/marketplace/create`,
+        `https://api.csrestored.fun/inventory/marketplace/`,
+        `https://api.csrestored.fun/inventory/list/${wid}`,
+        `https://api.csrestored.fun/inventory/market/${wid}`,
+    ].filter(Boolean);
+
+    for (const url of urls) {
+        for (const body of bodies) {
+            try {
+                const r = await fetch(url, {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                });
+                if (r.ok) {
+                    noteMarketListEndpoint(url, 'POST');
+                    return true;
+                }
+            } catch (_) {}
+        }
+    }
+    return false;
+}
+
+async function enrichQuickSellPrices(entries) {
+    const need = entries.filter(e => e.item && getQuickSellPrice(e.item) == null);
+    if (!need.length) return;
+    const priceUrls = (wid) => [
+        `https://api.csrestored.fun/inventory/sell-price/${wid}`,
+        `https://api.csrestored.fun/inventory/${wid}/sell-price`,
+        `https://api.csrestored.fun/inventory/quick-sell/${wid}`,
+    ];
+    for (const entry of need.slice(0, 20)) {
+        const wid = entry.item.weapon_id;
+        for (const url of priceUrls(wid)) {
+            try {
+                const r = await fetch(url, { credentials: 'include' });
+                if (!r.ok) continue;
+                const d = await r.json();
+                const p = parseCoinVal(d?.price ?? d?.sell_price ?? d?.quick_sell_price ?? d?.coins ?? d);
+                if (p != null) {
+                    entry.item._csrxQuickSell = p;
+                    break;
+                }
+            } catch (_) {}
+        }
+    }
 }
 
 function findCard(target) {
@@ -2722,6 +2933,28 @@ function buildMC(entry) {
         const dv=document.createElement('div');dv.className='mc-divider';body.appendChild(dv);
         const rn=document.createElement('div');rn.className='mc-rarity';rn.style.color=hex;rn.textContent=rInfo.name;body.appendChild(rn);
         const idR=document.createElement('div');idR.className='mc-id';idR.textContent=`ID: ${item.weapon_id}`;body.appendChild(idR);
+
+        const priceBlock=document.createElement('div');priceBlock.className='mc-price-block';
+        const qsPrice=getQuickSellPrice(item);
+        const qsEl=document.createElement('div');
+        qsEl.className='mc-qs-price'+(qsPrice==null?' unknown':'');
+        qsEl.textContent=qsPrice!=null?`Quick sell: ${formatCoins(qsPrice)}`:'Quick sell: —';
+        priceBlock.appendChild(qsEl);
+
+        const mLbl=document.createElement('div');mLbl.className='mc-market-lbl';mLbl.textContent='Market price (coins)';
+        priceBlock.appendChild(mLbl);
+        const mInp=document.createElement('input');
+        mInp.type='number';
+        mInp.min='1';
+        mInp.step='1';
+        mInp.className='mc-market-price';
+        mInp.placeholder='Enter price…';
+        mInp.inputMode='numeric';
+        const suggested=getSuggestedMarketPrice(item);
+        if(suggested!=null)mInp.value=String(suggested);
+        priceBlock.appendChild(mInp);
+        body.appendChild(priceBlock);
+
         if(item.stattrak){const st=document.createElement('div');st.className='mc-st';st.textContent=`StatTrak™ ${item.stattrak_count??''}`;body.appendChild(st);}
         if(item.nametag){const tg=document.createElement('div');tg.className='mc-tag';tg.textContent=`"${item.nametag}"`;body.appendChild(tg);}
         const sb=document.createElement('div');sb.className='mc-statusbar';
@@ -2734,15 +2967,42 @@ function buildMC(entry) {
 
 let modalEntries=[];
 
+function getConfirmedModalItems() {
+    const out = [];
+    document.querySelectorAll('#csrx-mgrid .mc.mc-confirmed').forEach(wrapEl => {
+        const entry = modalEntries[parseInt(wrapEl.dataset.idx, 10)];
+        if (entry?.item) out.push({ item: entry.item, cardEl: entry.cardEl, wrapEl });
+    });
+    return out;
+}
+
 function refreshFooter(){
     const all=[...document.querySelectorAll('#csrx-mgrid .mc')];
     const good=all.filter(c=>c.classList.contains('mc-confirmed')).length;
     const bad=all.filter(c=>c.classList.contains('mc-bad')).length;
     document.getElementById('csrx-summ-count').textContent=`${good} item${good!==1?'s':''}`;
-    document.getElementById('csrx-summ-sub').textContent=good>0?'verified & ready':'nothing to sell';
-    const sb=document.getElementById('csrx-msell');
-    sb.innerHTML=`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg> Sell ${good} Item${good!==1?'s':''}`;
-    sb.disabled=good===0;
+
+    let qsTotal = 0;
+    let qsKnown = 0;
+    getConfirmedModalItems().forEach(({ item }) => {
+        const p = getQuickSellPrice(item);
+        if (p != null) { qsTotal += p; qsKnown++; }
+    });
+    const sub = document.getElementById('csrx-summ-sub');
+    if (good > 0 && qsKnown > 0) {
+        sub.textContent = `Quick sell total: ${formatCoins(qsTotal)}`;
+    } else if (good > 0) {
+        sub.textContent = 'Set market price · quick sell shown per item';
+    } else {
+        sub.textContent = 'nothing to sell';
+    }
+
+    const listB = document.getElementById('csrx-mlist');
+    const quickB = document.getElementById('csrx-mquick');
+    listB.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg> List ${good} on Market`;
+    quickB.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg> Quick Sell ${good}`;
+    listB.disabled = good === 0;
+    quickB.disabled = good === 0;
     document.getElementById('csrx-mwarn').classList.toggle('show',bad>0);
     document.getElementById('csrx-mhdr-sub').textContent=`${good} verified · ${bad} skipped · ${all.length} total`;
 }
@@ -2767,7 +3027,9 @@ function buildValidatorPanel(entries){
 async function openModal(entries){
     setStatus('Validating…','syncing');
     const fresh=await apiInv(); setStatus('Review','active');
-    const validated=validateItems(entries,fresh); modalEntries=validated;
+    const validated=validateItems(entries,fresh);
+    await enrichQuickSellPrices(validated);
+    modalEntries=validated;
     const grid=document.getElementById('csrx-mgrid'); grid.innerHTML=''; document.getElementById('csrx-mbar').style.width='0';
     modalEntries.forEach((entry,idx)=>{
         const{wrap,rm}=buildMC(entry); wrap.dataset.idx=idx;
@@ -2785,38 +3047,116 @@ document.getElementById('csrx-mcancel').addEventListener('click',closeModal);
 overlay.addEventListener('mousedown',e=>{if(e.target===overlay)closeModal();});
 document.getElementById('csrx-modal').addEventListener('mousedown',e=>{e.stopPropagation();});
 
-async function runSell(toSell){
-    const spd=parseInt(document.getElementById('csrx-spd').value)||5;
-    const bar=document.getElementById('csrx-mbar'); let sold=0,failed=0;
-    for(let i=0;i<toSell.length;i+=spd){
-        const chunk=toSell.slice(i,i+spd);
-        await Promise.all(chunk.map(async({item,cardEl,wrapEl})=>{
-            const ok=await apiSell(item.weapon_id);
-            if(ok){sold++;
-                if(cardEl){cardEl.style.transition='opacity .5s';cardEl.style.opacity='.1';cleanCard(cardEl);}
-                if(wrapEl){wrapEl.style.opacity='.15';wrapEl.style.transition='opacity .4s';}
-            } else failed++;
-        }));
-        bar.style.width=Math.round(Math.min(i+spd,toSell.length)/toSell.length*100)+'%';
-        setStatus(`Selling ${sold}/${toSell.length}…`,'syncing');
+function setModalBusy(busy, label) {
+    const cancelB = document.getElementById('csrx-mcancel');
+    const listB = document.getElementById('csrx-mlist');
+    const quickB = document.getElementById('csrx-mquick');
+    const xBtn = document.getElementById('csrx-mxbtn');
+    cancelB.disabled = busy;
+    listB.disabled = busy;
+    quickB.disabled = busy;
+    xBtn.style.pointerEvents = busy ? 'none' : '';
+    xBtn.style.opacity = busy ? '.3' : '';
+    if (busy && label) {
+        listB.innerHTML = label;
+        quickB.innerHTML = label;
+    } else {
+        refreshFooter();
     }
-    return{sold,failed};
 }
 
-document.getElementById('csrx-msell').addEventListener('click',async()=>{
-    if(selling)return; selling=true;
-    const sellB=document.getElementById('csrx-msell'),cancelB=document.getElementById('csrx-mcancel'),xBtn=document.getElementById('csrx-mxbtn');
-    sellB.disabled=cancelB.disabled=true; xBtn.style.pointerEvents='none'; xBtn.style.opacity='.3';
-    sellB.innerHTML=`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Selling…`;
-    const toSell=[];
-    document.querySelectorAll('#csrx-mgrid .mc.mc-confirmed').forEach(wrapEl=>{
-        const entry=modalEntries[parseInt(wrapEl.dataset.idx)];
-        if(entry?.item)toSell.push({item:entry.item,cardEl:entry.cardEl,wrapEl});
+async function runQuickSell(toSell) {
+    const spd = parseInt(document.getElementById('csrx-spd').value, 10) || 5;
+    const bar = document.getElementById('csrx-mbar');
+    let sold = 0;
+    let failed = 0;
+    for (let i = 0; i < toSell.length; i += spd) {
+        const chunk = toSell.slice(i, i + spd);
+        await Promise.all(chunk.map(async ({ item, cardEl, wrapEl }) => {
+            const ok = await apiSell(item.weapon_id);
+            if (ok) {
+                sold++;
+                if (cardEl) { cardEl.style.transition = 'opacity .5s'; cardEl.style.opacity = '.1'; cleanCard(cardEl); }
+                if (wrapEl) { wrapEl.style.opacity = '.15'; wrapEl.style.transition = 'opacity .4s'; }
+            } else failed++;
+        }));
+        bar.style.width = Math.round(Math.min(i + spd, toSell.length) / toSell.length * 100) + '%';
+        setStatus(`Quick selling ${sold}/${toSell.length}…`, 'syncing');
+    }
+    return { sold, failed };
+}
+
+async function runListOnMarket(toList) {
+    const spd = parseInt(document.getElementById('csrx-spd').value, 10) || 5;
+    const bar = document.getElementById('csrx-mbar');
+    let listed = 0;
+    let failed = 0;
+    for (let i = 0; i < toList.length; i += spd) {
+        const chunk = toList.slice(i, i + spd);
+        await Promise.all(chunk.map(async ({ item, price, cardEl, wrapEl }) => {
+            const ok = await apiListOnMarket(item.weapon_id, price);
+            if (ok) {
+                listed++;
+                if (cardEl) { cardEl.style.transition = 'opacity .5s'; cardEl.style.opacity = '.1'; cleanCard(cardEl); }
+                if (wrapEl) { wrapEl.style.opacity = '.15'; wrapEl.style.transition = 'opacity .4s'; }
+            } else failed++;
+        }));
+        bar.style.width = Math.round(Math.min(i + spd, toList.length) / toList.length * 100) + '%';
+        setStatus(`Listing ${listed}/${toList.length}…`, 'syncing');
+    }
+    return { listed, failed };
+}
+
+function collectMarketListItems() {
+    const toList = [];
+    let missing = 0;
+    getConfirmedModalItems().forEach(({ item, cardEl, wrapEl }) => {
+        const inp = wrapEl.querySelector('.mc-market-price');
+        const price = parseInt(inp?.value, 10);
+        if (!price || price < 1) {
+            missing++;
+            inp?.focus();
+            return;
+        }
+        toList.push({ item, price, cardEl, wrapEl });
     });
-    const{sold,failed}=await runSell(toSell);
-    selling=false; closeModal();
-    toast(`Sold ${sold} item${sold!==1?'s':''}${failed?` · ${failed} failed`:''}`,sold>0?'success':'error');
-    if(selMode)exitSel(); setTimeout(()=>location.reload(),1800);
+    return { toList, missing };
+}
+
+document.getElementById('csrx-mquick').addEventListener('click', async () => {
+    if (selling) return;
+    const toSell = getConfirmedModalItems();
+    if (!toSell.length) return;
+    selling = true;
+    setModalBusy(true, 'Selling…');
+    const { sold, failed } = await runQuickSell(toSell);
+    selling = false;
+    closeModal();
+    toast(`Quick sold ${sold} item${sold !== 1 ? 's' : ''}${failed ? ` · ${failed} failed` : ''}`, sold > 0 ? 'success' : 'error');
+    if (selMode) exitSel();
+    setTimeout(() => location.reload(), 1800);
+});
+
+document.getElementById('csrx-mlist').addEventListener('click', async () => {
+    if (selling) return;
+    const { toList, missing } = collectMarketListItems();
+    if (missing > 0) {
+        toast('Enter a market price (coins) for each item', 'warn');
+        return;
+    }
+    if (!toList.length) return;
+    selling = true;
+    setModalBusy(true, 'Listing…');
+    const { listed, failed } = await runListOnMarket(toList);
+    selling = false;
+    closeModal();
+    if (listed > 0) {
+        toast(`Listed ${listed} on marketplace${failed ? ` · ${failed} failed` : ''}`, 'success');
+    } else {
+        toast('Could not list on marketplace — list one item on the site first, then retry', 'error');
+    }
+    if (selMode) exitSel();
+    if (listed > 0) setTimeout(() => location.reload(), 1800);
 });
 
 btnSell.addEventListener('click',async()=>{
@@ -2833,6 +3173,7 @@ document.getElementById('csrx-massbtn').addEventListener('click',async()=>{
     const items=inv.filter(i=>parseInt(i.rarity)===val);
     if(!items.length){toast('No items for selected rarity','warn');return;}
     modalEntries=items.map(item=>({cardEl:null,weaponId:item.weapon_id,item,status:'ok',msg:'From API'}));
+    enrichQuickSellPrices(modalEntries).then(() => {
     const grid=document.getElementById('csrx-mgrid'); grid.innerHTML=''; document.getElementById('csrx-mbar').style.width='0';
     document.getElementById('csrx-validator').classList.remove('show');
     document.getElementById('csrx-mwarn').classList.remove('show');
@@ -2842,5 +3183,6 @@ document.getElementById('csrx-massbtn').addEventListener('click',async()=>{
         grid.appendChild(wrap);
     });
     refreshFooter(); overlay.classList.add('open');
+    });
 });
 })();
