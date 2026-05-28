@@ -54,6 +54,38 @@ function formatCoins(n) {
 }
 
 const quickSellByWeaponId = new Map();
+let cachedSiteUserId = null;
+let _qsDomObs = null;
+let _qsScrapeTimer = null;
+
+/** CS:R instant sell prices by rarity (from site RARITY_PRICES). */
+const CSR_RARITY_SELL_PRICES = { 7: 6942, 6: 2013, 5: 530, 4: 255, 3: 118, 2: 94, 1: 56 };
+
+function computeQuickSellPrice(item) {
+    if (!item) return null;
+    const rarity = parseInt(item.rarity, 10);
+    const base = CSR_RARITY_SELL_PRICES[rarity] ?? CSR_RARITY_SELL_PRICES[1];
+    if (!base) return null;
+    const fl = Math.min(Math.max(parseFloat(item.float) || 0, 0), 1);
+    let coins = Math.round(base * (1 - fl * 0.25));
+    if (item.stattrak) coins = Math.round(coins * 1.5);
+    return coins > 0 ? coins : null;
+}
+
+function extractWeaponIdFromUrl(url) {
+    if (!url) return null;
+    const patterns = [
+        /\/inventory\/sell\/(\d+)/i,
+        /\/inventory\/(?:weapon|item|items)\/(\d+)/i,
+        /\/inventory\/(\d+)(?:\/|$|\?)/i,
+        /\/weapons\/(\d+)/i,
+    ];
+    for (const re of patterns) {
+        const m = String(url).match(re);
+        if (m) return parseInt(m[1], 10);
+    }
+    return null;
+}
 
 function extractQuickSellFromItem(item) {
     if (!item || typeof item !== 'object') return null;
@@ -63,6 +95,9 @@ function extractQuickSellFromItem(item) {
         'quicksell_price', 'vendor_price', 'scrap_value', 'base_sell_price',
         'sell_coins', 'coins_sell', 'insta_sell_coins', 'quick_sell_coins',
         'sell_amount', 'vendor_coins', 'scrap_coins', 'coins_received',
+        'sell', 'sell_value_coins', 'scrap', 'worth', 'value',
+        'quickSellPrice', 'sellPrice', 'instaSell', 'vendorPrice',
+        'min_sell', 'min_sell_price', 'default_sell', 'default_sell_price',
     ];
     for (const k of keys) {
         const p = parseCoinVal(item[k]);
@@ -92,12 +127,160 @@ function cacheQuickSellFromInventory(arr) {
     }
 }
 
+function cacheQuickSellFromApiData(url, data, depth = 0) {
+    if (!data || depth > 14) return;
+    const widFromUrl = extractWeaponIdFromUrl(url);
+
+    const tryRaw = (raw, widHint) => {
+        if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return;
+        const wid = raw.weapon_id != null ? parseInt(raw.weapon_id, 10) : widHint;
+        const p = extractQuickSellFromItem(raw);
+        if (wid && p != null) quickSellByWeaponId.set(wid, p);
+    };
+
+    if (Array.isArray(data)) {
+        cacheQuickSellFromInventory(data);
+        if (depth === 0) return;
+        for (const v of data) {
+            if (v && typeof v === 'object') cacheQuickSellFromApiData(url, v, depth + 1);
+        }
+        return;
+    }
+    if (typeof data !== 'object') return;
+
+    if (depth === 0 && Array.isArray(data.items)) {
+        cacheQuickSellFromInventory(data.items);
+        tryRaw(data, widFromUrl);
+        return;
+    }
+
+    tryRaw(data, widFromUrl);
+    for (const k of ['item', 'weapon', 'skin', 'data', 'result', 'inventory_item']) {
+        if (data[k]) tryRaw(data[k], widFromUrl);
+    }
+    if (widFromUrl) {
+        const top = extractQuickSellFromItem(data);
+        if (top != null) quickSellByWeaponId.set(widFromUrl, top);
+    }
+
+    for (const v of Object.values(data)) {
+        if (v && typeof v === 'object') cacheQuickSellFromApiData(url, v, depth + 1);
+    }
+}
+
+function isCsrTrackedUrl(url) {
+    const u = String(url || '');
+    return u.includes('api.csrestored.fun')
+        || (u.includes('csrestored.fun') && /\/api\//i.test(u));
+}
+
+function rememberSiteUserId(url) {
+    const m = String(url || '').match(/\/api\/user\/(\d+)\//i);
+    if (m) cachedSiteUserId = m[1];
+}
+
+function findWeaponIdInText(text) {
+    const m = (text || '').match(/\bID:\s*(\d+)\b/i);
+    return m ? parseInt(m[1], 10) : null;
+}
+
+function findWeaponIdNearElement(el) {
+    let node = el;
+    for (let i = 0; i < 25 && node; i++) {
+        const wid = findWeaponIdInText(node.innerText);
+        if (wid) return wid;
+        node = node.parentElement;
+    }
+    return null;
+}
+
+function parseQuickSellFromButton(btn) {
+    const blob = [
+        btn.textContent,
+        btn.innerText,
+        btn.getAttribute('aria-label'),
+        btn.parentElement?.textContent,
+    ].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+    const m = blob.match(/quick\s*sell[^\d]*([\d][\d.,]*)/i);
+    if (m) return parseCoinVal(m[1]);
+    if (!/quick\s*sell/i.test(blob)) return null;
+    for (const ch of btn.querySelectorAll('span, div, p')) {
+        const t = (ch.textContent || '').trim();
+        if (/quick\s*sell/i.test(t)) continue;
+        const n = parseCoinVal(t);
+        if (n != null && n > 0) return n;
+    }
+    return null;
+}
+
+function scrapeWeaponDetailsQuickSell() {
+    let found = false;
+    for (const btn of document.querySelectorAll('button, a, [role="button"]')) {
+        if (btn.closest('#csrx-win, #csrx-overlay, #csrx-fab')) continue;
+        const price = parseQuickSellFromButton(btn);
+        if (price == null) continue;
+        const wid = findWeaponIdNearElement(btn);
+        if (!wid) continue;
+        quickSellByWeaponId.set(wid, price);
+        found = true;
+    }
+    if (found) refreshQuickSellLabelsOnCards();
+    return found;
+}
+
+function scheduleQuickSellDomScrape() {
+    if (!isInventoryPage()) return;
+    clearTimeout(_qsScrapeTimer);
+    _qsScrapeTimer = setTimeout(scrapeWeaponDetailsQuickSell, 120);
+}
+
+function ensureQuickSellDomWatcher() {
+    if (_qsDomObs || !isInventoryPage()) return;
+    _qsDomObs = new MutationObserver(() => scheduleQuickSellDomScrape());
+    _qsDomObs.observe(document.body, { childList: true, subtree: true, characterData: true });
+    scheduleQuickSellDomScrape();
+}
+
+function refreshQuickSellLabelsOnCards() {
+    if (!overlay?.classList.contains('open')) return;
+    document.querySelectorAll('#csrx-mgrid .mc.mc-confirmed').forEach(wrap => {
+        const idx = parseInt(wrap.dataset.idx, 10);
+        if (Number.isNaN(idx)) return;
+        const entry = modalEntries[idx];
+        if (!entry?.item) return;
+        const p = getQuickSellPrice(entry.item);
+        const qsEl = wrap.querySelector('.mc-qs-price');
+        if (!qsEl) return;
+        if (p != null) {
+            qsEl.textContent = `Quick sell: ${formatCoins(p)}`;
+            qsEl.classList.remove('unknown');
+            entry.item._csrxQuickSell = p;
+        }
+    });
+    refreshFooter();
+}
+
+function applyQuickSellToEntries(entries, rawInv) {
+    for (const entry of entries) {
+        if (!entry?.item) continue;
+        const raw = rawInv?.find?.(i => parseInt(i.weapon_id, 10) === entry.item.weapon_id);
+        const item = raw ? { ...entry.item, ...raw } : entry.item;
+        const p = getQuickSellPrice(item);
+        if (p != null) {
+            entry.item._csrxQuickSell = p;
+            if (entry.item.weapon_id != null) quickSellByWeaponId.set(entry.item.weapon_id, p);
+        }
+    }
+}
+
 function getQuickSellPrice(item) {
     if (!item) return null;
     if (item._csrxQuickSell != null) return item._csrxQuickSell;
     const wid = item.weapon_id != null ? parseInt(item.weapon_id, 10) : null;
     if (wid && quickSellByWeaponId.has(wid)) return quickSellByWeaponId.get(wid);
-    return extractQuickSellFromItem(item);
+    const fromApi = extractQuickSellFromItem(item);
+    if (fromApi != null) return fromApi;
+    return computeQuickSellPrice(item);
 }
 
 function getSuggestedMarketPrice(item) {
@@ -1486,6 +1669,16 @@ function mergeMarketplaceCache(existing, incoming) {
 
 function ingestApiPayload(url, data) {
     if (!data || typeof data !== 'object') return;
+    rememberSiteUserId(url);
+    cacheQuickSellFromApiData(url, data);
+
+    if (/\/api\/user\/\d+\/inventory/i.test(url)) {
+        const arr = Array.isArray(data) ? data : (data.items || data.inventory || data.data || []);
+        if (Array.isArray(arr) && arr.length) {
+            cacheQuickSellFromInventory(arr);
+            scheduleQuickSellDomScrape();
+        }
+    }
 
     if (/\/inventory\/?(?:\?|$)/i.test(url) && !/\/inventory\/marketplace/i.test(url) && !/\/users\//i.test(url)) {
         const arr = Array.isArray(data) ? data : (data.items || data.inventory || data.data || []);
@@ -1561,10 +1754,11 @@ window.fetch = async function (...args) {
     const bodyRaw = init.body ?? (typeof req === 'object' && req?.body);
     const res = await _nativeFetch(...args);
     try {
-        if (url.includes('api.csrestored.fun')) {
+        if (isCsrTrackedUrl(url)) {
             if (res.ok && method === 'POST') saveMarketListFromRequest(url, method, bodyRaw);
             const data = await res.clone().json();
             ingestApiPayload(url, data);
+            scheduleQuickSellDomScrape();
         }
     } catch (_) {}
     return res;
@@ -1582,11 +1776,12 @@ window.fetch = async function (...args) {
         const bodyRaw = args[0];
         this.addEventListener('load', function () {
             try {
-                if (!this._csrxUrl?.includes('api.csrestored.fun')) return;
+                if (!isCsrTrackedUrl(this._csrxUrl)) return;
                 if (this.status >= 200 && this.status < 300) {
                     saveMarketListFromRequest(this._csrxUrl, this._csrxMethod, bodyRaw);
                 }
                 ingestApiPayload(this._csrxUrl, JSON.parse(this.responseText));
+                scheduleQuickSellDomScrape();
             } catch (_) {}
         });
         return send.apply(this, args);
@@ -2421,6 +2616,7 @@ async function startAlwaysOnOverlay() {
     if (overlayRunning) return;
     overlayRunning = true;
     ensureOverlayDomObserver();
+    if (isInventoryPage()) ensureQuickSellDomWatcher();
     const cacheReady = isMarketplacePage()
         ? marketplaceCache.length > 0
         : inventoryCache.length > 0;
@@ -2743,11 +2939,18 @@ async function apiInv() {
 }
 async function apiSell(wid) {
     try {
-        const r=await fetch(`https://api.csrestored.fun/inventory/sell/${wid}`,{
+        const url = `https://api.csrestored.fun/inventory/sell/${wid}`;
+        const r=await fetch(url,{
             method:'POST',credentials:'include',
             headers:{'Content-Type':'application/json'},
             body:JSON.stringify({weapon_id:parseInt(wid)})
         });
+        if (r.ok) {
+            try {
+                const d = await r.clone().json();
+                cacheQuickSellFromApiData(url, d);
+            } catch (_) {}
+        }
         return r.ok;
     } catch(e){return false;}
 }
@@ -2793,42 +2996,9 @@ async function apiListOnMarket(weaponId, priceCoins) {
     return { ok: false };
 }
 
-async function fetchQuickSellForWeapon(wid, item) {
-    const fromItem = getQuickSellPrice(item);
-    if (fromItem != null) return fromItem;
-
-    const infoUrls = [
-        `https://api.csrestored.fun/inventory/sell/${wid}`,
-        `https://api.csrestored.fun/inventory/${wid}`,
-        `https://api.csrestored.fun/inventory/item/${wid}`,
-        `https://api.csrestored.fun/inventory/items/${wid}`,
-        `https://api.csrestored.fun/inventory/sell-price/${wid}`,
-    ];
-    for (const url of infoUrls) {
-        try {
-            const r = await fetch(url, { credentials: 'include' });
-            if (!r.ok) continue;
-            const d = await r.json();
-            const raw = d?.item ?? d?.weapon ?? d?.data ?? d;
-            const p = extractQuickSellFromItem(raw) ?? parseCoinVal(
-                d?.price ?? d?.sell_price ?? d?.quick_sell ?? d?.coins ?? d?.amount
-            );
-            if (p != null) {
-                quickSellByWeaponId.set(wid, p);
-                return p;
-            }
-        } catch (_) {}
-    }
-    return null;
-}
-
-async function enrichQuickSellPrices(entries) {
-    const need = entries.filter(e => e.item && getQuickSellPrice(e.item) == null);
-    for (const entry of need.slice(0, 25)) {
-        const wid = entry.item.weapon_id;
-        const p = await fetchQuickSellForWeapon(wid, entry.item);
-        if (p != null) entry.item._csrxQuickSell = p;
-    }
+function enrichQuickSellPrices(entries) {
+    scrapeWeaponDetailsQuickSell();
+    applyQuickSellToEntries(entries, null);
 }
 
 function findCard(target) {
@@ -3108,9 +3278,10 @@ function buildValidatorPanel(entries){
 
 async function openModal(entries){
     setStatus('Validating…','syncing');
-    const fresh=await apiInv(); setStatus('Review','active');
+    const fresh=await apiInv();
+    setStatus('Review','active');
     const validated=validateItems(entries,fresh);
-    await enrichQuickSellPrices(validated);
+    enrichQuickSellPrices(validated);
     modalEntries=validated;
     const grid=document.getElementById('csrx-mgrid'); grid.innerHTML=''; document.getElementById('csrx-mbar').style.width='0';
     modalEntries.forEach((entry,idx)=>{
@@ -3118,7 +3289,9 @@ async function openModal(entries){
         rm.addEventListener('click',()=>{wrap.remove();refreshFooter();buildValidatorPanel(modalEntries.filter((_,i)=>document.querySelector(`#csrx-mgrid .mc[data-idx="${i}"]`)));});
         grid.appendChild(wrap);
     });
-    buildValidatorPanel(validated); refreshFooter(); overlay.classList.add('open');
+    buildValidatorPanel(validated);
+    refreshFooter();
+    overlay.classList.add('open');
 }
 
 function closeModal(){
@@ -3251,11 +3424,12 @@ document.getElementById('csrx-massbtn').addEventListener('click',async()=>{
     if(selling)return;
     const val=parseInt(document.getElementById('csrx-rar').value);
     setStatus('Fetching…','syncing');
-    const inv=await apiInv(); setStatus('Ready','ready');
+    const inv=await apiInv();
+    setStatus('Ready','ready');
     const items=inv.filter(i=>parseInt(i.rarity)===val);
     if(!items.length){toast('No items for selected rarity','warn');return;}
     modalEntries=items.map(item=>({cardEl:null,weaponId:item.weapon_id,item,status:'ok',msg:'From API'}));
-    enrichQuickSellPrices(modalEntries).then(() => {
+    enrichQuickSellPrices(modalEntries);
     const grid=document.getElementById('csrx-mgrid'); grid.innerHTML=''; document.getElementById('csrx-mbar').style.width='0';
     document.getElementById('csrx-validator').classList.remove('show');
     document.getElementById('csrx-mwarn').classList.remove('show');
@@ -3264,7 +3438,7 @@ document.getElementById('csrx-massbtn').addEventListener('click',async()=>{
         rm.addEventListener('click',()=>{wrap.remove();refreshFooter();});
         grid.appendChild(wrap);
     });
-    refreshFooter(); overlay.classList.add('open');
-    });
+    refreshFooter();
+    overlay.classList.add('open');
 });
 })();

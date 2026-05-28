@@ -4,7 +4,7 @@ Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.f
 
 Works in **Firefox**, **Microsoft Edge**, and **Chromium** browsers (Manifest V3).
 
-**Current version:** `3.1.0` (on branch `feature/confirm-sale-market-listing`)
+**Current version:** `3.1.3` (on branch `feature/confirm-sale-market-listing`)
 
 **Repository:** [github.com/smelbravo/CS-Restored-Inventory-Helper](https://github.com/smelbravo/CS-Restored-Inventory-Helper)
 
@@ -60,6 +60,22 @@ Floating button (bottom-right on inventory) opens the **CS:R Inventory Helper** 
 
 Hidden on marketplace and trade pages.
 
+### Confirm Sale — marketplace list + quick sell (v3.1+)
+
+When you open **Review & Sell**, the **Confirm Sale** modal shows each verified item with:
+
+| Control | What it does |
+|---------|----------------|
+| **Quick sell: X coins** | Instant sell price (same value as the site’s **Quick Sell** button in Weapon Details) |
+| **Market price (coins)** | Your listing price on the marketplace |
+| **List on Market** | Lists all verified items at the prices you entered |
+| **Quick Sell** | Instant sell at the site’s default price (`POST /inventory/sell/{weapon_id}`) |
+| **Cancel** | Close without selling |
+
+**List on Market** uses `POST /inventory/marketplace/add` with `{ weapon_id, price }`. If listing fails the first time, list one item manually on the site once — the extension learns the exact API body from that request for the rest of the session.
+
+**Quick sell prices** use the same formula as the site (rarity base price × float factor; StatTrak ×1.5). No need to open each skin in Weapon Details first.
+
 ## Trade overlay behaviour
 
 - **Your offer / My items**: float + seed from your inventory (`GET /inventory/`)
@@ -82,8 +98,9 @@ Hidden on marketplace and trade pages.
 
 1. Go to [csrestored.fun](https://csrestored.fun) and log in with Discord
 2. Open **Inventory** or **Marketplace** — wait for the site to load your items; float/seed badges and the search/filter bar appear shortly after (usually a few seconds)
-3. On inventory, click the **CS:R logo button** (bottom-right) to open the quick-sell panel
-4. On **Play → Trades**, overlays show on your items in trade detail views when data is available
+3. On inventory, click the **CS:R logo button** (bottom-right) to open the helper panel
+4. **Start Picking** → select skins → **Review & Sell** → set market prices and use **List on Market** or **Quick Sell**
+5. On **Play → Trades**, overlays show on your items in trade detail views when data is available
 
 ## Permissions
 
@@ -102,7 +119,9 @@ Hidden on marketplace and trade pages.
 | `GET /inventory/marketplace/` | Marketplace listings (`skin_float`, `skin_seed`, price) |
 | `GET /api/trades` | Trade offers (intercepted from site; not fetched by extension) |
 | `GET /users/{id}/inventory` | Friend inventory for Send Trade Offer (Their Items) |
-| `POST /inventory/sell/{weapon_id}` | Sell items via quick-sell panel |
+| `GET /api/user/{id}/inventory` | Site inventory route (intercepted; may include quick sell prices) |
+| `POST /inventory/sell/{weapon_id}` | Instant quick sell from Confirm Sale |
+| `POST /inventory/marketplace/add` | List item on marketplace (`weapon_id`, `price`) |
 
 ## Project structure
 
@@ -124,10 +143,23 @@ Hidden on marketplace and trade pages.
 
 ## Changelog
 
-### v3.1.0 (in development)
+### v3.1.3
 
-- **Confirm Sale:** per-item **market price** input + **List on Market** button
-- **Confirm Sale:** **Quick Sell** button (site default instant sell) + **quick sell price** shown on each card
+- **Fix:** quick sell price in Confirm Sale — calculated locally with the site formula (rarity + float + StatTrak)
+- Removed failed API prefetch requests (404 spam in Network tab)
+
+### v3.1.2
+
+- Quick sell cache from Weapon Details DOM + `/api/user/.../inventory` intercept
+
+### v3.1.1
+
+- **Fix:** marketplace list via `POST /inventory/marketplace/add`
+
+### v3.1.0
+
+- **Confirm Sale:** per-item **market price** input + **List on Market** button (working)
+- **Confirm Sale:** **Quick Sell** button (site default instant sell) + **quick sell price** on each card
 - Learns marketplace list API URL when you list an item on the site (session)
 
 ### v3.0.9
