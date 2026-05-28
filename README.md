@@ -103,6 +103,20 @@ Compact **search bar** inside the trade modal (My Items and Their Items):
 2. Enable **Developer mode**
 3. Click **Load unpacked** and select this folder
 
+## Releases
+
+| Version | Tag | Notes |
+|---------|-----|-------|
+| **3.1.16** | [v3.1.16](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases/tag/v3.1.16) | [RELEASE_NOTES-v3.1.16.md](RELEASE_NOTES-v3.1.16.md) |
+
+Build the install zip locally:
+
+```bash
+python build-zip.py
+```
+
+Creates `../releases/CS-Restored-Inventory-Helper-v{version}.zip` (AMO-compatible paths).
+
 ## Usage
 
 1. Go to [csrestored.fun](https://csrestored.fun) and log in with Discord
