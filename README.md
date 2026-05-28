@@ -4,7 +4,7 @@ Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.f
 
 Works in **Firefox**, **Microsoft Edge**, and **Chromium** browsers (Manifest V3).
 
-**Current version:** `3.1.6` (on branch `fix/extension-UI-bugs`)
+**Current version:** `3.1.7` (on branch `fix/extension-UI-bugs`)
 
 **Repository:** [github.com/smelbravo/CS-Restored-Inventory-Helper](https://github.com/smelbravo/CS-Restored-Inventory-Helper)
 
@@ -142,6 +142,11 @@ When you open **Review & Sell**, the **Confirm Sale** modal shows each verified 
 | `develop` | Active development |
 
 ## Changelog
+
+### v3.1.7
+
+- **Fix:** regression — inventory/marketplace/create offer skins visible again (removed overly strict card filter)
+- **Fix:** search/filters on Send Trade Offer and Create Offer modals
 
 ### v3.1.6
 

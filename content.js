@@ -1462,6 +1462,9 @@ function ensureOverlayDomObserver() {
         debounce = setTimeout(() => {
             scheduleApplyOverlays(true);
             scheduleBrowseLayoutUpdate();
+            if (isItemPickerModal() && !document.getElementById('csrx-browse')) {
+                scheduleBrowseInit();
+            }
         }, 100);
     });
     _overlayDomObs.observe(document.body, { childList: true, subtree: true });
@@ -1485,6 +1488,18 @@ function isTradePickerModal() {
         if (/^send trade offer$/i.test(t)) return true;
     }
     return false;
+}
+
+function isCreateOfferModal() {
+    for (const el of document.querySelectorAll('h1, h2, h3, h4, p, span')) {
+        const t = (el.textContent || '').trim();
+        if (/^create offer$/i.test(t)) return true;
+    }
+    return false;
+}
+
+function isItemPickerModal() {
+    return isTradePickerModal() || isCreateOfferModal();
 }
 function isTradeDetailView() {
     if (isTradePickerModal()) return false;
@@ -2165,23 +2180,23 @@ function getImgItemId(cardEl) {
     return null;
 }
 
-function isRealSkinCard(card) {
-    if (!card) return false;
-    const img = card.querySelector('img');
-    if (!img?.src) return false;
-    if (!/skins\/\d+\.png/i.test(img.src) && !/item_id|weapon/i.test(img.src)) return false;
+/** Empty grid slots in Send Trade Offer (no skin loaded yet). */
+function isEmptyPickerSlot(card) {
+    if (!isTradePickerModal()) return false;
+    if (getImgItemId(card) != null) return false;
+    if (getCardWear(card)) return false;
     const t = (card.textContent || '').replace(/\s+/g, ' ').trim();
-    if (t.length < 4) return false;
-    return true;
+    if (/stattrak/i.test(t) || t.includes('|')) return false;
+    return t.length < 12;
 }
 
 function getAllCards() {
     const skip = '#csrx-win, #csrx-overlay, #csrx-fab, #csrx-toast';
     let cards = [...document.querySelectorAll('[class*="aspect-square"][class*="rounded-2xl"]')]
-        .filter(c => !c.closest(skip) && c.querySelector('img') && isRealSkinCard(c));
+        .filter(c => !c.closest(skip) && c.querySelector('img'));
     if (!cards.length) {
         cards = [...document.querySelectorAll('[class*="aspect-square"][class*="rounded-xl"]')]
-            .filter(c => !c.closest(skip) && c.querySelector('img') && isRealSkinCard(c));
+            .filter(c => !c.closest(skip) && c.querySelector('img'));
     }
     if (cards.length) {
         return cards.filter(c => !cards.some(other => other !== c && other.contains(c)));
@@ -2265,7 +2280,7 @@ let browseDebounce    = null;
 let browseInitTimer   = null;
 
 function isBrowsePage() {
-    return isInventoryPage() || isMarketplacePage() || isTradePickerModal();
+    return isInventoryPage() || isMarketplacePage() || isItemPickerModal();
 }
 
 /** Sidebar inset only when the left nav is expanded (wide), not the collapsed icon rail. */
@@ -2303,10 +2318,10 @@ function isWeaponDetailsOpen() {
 function updateBrowseBarLayout() {
     const bar = document.getElementById('csrx-browse');
     if (!bar) return;
-    const trade = isTradePickerModal();
-    bar.classList.toggle('csrx-browse-trade', trade);
-    bar.classList.toggle('csrx-browse-under-modal', !trade && isWeaponDetailsOpen());
-    if (trade) {
+    const modal = isItemPickerModal();
+    bar.classList.toggle('csrx-browse-trade', modal);
+    bar.classList.toggle('csrx-browse-under-modal', !modal && isWeaponDetailsOpen());
+    if (modal) {
         bar.style.marginLeft = '';
         bar.style.width = '';
         bar.style.maxWidth = '';
@@ -2323,17 +2338,11 @@ function updateBrowseBarLayout() {
     }
 }
 
-function findTradePickerBrowseMount() {
+function findModalPickerBrowseMount() {
     const cards = getAllCards();
     if (!cards.length) return null;
     const grid = getCardGridParent(cards);
     if (!grid) return null;
-    for (const el of document.querySelectorAll('p, span, label')) {
-        const t = (el.textContent || '').trim();
-        if (!/^select your items$/i.test(t)) continue;
-        const host = el.closest('div, section');
-        if (host && host.contains(grid)) return { mode: 'before', el: grid };
-    }
     return { mode: 'before', el: grid };
 }
 
@@ -2389,6 +2398,7 @@ function findMainItemGrid() {
 function isBrowseBarMisplaced() {
     const bar = document.getElementById('csrx-browse');
     if (!bar) return false;
+    if (isItemPickerModal()) return false;
     if (isInLeftNav(bar)) return true;
     const grid = findMainItemGrid();
     if (!grid) return false;
@@ -2403,7 +2413,7 @@ function isBrowseBarMisplaced() {
 }
 
 function findBrowseMountPoint() {
-    if (isTradePickerModal()) return findTradePickerBrowseMount();
+    if (isItemPickerModal()) return findModalPickerBrowseMount();
 
     const grid = findMainItemGrid();
     if (grid) return { mode: 'before', el: grid };
@@ -2435,7 +2445,8 @@ function scheduleBrowseInit() {
         if (!document.getElementById('csrx-browse') || isBrowseBarMisplaced()) {
             const before = document.getElementById('csrx-browse');
             initBrowseTools();
-            if ((!before && !document.getElementById('csrx-browse')) && _browseInitAttempts < 12) {
+            const maxAttempts = isItemPickerModal() ? 25 : 12;
+            if ((!before && !document.getElementById('csrx-browse')) && _browseInitAttempts < maxAttempts) {
                 _browseInitAttempts++;
                 scheduleBrowseInit();
                 return;
@@ -2621,7 +2632,7 @@ function applyBrowseFilters() {
 
     let visible = [];
     for (const card of cards) {
-        if (!isRealSkinCard(card)) {
+        if (isEmptyPickerSlot(card)) {
             card.classList.add('csrx-browse-slot-hidden');
             continue;
         }
@@ -2857,7 +2868,7 @@ function checkPageAndRun() {
         stopBrowseTools();
         browsePageKind = null;
     } else {
-        const bk = isMarketplacePage() ? 'mp' : 'inv';
+        const bk = isMarketplacePage() ? 'mp' : isItemPickerModal() ? 'picker' : 'inv';
         if (browsePageKind !== bk) {
             stopBrowseTools();
             browsePageKind = bk;
@@ -2867,15 +2878,15 @@ function checkPageAndRun() {
 
     if (overlayRunning && overlayPageKind !== kind) stopAlwaysOnOverlay();
 
-    const modalOpen = isTradePickerModal();
-    if (modalOpen && !_tradeModalWasOpen) {
+    const pickerOpen = isItemPickerModal();
+    if (pickerOpen && !_tradeModalWasOpen) {
         if (overlayRunning) scheduleOverlayBootstrap();
         scheduleBrowseInit();
     }
-    if (!modalOpen && _tradeModalWasOpen && !isInventoryPage() && !isMarketplacePage()) {
+    if (!pickerOpen && _tradeModalWasOpen && !isInventoryPage() && !isMarketplacePage()) {
         stopBrowseTools();
     }
-    _tradeModalWasOpen = modalOpen;
+    _tradeModalWasOpen = pickerOpen;
 
     if (!overlayRunning) {
         overlayPageKind = kind;
@@ -2893,7 +2904,7 @@ setInterval(checkPageAndRun, 1500);
 
 document.addEventListener('click', e => {
     const t = e.target?.textContent?.trim() || '';
-    if (/^(my items|their items)$/i.test(t) && isTradePickerModal()) {
+    if (/^(my items|their items)$/i.test(t) && isItemPickerModal()) {
         scheduleApplyOverlays(true);
         scheduleOverlayBootstrap();
         scheduleBrowseInit();
