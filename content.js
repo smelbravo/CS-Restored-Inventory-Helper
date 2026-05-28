@@ -231,7 +231,10 @@ function scrapeWeaponDetailsQuickSell() {
 function scheduleQuickSellDomScrape() {
     if (!isInventoryPage()) return;
     clearTimeout(_qsScrapeTimer);
-    _qsScrapeTimer = setTimeout(scrapeWeaponDetailsQuickSell, 120);
+    _qsScrapeTimer = setTimeout(() => {
+        scrapeWeaponDetailsQuickSell();
+        scheduleBrowseLayoutUpdate();
+    }, 120);
 }
 
 function ensureQuickSellDomWatcher() {
@@ -947,23 +950,35 @@ input[type=range].csrx-range:hover::-moz-range-thumb { transform: scale(1.2); }
 }
 
 .mc-rm {
-    position: absolute;
-    bottom: 7px;
-    right: 7px;
-    z-index: 10;
-    width: 18px;
-    height: 18px;
-    border-radius: 4px;
-    background: rgba(0,0,0,0.8);
-    border: 1px solid rgba(239,68,68,0.2);
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    border-radius: 5px;
+    background: rgba(239,68,68,0.08);
+    border: 1px solid rgba(239,68,68,0.22);
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     transition: all 0.15s;
-    opacity: 0.5;
+    padding: 0;
+    opacity: 0.85;
 }
-.mc-rm:hover { background: rgba(239,68,68,0.15); border-color: rgba(239,68,68,0.4); opacity: 1; }
+.mc-rm:hover { background: rgba(239,68,68,0.18); border-color: rgba(239,68,68,0.4); opacity: 1; }
+.mc-rm.mc-rm-float {
+    position: absolute;
+    top: 7px;
+    right: 7px;
+    z-index: 6;
+}
+
+.mc-price-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+}
+.mc-price-head .mc-market-lbl { flex: 1; min-width: 0; }
 
 .mc-body { padding: 0 9px 9px; display: flex; flex-direction: column; flex: 1; }
 
@@ -1101,6 +1116,7 @@ input[type=range].csrx-range:hover::-moz-range-thumb { transform: scale(1.2); }
     display: flex;
     flex-direction: column;
     gap: 5px;
+    position: relative;
 }
 .mc-qs-price {
     font-size: 9px;
@@ -1210,9 +1226,23 @@ input[type=range].csrx-range:hover::-moz-range-thumb { transform: scale(1.2); }
     margin: 12px 0 16px 0;
     padding: 0;
     font-family: 'Inter', sans-serif;
-    z-index: 50;
+    z-index: 2;
     position: relative;
     box-sizing: border-box;
+    transition: margin-left 0.2s ease, width 0.2s ease, opacity 0.15s;
+}
+#csrx-browse.csrx-browse-under-modal {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    height: 0;
+    margin: 0;
+    overflow: hidden;
+}
+#csrx-browse.csrx-browse-trade {
+    margin-left: 0 !important;
+    width: 100% !important;
+    max-width: 100%;
 }
 .csrx-browse-row {
     display: flex;
@@ -1374,7 +1404,10 @@ function ensureOverlayDomObserver() {
     _overlayDomObs = new MutationObserver(() => {
         if (!overlayRunning) return;
         clearTimeout(debounce);
-        debounce = setTimeout(() => scheduleApplyOverlays(true), 100);
+        debounce = setTimeout(() => {
+            scheduleApplyOverlays(true);
+            scheduleBrowseLayoutUpdate();
+        }, 100);
     });
     _overlayDomObs.observe(document.body, { childList: true, subtree: true });
 }
@@ -2167,7 +2200,69 @@ let browseDebounce    = null;
 let browseInitTimer   = null;
 
 function isBrowsePage() {
-    return isInventoryPage() || isMarketplacePage();
+    return isInventoryPage() || isMarketplacePage() || isTradePickerModal();
+}
+
+function measureSidebarInset() {
+    let inset = 0;
+    for (const el of document.querySelectorAll('aside, nav, div')) {
+        const r = el.getBoundingClientRect();
+        if (r.left > 12) continue;
+        if (r.width < 48 || r.width > 380) continue;
+        if (r.height < window.innerHeight * 0.35) continue;
+        const t = (el.innerText || '').toLowerCase();
+        if (!t.includes('matchmaking') && !t.includes('leaderboard')) continue;
+        if (t.length > 400) continue;
+        inset = Math.max(inset, Math.round(r.right));
+    }
+    return inset;
+}
+
+function isWeaponDetailsOpen() {
+    for (const el of document.querySelectorAll('h1, h2, h3, h4, p, span')) {
+        if ((el.textContent || '').trim() !== 'Weapon Details') continue;
+        let node = el;
+        for (let i = 0; i < 16 && node; i++) {
+            const st = getComputedStyle(node);
+            if (st.position === 'fixed' || node.getAttribute('role') === 'dialog') return true;
+            const z = parseInt(st.zIndex, 10);
+            if (!Number.isNaN(z) && z >= 30) return true;
+            node = node.parentElement;
+        }
+    }
+    return false;
+}
+
+function updateBrowseBarLayout() {
+    const bar = document.getElementById('csrx-browse');
+    if (!bar) return;
+    const trade = isTradePickerModal();
+    bar.classList.toggle('csrx-browse-trade', trade);
+    bar.classList.toggle('csrx-browse-under-modal', !trade && isWeaponDetailsOpen());
+    if (trade) {
+        bar.style.marginLeft = '';
+        bar.style.width = '100%';
+    } else {
+        const inset = measureSidebarInset();
+        bar.style.marginLeft = inset > 0 ? `${inset}px` : '';
+        bar.style.width = inset > 0 ? `calc(100% - ${inset}px)` : '100%';
+    }
+}
+
+function findTradePickerBrowseMount() {
+    const cards = getAllCards();
+    const grid = cards.length ? getCardGridParent(cards) : null;
+    if (!grid) return null;
+    for (const el of document.querySelectorAll('p, span, label, div')) {
+        const t = (el.textContent || '').trim();
+        if (!/^select your items$/i.test(t)) continue;
+        let node = el;
+        for (let i = 0; i < 10 && node; i++) {
+            if (node.contains(grid)) return { mode: 'before', el: grid };
+            node = node.parentElement;
+        }
+    }
+    return { mode: 'before', el: grid };
 }
 
 function isSubNavTab(el) {
@@ -2236,6 +2331,8 @@ function isBrowseBarMisplaced() {
 }
 
 function findBrowseMountPoint() {
+    if (isTradePickerModal()) return findTradePickerBrowseMount();
+
     const grid = findMainItemGrid();
     if (grid) return { mode: 'before', el: grid };
 
@@ -2273,7 +2370,14 @@ function scheduleBrowseInit() {
             }
         }
         _browseInitAttempts = 0;
+        updateBrowseBarLayout();
     }, _browseInitAttempts ? 400 : 0);
+}
+
+let _browseLayoutTimer = null;
+function scheduleBrowseLayoutUpdate() {
+    clearTimeout(_browseLayoutTimer);
+    _browseLayoutTimer = setTimeout(updateBrowseBarLayout, 80);
 }
 
 function getCardSearchText(card, item) {
@@ -2548,6 +2652,7 @@ function initBrowseTools() {
         mount.el.insertAdjacentElement('afterend', bar);
     }
     browseToolsActive = true;
+    updateBrowseBarLayout();
     applyBrowseFilters();
 }
 
@@ -2582,6 +2687,7 @@ function applyOverlaysToAll(opts) {
     if (isBrowsePage() && (!document.getElementById('csrx-browse') || isBrowseBarMisplaced())) {
         scheduleBrowseInit();
     }
+    scheduleBrowseLayoutUpdate();
 
     const cardSet = new Set(cards);
     if (!cards.length) {
@@ -2682,8 +2788,12 @@ function checkPageAndRun() {
     if (overlayRunning && overlayPageKind !== kind) stopAlwaysOnOverlay();
 
     const modalOpen = isTradePickerModal();
-    if (modalOpen && !_tradeModalWasOpen && overlayRunning) {
-        scheduleOverlayBootstrap();
+    if (modalOpen && !_tradeModalWasOpen) {
+        if (overlayRunning) scheduleOverlayBootstrap();
+        scheduleBrowseInit();
+    }
+    if (!modalOpen && _tradeModalWasOpen && !isInventoryPage() && !isMarketplacePage()) {
+        stopBrowseTools();
     }
     _tradeModalWasOpen = modalOpen;
 
@@ -2706,8 +2816,11 @@ document.addEventListener('click', e => {
     if (/^(my items|their items)$/i.test(t) && isTradePickerModal()) {
         scheduleApplyOverlays(true);
         scheduleOverlayBootstrap();
+        scheduleBrowseInit();
     }
 }, true);
+
+window.addEventListener('resize', scheduleBrowseLayoutUpdate);
 
 function extUrl(p) {
     try {
@@ -2724,7 +2837,7 @@ function extUrl(p) {
 
 const fab = document.createElement('div');
 fab.id = 'csrx-fab';
-fab.title = 'CS:Restored Inventory Helper';
+fab.title = 'CS:R Quick Sell & Market — pick skins, list or instant sell';
 fab.innerHTML = `<img alt="CS:R Inventory Helper" src="${extUrl('icons/icon-128.png')}">`;
 document.body.appendChild(fab);
 
@@ -2737,8 +2850,8 @@ win.innerHTML = `
         <img alt="CS:R Inventory Helper" src="${extUrl('icons/icon-128.png')}">
     </div>
     <div class="csrx-hdr-text">
-        <div class="csrx-hdr-title">CS:R Inventory Helper</div>
-        <div class="csrx-hdr-sub">Quick sell + float tools</div>
+        <div class="csrx-hdr-title">Quick Sell &amp; Market</div>
+        <div class="csrx-hdr-sub">Pick skins · list on market or instant sell</div>
     </div>
     <div id="csrx-winx">
         <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2.5" stroke-linecap="round">
@@ -2819,7 +2932,7 @@ overlay.innerHTML = `
     <div id="csrx-mhdr">
         <div class="csrx-mhdr-left">
             <div class="csrx-mhdr-title">Confirm <span>Sale</span></div>
-            <div class="csrx-mhdr-sub" id="csrx-mhdr-sub">List on market or quick sell</div>
+            <div class="csrx-mhdr-sub" id="csrx-mhdr-sub">Quick sell or list on marketplace</div>
         </div>
         <div id="csrx-mxbtn">
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2.5" stroke-linecap="round">
@@ -3158,13 +3271,16 @@ function buildMC(entry) {
     }
     wrap.appendChild(imgZ);
 
-    const rm=document.createElement('div'); rm.className='mc-rm';
-    rm.innerHTML=`<svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
-    wrap.appendChild(rm);
-
     const body=document.createElement('div'); body.className='mc-body';
+    let rm;
     if(!item){
         body.innerHTML=`<div class="mc-weapon">Unknown</div><div class="mc-skin" style="color:#ef4444;">Not Found</div><div style="margin-top:4px;font-size:9px;font-weight:500;padding:2px 6px;border-radius:4px;background:rgba(239,68,68,0.08);color:#ef4444;border:1px solid rgba(239,68,68,0.15);display:inline-block;">${entry.msg||'Error'}</div>`;
+        rm=document.createElement('button');
+        rm.type='button';
+        rm.className='mc-rm mc-rm-float';
+        rm.title='Remove';
+        rm.innerHTML=`<svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+        wrap.appendChild(rm);
     } else {
         const f=item.float,col=wearColor(f);
         const wn=document.createElement('div');wn.className='mc-weapon';wn.textContent=wName(item);body.appendChild(wn);
@@ -3193,8 +3309,17 @@ function buildMC(entry) {
         qsEl.textContent=qsPrice!=null?`Quick sell: ${formatCoins(qsPrice)}`:'Quick sell: —';
         priceBlock.appendChild(qsEl);
 
+        rm=document.createElement('button');
+        rm.type='button';
+        rm.className='mc-rm';
+        rm.title='Remove from sale list';
+        rm.innerHTML=`<svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+
+        const priceHead=document.createElement('div');priceHead.className='mc-price-head';
         const mLbl=document.createElement('div');mLbl.className='mc-market-lbl';mLbl.textContent='Market price (coins)';
-        priceBlock.appendChild(mLbl);
+        priceHead.appendChild(mLbl);
+        priceHead.appendChild(rm);
+        priceBlock.appendChild(priceHead);
         const mInp=document.createElement('input');
         mInp.type='number';
         mInp.min='1';

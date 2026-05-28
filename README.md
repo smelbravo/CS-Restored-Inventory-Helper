@@ -4,7 +4,7 @@ Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.f
 
 Works in **Firefox**, **Microsoft Edge**, and **Chromium** browsers (Manifest V3).
 
-**Current version:** `3.1.3` (on branch `develop`)
+**Current version:** `3.1.4` (on branch `fix/extension-UI-bugs`)
 
 **Repository:** [github.com/smelbravo/CS-Restored-Inventory-Helper](https://github.com/smelbravo/CS-Restored-Inventory-Helper)
 
@@ -28,7 +28,7 @@ Shows **wear abbreviation** (FN, MW, FT, WW, BS), **float value** (e.g. `0.1962`
 | **Inventory** | `/app/inventory` | Badges in the bottom-right corner of each card |
 | **Marketplace** | `/app/inventory/marketplace` | Badges below the price (top-right) |
 | **Trade views** | `/app/play`, `/app/inventory/trade-up` | Float/seed for **your** items when inventory data is available |
-| **Send Trade Offer** | Modal on site | **My Items** works; **Their Items** depends on site API (see limitations) |
+| **Send Trade Offer** | Modal on site | Float/seed + search/filters on item grid; **Their Items** depends on site API (see limitations) |
 
 Data is matched by offer ID, skin image, wear, StatTrak, and name. The extension reads data from the site's own API responses in your browser session — it does not send data to external servers or spam duplicate API calls.
 
@@ -49,9 +49,9 @@ Horizontal bar above the item grid (same layout on both pages):
 - Shows `Showing X of Y items` when filters hide cards
 - Sorting reorders the visible grid without reloading the page
 
-### CS:R Inventory Helper panel (inventory only)
+### Quick Sell & Market panel (inventory only)
 
-Floating button (bottom-right on inventory) opens the **CS:R Inventory Helper** panel:
+Floating button (bottom-right on inventory) opens the **Quick Sell & Market** panel:
 
 - **Start Picking** — click cards to select items to sell
 - **Review & Sell** — confirm selection in a modal with validation
@@ -142,6 +142,13 @@ When you open **Review & Sell**, the **Confirm Sale** modal shows each verified 
 | `develop` | Active development |
 
 ## Changelog
+
+### v3.1.4
+
+- **UI:** panel renamed **Quick Sell & Market** with clearer subtitle
+- **UI:** Confirm Sale remove (×) button no longer overlaps market price input
+- **UI:** search/filters hide under Weapon Details modal; sidebar inset on inventory/marketplace
+- **UI:** search + filters in **Send Trade Offer** (My Items / Their Items)
 
 ### v3.1.3
 
