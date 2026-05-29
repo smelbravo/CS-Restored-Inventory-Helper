@@ -90,9 +90,23 @@ When **Quick Sell & Market** is enabled in the popup, the floating **CS:R button
 - **Start Picking** — click cards to select items to sell (respects skin lock)
 - **Review & Sell** — confirm selection in a modal with validation
 - **Sell by Rarity** — bulk sell all items of a chosen rarity tier (respects skin lock)
-- **Batch size** slider — parallel sell requests (1–20)
+- **Batch size** (under **Speed**) — how many items are sold or listed **in parallel** during bulk Quick Sell or List on Market (see below)
 
 Hidden on marketplace and trade pages. With the toggle off, the floating button and panel do not appear.
+
+#### Batch size (Speed slider)
+
+Controls parallel API requests when you **Quick Sell** or **List on Market** from the Confirm Sale modal (bulk flows only — not single sells on the site).
+
+| Setting | Range | Default |
+|---------|-------|---------|
+| **Batch size** | 1–20 | 5 |
+
+- The extension processes items in **chunks** of this size (e.g. 30 items at batch size **5** → 6 rounds of 5 parallel requests).
+- **Higher** (15–20) = faster bulk operations, but more load on the server — may fail or hit rate limits.
+- **Lower** (1–3) = slower, but usually more reliable if you see errors.
+
+Example reply for players: *“Batch size is how many skins get sold or listed at the same time during bulk Quick Sell / List on Market. Higher = faster; lower = safer if requests fail.”*
 
 ### Confirm Sale — marketplace list + quick sell (v3.1+)
 
@@ -153,6 +167,8 @@ python build-zip.py
 ```
 
 Creates `../releases/CS-Restored-Inventory-Helper-v{version}.zip` and `.xpi` (forward-slash paths).
+
+Firefox Add-ons store copy (draft): [`../amo-listing/`](../amo-listing/) — local folder, same as [`../release-notes/`](../release-notes/).
 
 ## Usage
 
