@@ -138,18 +138,51 @@ Compact **search bar** inside the trade modal (My Items and Their Items):
 - **Your offer / My items**: float + seed from your inventory (`GET /inventory/`)
 - **Their offer / Other player's items**: **not supported** — site API does not expose float/seed for other players' trade items (see limitations)
 
-## Installation (developer / temporary)
-
-### Firefox
-
-1. Open `about:debugging` → **This Firefox** → **Load Temporary Add-on**
-2. Select `manifest.json` from this folder
+## Installation
 
 ### Chrome / Edge / Brave
 
-1. Open `chrome://extensions` (or `edge://extensions`)
-2. Enable **Developer mode**
-3. Click **Load unpacked** and select this folder
+1. Download the **`.zip`** from [GitHub Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) and unzip, **or** clone this repo
+2. Open `chrome://extensions` (or `edge://extensions`)
+3. Enable **Developer mode**
+4. Click **Load unpacked** and select the folder that contains `manifest.json`
+
+### Firefox — GitHub download (unsigned)
+
+Firefox **Release** only installs **Mozilla-signed** add-ons. The **`.xpi` on GitHub is unsigned** — *Install add-on from file*, installing from the releases page, or dragging the file into Firefox **will fail** with *“could not be installed because it has not been verified”* until the build is published on [Firefox Add-ons](https://addons.mozilla.org/) (AMO).
+
+#### Standard Firefox Release — use the `.zip` (temporary)
+
+1. Download **`CS-Restored-Inventory-Helper-v{version}.zip`** from [GitHub Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) and unzip
+2. Open **`about:debugging`** → **This Firefox** → **Load Temporary Add-on**
+3. Select **`manifest.json`** inside the unzipped folder  
+   *(You must reload after every Firefox restart — normal for temporary add-ons.)*
+
+#### Already on AMO (e.g. v3.0.9)
+
+Wait for the signed update on the [Firefox Add-ons listing](https://addons.mozilla.org/) — that is the permanent install path for Release users.
+
+#### Optional — permanent `.xpi` (developers only)
+
+Only works in **[Firefox Developer Edition](https://www.mozilla.org/firefox/developer/)** (or Nightly), **not** standard Release:
+
+1. Install Firefox Developer Edition
+2. Open **`about:config`** → set **`xpinstall.signatures.required`** to **`false`**
+3. Open **`about:addons`** → gear → **Install Add-on From File…** → select the **`.xpi`** from [`../releases/`](../releases/)
+4. Stays installed across restarts; update by installing a newer `.xpi` manually
+
+Do **not** recommend this to players — use AMO once approved.
+
+The **`.xpi`** built by `build-zip.py` is for **AMO submission** and Developer Edition testing, not for manual install on Firefox Release from GitHub.
+
+### Updating
+
+| Platform | How |
+|----------|-----|
+| **Chrome / Edge / Brave** | Replace folder → **Reload** on extensions page, or remove and load again |
+| **Firefox (temporary `.zip`)** | Reload via `about:debugging` after restart, or load the new `.zip` again |
+| **Firefox (AMO)** | Update from Add-ons store when a signed version is published |
+| **Firefox (Developer Edition + `.xpi`)** | Install the new `.xpi` over the old one |
 
 ## Releases
 
@@ -158,7 +191,11 @@ Stable downloads: [GitHub Releases](https://github.com/smelbravo/CS-Restored-Inv
 | Browser | File | Install |
 |---------|------|---------|
 | **Chrome, Edge, Brave** | `.zip` | Unzip → Load unpacked |
-| **Firefox** | `.xpi` | `about:addons` → gear → Install Add-on From File |
+| **Firefox Release (now)** | `.zip` | Unzip → `about:debugging` → Load Temporary Add-on → `manifest.json` |
+| **Firefox Release (after AMO)** | Signed build on AMO | Install / update from Firefox Add-ons store |
+| **Firefox Developer Edition** | `.xpi` (optional) | `about:config` → `xpinstall.signatures.required` = `false` → install from file |
+
+See **[Installation](#installation)** above for details (unsigned `.xpi` does **not** work on Firefox Release from GitHub).
 
 Build release packages locally:
 
