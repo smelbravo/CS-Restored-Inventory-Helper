@@ -21,7 +21,7 @@
         { key: 'browseFilters', label: 'Search & filters', desc: 'Inventory, marketplace, and create offer' },
         { key: 'quickSellPanel', label: 'Quick Sell & Market', desc: 'Floating panel and confirm sale' },
         { key: 'tradeSearch', label: 'Trade offer search', desc: 'Search bar in Send Trade Offer modal' },
-        { key: 'skinLock', label: 'Skin lock', desc: 'Lock skins on inventory — excluded from quick sell' },
+        { key: 'skinLock', label: 'Skin lock', desc: 'Padlock on inventory cards — blocks extension Quick Sell only (not the site Weapon Details button)' },
     ];
 
     let featureSettings = { ...CSR_SETTINGS_DEFAULTS };

@@ -448,10 +448,10 @@ S.textContent = `
 }
 .csrx-lock-btn {
     position: absolute !important;
-    top: 6px !important;
-    left: 6px !important;
-    width: 22px !important;
-    height: 22px !important;
+    top: 8px !important;
+    left: 8px !important;
+    width: 20px !important;
+    height: 20px !important;
     padding: 0 !important;
     border: 1px solid #333 !important;
     border-radius: 5px !important;
@@ -470,7 +470,6 @@ S.textContent = `
     background: rgba(245,158,11,0.2) !important;
     color: #fbbf24 !important;
 }
-.csrx-card-wrap.csrx-has-lock .csrx-float-badge { top: 32px !important; }
 .csrx-locked-card {
     outline: 1px solid rgba(245,158,11,0.35) !important;
     outline-offset: 1px !important;
@@ -490,6 +489,12 @@ S.textContent = `
     pointer-events: none !important;
 }
 
+#csrx-fab.csrx-feature-off,
+#csrx-win.csrx-feature-off {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+}
 #csrx-fab {
     position: fixed;
     bottom: 24px;
@@ -498,7 +503,7 @@ S.textContent = `
     height: 48px;
     background: #0a0a0a;
     border-radius: 12px;
-    display: none;
+    display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
@@ -2484,24 +2489,26 @@ function injectCardOverlay(cardEl, item) {
     wrap.dataset.csrxKey = itemCacheKey(item);
     wrap.dataset.csrxLock = lockSig;
 
+    cardEl.querySelector('.csrx-lock-btn')?.remove();
     if (wantLock) {
-        wrap.classList.add('csrx-has-lock');
         const locked = csrIsWeaponLocked(item.weapon_id);
         cardEl.classList.toggle('csrx-locked-card', locked);
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'csrx-lock-btn' + (locked ? ' csrx-locked' : '');
-        btn.title = locked ? 'Unlock skin (excluded from quick sell)' : 'Lock skin (excluded from quick sell)';
+        btn.title = locked
+            ? 'Unlock — blocked from extension Quick Sell'
+            : 'Lock — blocks extension Quick Sell (panel + confirm modal)';
         btn.innerHTML = locked
-            ? '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>'
-            : '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 019.9-1"/></svg>';
+            ? '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>'
+            : '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 019.9-1"/></svg>';
         btn.addEventListener('click', async (e) => {
             e.preventDefault();
             e.stopPropagation();
             await csrToggleWeaponLock(item.weapon_id);
             injectCardOverlay(cardEl, item);
         });
-        wrap.appendChild(btn);
+        cardEl.appendChild(btn);
     } else {
         cardEl.classList.remove('csrx-locked-card');
     }
@@ -3346,7 +3353,7 @@ fab.id = 'csrx-fab';
 fab.title = 'CS:R Quick Sell & Market — pick skins, list or instant sell';
 fab.innerHTML = `<img alt="CS:R Inventory Helper" src="${extUrl('icons/icon-128.png')}">`;
 document.body.appendChild(fab);
-fab.style.display = 'none';
+fab.classList.add('csrx-feature-off');
 
 const win = document.createElement('div');
 win.id = 'csrx-win';
@@ -3424,7 +3431,7 @@ win.innerHTML = `
     </div>
 </div>`;
 document.body.appendChild(win);
-win.style.display = 'none';
+win.classList.add('csrx-feature-off');
 
 const overlay = document.createElement('div');
 overlay.id = 'csrx-overlay';
@@ -3648,19 +3655,35 @@ function matchCard(cardEl, inv, usedIds) {
     return null;
 }
 
+function csrIsItemSellBlocked(item) {
+    return csrIsFeatureEnabled('skinLock') && item?.weapon_id != null && csrIsWeaponLocked(item.weapon_id);
+}
+
+function syncQuickSellPanelVisibility() {
+    const panelOn = csrIsFeatureEnabled('quickSellPanel');
+    fab.classList.toggle('csrx-feature-off', !panelOn);
+    win.classList.toggle('csrx-feature-off', !panelOn);
+    if (!panelOn) {
+        winOpen = false;
+        win.style.display = 'none';
+        fab.style.display = 'none';
+        if (selMode) exitSel();
+        return;
+    }
+    if (!isInventoryPage()) {
+        win.style.display = 'none';
+        fab.style.display = 'none';
+        if (selMode) exitSel();
+        return;
+    }
+    win.style.display = winOpen ? 'flex' : 'none';
+    fab.style.display = winOpen ? 'none' : 'flex';
+}
+
 let winOpen=false;
 document.getElementById('csrx-winx').addEventListener('click',()=>{winOpen=false;if(selMode)exitSel();});
-fab.addEventListener('click',()=>{winOpen=true;});
-setInterval(()=>{
-    const onInv=isInventoryPage();
-    if(onInv){
-        win.style.display=winOpen?'flex':'none';
-        fab.style.display=winOpen?'none':'flex';
-    } else {
-        win.style.display='none'; fab.style.display='none';
-        if(selMode)exitSel();
-    }
-},400);
+fab.addEventListener('click',()=>{ if (!csrIsFeatureEnabled('quickSellPanel')) return; winOpen=true; });
+setInterval(syncQuickSellPanelVisibility, 400);
 document.getElementById('csrx-spd').addEventListener('input',e=>{
     document.getElementById('csrx-spdval').textContent=e.target.value;
 });
@@ -3709,7 +3732,7 @@ document.addEventListener('click',e=>{
     } else {
         const usedIds=new Set([...picked.values()].filter(v=>v!=null));
         const result=matchCard(card,serverInv,usedIds);
-        if(result&&csrIsFeatureEnabled('skinLock')&&csrIsWeaponLocked(result.item.weapon_id)){
+        if(result&&csrIsItemSellBlocked(result.item)){
             toast('This skin is locked — unlock it on the card first','warn');
             return;
         }
@@ -3859,7 +3882,9 @@ function getConfirmedModalItems() {
     const out = [];
     document.querySelectorAll('#csrx-mgrid .mc.mc-confirmed').forEach(wrapEl => {
         const entry = modalEntries[parseInt(wrapEl.dataset.idx, 10)];
-        if (entry?.item) out.push({ item: entry.item, cardEl: entry.cardEl, wrapEl });
+        if (entry?.item && !csrIsItemSellBlocked(entry.item)) {
+            out.push({ item: entry.item, cardEl: entry.cardEl, wrapEl });
+        }
     });
     return out;
 }
@@ -3913,10 +3938,14 @@ function buildValidatorPanel(entries){
 }
 
 async function openModal(entries){
+    const allowed = entries.filter(e => e.weaponId == null || !csrIsWeaponLocked(e.weaponId));
+    const blocked = entries.length - allowed.length;
+    if (blocked) toast(`${blocked} locked item${blocked !== 1 ? 's' : ''} skipped`, 'warn');
+    if (!allowed.length) return;
     setStatus('Validating…','syncing');
     const fresh=await apiInv();
     setStatus('Review','active');
-    const validated=validateItems(entries,fresh);
+    const validated=validateItems(allowed,fresh);
     enrichQuickSellPrices(validated);
     modalEntries=validated;
     const grid=document.getElementById('csrx-mgrid'); grid.innerHTML=''; document.getElementById('csrx-mbar').style.width='0';
@@ -4066,7 +4095,11 @@ document.getElementById('csrx-mlist').addEventListener('click', async () => {
 btnSell.addEventListener('click',async()=>{
     if(!picked.size||selling)return;
     const entries=[...picked.entries()]
-        .filter(([, weaponId]) => weaponId == null || !csrIsWeaponLocked(weaponId))
+        .filter(([, weaponId]) => {
+            if (weaponId == null) return true;
+            const item = serverInv.find(i => i.weapon_id === weaponId);
+            return !csrIsItemSellBlocked(item || { weapon_id: weaponId });
+        })
         .map(([cardEl,weaponId])=>({cardEl,weaponId}));
     const skipped=picked.size-entries.length;
     if(skipped)toast(`${skipped} locked item${skipped!==1?'s':''} skipped`,'warn');
@@ -4080,8 +4113,8 @@ document.getElementById('csrx-massbtn').addEventListener('click',async()=>{
     setStatus('Fetching…','syncing');
     const inv=await apiInv();
     setStatus('Ready','ready');
-    const items=inv.filter(i=>parseInt(i.rarity)===val&&!csrIsWeaponLocked(i.weapon_id));
-    const lockedSkip=inv.filter(i=>parseInt(i.rarity)===val&&csrIsWeaponLocked(i.weapon_id)).length;
+    const items=inv.filter(i=>parseInt(i.rarity)===val&&!csrIsItemSellBlocked(i));
+    const lockedSkip=inv.filter(i=>parseInt(i.rarity)===val&&csrIsItemSellBlocked(i)).length;
     if(lockedSkip)toast(`${lockedSkip} locked item${lockedSkip!==1?'s':''} skipped`,'info');
     if(!items.length){toast('No items for selected rarity','warn');return;}
     modalEntries=items.map(item=>({cardEl:null,weaponId:item.weapon_id,item,status:'ok',msg:'From API'}));
@@ -4099,10 +4132,7 @@ document.getElementById('csrx-massbtn').addEventListener('click',async()=>{
 });
 
 function applyCsrFeatureVisibility() {
-    const showPanel = csrIsFeatureEnabled('quickSellPanel');
-    fab.style.display = showPanel ? '' : 'none';
-    win.style.display = showPanel ? '' : 'none';
-    if (!showPanel && selMode) exitSel();
+    syncQuickSellPanelVisibility();
 }
 
 async function bootstrapCsrExtension() {

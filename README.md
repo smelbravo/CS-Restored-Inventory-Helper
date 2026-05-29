@@ -4,7 +4,7 @@ Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.f
 
 Works in **Firefox**, **Microsoft Edge**, and **Chromium** browsers (Manifest V3).
 
-**Current version:** `3.2.0` (on branch `feature/extension-popup-feature-toggles`)
+**Current version:** `3.2.1` (on branch `feature/extension-popup-feature-toggles`)
 
 **Repository:** [github.com/smelbravo/CS-Restored-Inventory-Helper](https://github.com/smelbravo/CS-Restored-Inventory-Helper)
 
@@ -70,9 +70,13 @@ Click the extension icon in the toolbar to open **Settings**:
 | Search & filters | Browse bar on inventory, marketplace, create offer |
 | Quick Sell & Market | Floating panel + confirm sale |
 | Trade offer search | Search in Send Trade Offer modal |
-| Skin lock | Lock icon on inventory cards — locked skins are skipped by quick sell / sell by rarity |
+| Skin lock | Padlock on inventory cards — blocks **extension** Quick Sell only |
 
-Settings are stored in the browser (`storage.local`), not cookies. Changes apply on the next page action or when you toggle a setting (no full reload required).
+**Skin lock applies to:** picking skins, Sell by Rarity, Review & Sell, and the **Quick Sell** button in the Confirm Sale modal.
+
+**Does not block:** the site’s own **Quick Sell** button inside Weapon Details (that is the CS:R website, not the extension).
+
+Settings are stored in the browser (`storage.local`), not cookies. Changes apply when you toggle a setting or within ~0.4s on the page.
 
 ### Confirm Sale — marketplace list + quick sell (v3.1+)
 
@@ -181,6 +185,12 @@ Creates `../releases/CS-Restored-Inventory-Helper-v{version}.zip` (AMO-compatibl
 | `develop` | Active development |
 
 ## Changelog
+
+### v3.2.1
+
+- **Fix:** Quick Sell panel FAB hidden when feature is disabled in popup
+- **Fix:** lock icon moved to top-left of card (no longer overlaps float)
+- **Clarify:** skin lock blocks extension Quick Sell paths only, not site Weapon Details
 
 ### v3.2.0
 
