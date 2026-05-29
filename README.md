@@ -262,6 +262,14 @@ Firefox Add-ons store copy (draft): [`../amo-listing/`](../amo-listing/) — loc
 
 ## Changelog
 
+### v3.2.7
+
+- **Fix:** Firefox — settings popup opens on first click (`popup.js` standalone; does not load `settings.js` on open)
+- **Fix:** browse/search, Create Offer layout, and popup regressions shipped in v3.2.2–v3.2.6 (merged to `main`)
+- **Docs:** batch size (Speed slider) — parallel sell/list count (1–20) explained in README
+- **Docs:** Firefox install — unsigned `.xpi` from GitHub does not work on Release; use `.zip` + `about:debugging`, AMO when signed, or Developer Edition for permanent `.xpi`
+- **Build:** `build-zip.py` outputs both `.zip` (Chromium) and `.xpi` (AMO / Developer Edition)
+
 ### v3.2.6
 
 - **Fix:** Firefox — removed invalid `gecko.background`, `firefox-background.js`, and `options_ui` (these caused manifest warnings and made the toolbar icon need multiple clicks)
