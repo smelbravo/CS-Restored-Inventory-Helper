@@ -4,7 +4,7 @@ Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.f
 
 Works in **Firefox**, **Microsoft Edge**, and **Chromium** browsers (Manifest V3).
 
-**Current version:** `3.2.1` (on branch `feature/extension-popup-feature-toggles`)
+**Current version:** `3.2.7` (on branch `feature/extension-popup-feature-toggles`)
 
 **Repository:** [github.com/smelbravo/CS-Restored-Inventory-Helper](https://github.com/smelbravo/CS-Restored-Inventory-Helper)
 
@@ -141,7 +141,7 @@ Compact **search bar** inside the trade modal (My Items and Their Items):
 
 Stable downloads: [GitHub Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) (latest on `main`: **v3.1.16**).
 
-**In development** on branch `feature/extension-popup-feature-toggles`: **v3.2.1** (popup toggles + skin lock) — not merged to `main` yet.
+**In development** on branch `feature/extension-popup-feature-toggles`: **v3.2.7** (popup toggles + skin lock) — not merged to `main` yet.
 
 Build the install zip locally:
 
@@ -206,6 +206,31 @@ Creates `../releases/CS-Restored-Inventory-Helper-v{version}.zip` (AMO-compatibl
 | `feature/extension-popup-feature-toggles` | v3.2.x — popup toggles + skin lock (testing) |
 
 ## Changelog
+
+### v3.2.6
+
+- **Fix:** Firefox — removed invalid `gecko.background`, `firefox-background.js`, and `options_ui` (these caused manifest warnings and made the toolbar icon need multiple clicks)
+- **Fix:** popup back to simple `default_popup` only; static HTML + sync render (no `await` before UI)
+
+### v3.2.5
+
+- **Reverted in v3.2.6:** Firefox `gecko.background` / `options_ui` experiment (invalid manifest + worse click behaviour)
+
+### v3.2.4
+
+- **Fix:** Firefox — removed `background.service_worker` (unsupported when loading temporary add-ons); popup still renders immediately without a background script
+
+### v3.2.3
+
+- **Fix:** **Create Offer** — search/filters row no longer has a huge gap (dedicated layout class; filters not pushed with `margin-left: auto`)
+- **Fix:** **Create Offer** — item grid stays under the toolbar (grid parent detection prefers the real card grid, not the modal flex wrapper)
+- **Fix:** toolbar popup renders immediately on open (no empty wait for storage)
+
+### v3.2.2
+
+- **Fix:** search & filters stay active when **Float & seed overlays** is off (browse no longer tied to overlay bootstrap)
+- **Fix:** **Create Offer** modal — browse bar no longer flickers; item grid scoped to the modal (marketplace cards are not hidden/moved)
+- **Fix:** closing **Create Offer** no longer leaves marketplace skins oversized (safer hide CSS + grid restore on close)
 
 ### v3.2.1
 
@@ -459,7 +484,7 @@ https://github.com/smelbravo/CS-Restored-Inventory-Helper
 ### Notes for reviewer (private)
 
 ```
-Extension: CS:Restored Inventory Helper (v3.2.1 on feature branch / v3.1.16 on main)
+Extension: CS:Restored Inventory Helper (v3.2.7 on feature branch / v3.1.16 on main)
 Works only on https://csrestored.fun when logged in.
 
 Site requirements (enforced by CS:Restored, not the extension):

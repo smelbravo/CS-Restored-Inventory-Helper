@@ -1312,6 +1312,50 @@ input[type=range].csrx-range:hover::-moz-range-thumb { transform: scale(1.2); }
     flex: 0 0 100%;
     align-self: stretch;
 }
+#csrx-browse.csrx-browse-create-offer {
+    margin: 0 0 8px !important;
+    margin-left: 0 !important;
+    width: 100% !important;
+    max-width: 100%;
+    padding: 0 12px;
+    box-sizing: border-box;
+    flex: none;
+    align-self: stretch;
+}
+#csrx-browse.csrx-browse-create-offer .csrx-browse-row {
+    gap: 6px;
+    flex-wrap: wrap;
+}
+#csrx-browse.csrx-browse-create-offer #csrx-browse-search {
+    flex: 1 1 140px;
+    min-width: 100px;
+    max-width: none;
+    height: 30px;
+    font-size: 11px;
+}
+#csrx-browse.csrx-browse-create-offer .csrx-browse-filters {
+    margin-left: 0;
+    flex: 1 1 auto;
+    gap: 5px;
+}
+#csrx-browse.csrx-browse-create-offer .csrx-browse-filters select {
+    height: 30px;
+    max-width: 108px;
+    min-width: 0;
+    font-size: 10px;
+}
+#csrx-browse.csrx-browse-create-offer #csrx-browse-rarity {
+    min-width: 0;
+    max-width: 118px;
+}
+#csrx-browse.csrx-browse-create-offer #csrx-browse-float {
+    min-width: 0;
+    max-width: 108px;
+}
+#csrx-browse.csrx-browse-create-offer #csrx-browse-clear {
+    height: 30px;
+    font-size: 10px;
+}
 #csrx-browse.csrx-browse-trade .csrx-browse-row {
     gap: 5px;
 }
@@ -1410,21 +1454,7 @@ input[type=range].csrx-range:hover::-moz-range-thumb { transform: scale(1.2); }
 .csrx-browse-hidden,
 .csrx-browse-slot-hidden {
     display: none !important;
-    visibility: hidden !important;
-    width: 0 !important;
-    height: 0 !important;
-    min-width: 0 !important;
-    min-height: 0 !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    border: none !important;
-    overflow: hidden !important;
-    opacity: 0 !important;
     pointer-events: none !important;
-}
-.csrx-browse-hidden *,
-.csrx-browse-slot-hidden * {
-    visibility: hidden !important;
 }
 `;
 document.head.appendChild(S);
@@ -1493,6 +1523,7 @@ function rebuildFriendItemIndex() {
 }
 
 function candidatesForImgId(imgId) {
+    if (isCreateOfferModal()) return invIndexByItemId.get(imgId) || [];
     if (isMarketplacePage()) return mpIndexByItemId.get(imgId) || [];
     if (isTradePickerModal() && isTheirItemsTabActive()) {
         return friendIndexByItemId.get(imgId) || [];
@@ -1572,6 +1603,28 @@ function findTradePickerModalRoot() {
     return null;
 }
 
+function findCreateOfferModalRoot() {
+    for (const el of document.querySelectorAll('h1, h2, h3, h4')) {
+        if (!/^create offer$/i.test((el.textContent || '').trim())) continue;
+        let node = el;
+        for (let i = 0; i < 24 && node; i++) {
+            const st = getComputedStyle(node);
+            const z = parseInt(st.zIndex, 10);
+            if (node.getAttribute('role') === 'dialog') return node;
+            if (st.position === 'fixed' && node.offsetWidth > 280) return node;
+            if (!Number.isNaN(z) && z >= 40 && node.offsetWidth > 280) return node;
+            node = node.parentElement;
+        }
+    }
+    return null;
+}
+
+function getItemPickerModalRoot() {
+    if (isTradePickerModal()) return findTradePickerModalRoot();
+    if (isCreateOfferModal()) return findCreateOfferModalRoot();
+    return null;
+}
+
 function isTradePickerModal() {
     const root = findTradePickerModalRoot();
     if (!root) return false;
@@ -1583,19 +1636,7 @@ function isTradePickerModal() {
 }
 
 function isCreateOfferModal() {
-    for (const el of document.querySelectorAll('h1, h2, h3, h4')) {
-        if (!/^create offer$/i.test((el.textContent || '').trim())) continue;
-        let node = el;
-        for (let i = 0; i < 24 && node; i++) {
-            const st = getComputedStyle(node);
-            const z = parseInt(st.zIndex, 10);
-            if (node.getAttribute('role') === 'dialog') return true;
-            if (st.position === 'fixed' && node.offsetWidth > 280) return true;
-            if (!Number.isNaN(z) && z >= 40 && node.offsetWidth > 280) return true;
-            node = node.parentElement;
-        }
-    }
-    return false;
+    return !!findCreateOfferModalRoot();
 }
 
 function isItemPickerModal() {
@@ -1827,6 +1868,9 @@ function getPickerCache() {
 }
 
 function getOverlayCache() {
+    if (isCreateOfferModal()) {
+        return inventoryCache.map(normalizeInventoryEntry).filter(Boolean);
+    }
     if (isMarketplacePage()) return marketplaceCache;
     if (isTradePickerModal()) return getPickerCache();
     if (isTradeDetailView()) {
@@ -2426,10 +2470,13 @@ function getAllCards() {
     }
     if (cards.length) {
         cards = cards.filter(c => !cards.some(other => other !== c && other.contains(c)));
-        if (isTradePickerModal()) {
-            const root = findTradePickerModalRoot();
+        if (isItemPickerModal()) {
+            const root = getItemPickerModalRoot();
             if (root) cards = cards.filter(c => root.contains(c));
-            cards = cards.filter(c => !isPickerSkeletonCard(c));
+            else cards = [];
+            if (isTradePickerModal()) {
+                cards = cards.filter(c => !isPickerSkeletonCard(c));
+            }
         }
         return cards;
     }
@@ -2590,14 +2637,16 @@ function isWeaponDetailsOpen() {
 function updateBrowseBarLayout() {
     const bar = document.getElementById('csrx-browse');
     if (!bar) return;
-    const modal = isItemPickerModal();
-    bar.classList.toggle('csrx-browse-trade', modal);
-    bar.classList.toggle('csrx-browse-under-modal', !modal && isWeaponDetailsOpen());
-    if (modal) {
+    const tradeModal = isTradePickerModal();
+    const createOffer = isCreateOfferModal();
+    bar.classList.toggle('csrx-browse-trade', tradeModal);
+    bar.classList.toggle('csrx-browse-create-offer', createOffer);
+    bar.classList.toggle('csrx-browse-under-modal', !tradeModal && !createOffer && isWeaponDetailsOpen());
+    if (tradeModal || createOffer) {
         bar.style.marginLeft = '';
         bar.style.width = '';
         bar.style.maxWidth = '';
-        repositionTradeBrowseBar();
+        if (tradeModal) repositionTradeBrowseBar();
     } else {
         const inset = measureSidebarInset();
         if (inset > 0) {
@@ -2640,11 +2689,30 @@ function findTradePickerBrowseMount() {
     return { mode: 'after', el: wrap };
 }
 
+function resetBrowseFilterClasses() {
+    document.querySelectorAll('.csrx-browse-hidden, .csrx-browse-slot-hidden').forEach(el => {
+        el.classList.remove('csrx-browse-hidden', 'csrx-browse-slot-hidden');
+    });
+}
+
+function resetPickerBrowseSideEffects() {
+    const skip = '#csrx-win, #csrx-overlay, #csrx-fab, #csrx-toast';
+    const cards = [...document.querySelectorAll('[class*="aspect-square"][class*="rounded-2xl"]')]
+        .filter(c => !c.closest(skip) && c.querySelector('img'))
+        .filter(c => !getItemPickerModalRoot()?.contains(c));
+    resetBrowseFilterClasses();
+    cards.forEach(c => delete c.dataset.csrxOrder);
+    if (!cards.length) return;
+    const grid = getCardGridParent(cards);
+    if (grid) restoreCardOrder(cards, grid);
+}
+
 function cleanupOrphanTradeBrowse() {
     const bar = document.getElementById('csrx-browse');
-    if (!bar?.classList.contains('csrx-browse-trade')) return;
-    const root = findTradePickerModalRoot();
-    if (!isTradePickerModal() || !root || !root.contains(bar)) {
+    if (!bar?.classList.contains('csrx-browse-trade')
+        && !bar?.classList.contains('csrx-browse-create-offer')) return;
+    const root = getItemPickerModalRoot();
+    if (!isItemPickerModal() || !root || !root.contains(bar)) {
         bar.remove();
         browseToolsActive = false;
     }
@@ -2685,8 +2753,24 @@ function repositionTradeBrowseBar() {
     }
 }
 
+function findCreateOfferBrowseMount() {
+    const root = findCreateOfferModalRoot();
+    if (!root) return null;
+    for (const el of root.querySelectorAll('h1, h2, h3, h4')) {
+        if (!/^create offer$/i.test((el.textContent || '').trim())) continue;
+        const row = el.closest('div');
+        if (row && root.contains(row)) return { mode: 'after', el: row };
+    }
+    const cards = getAllCards();
+    if (!cards.length) return null;
+    const grid = getCardGridParent(cards);
+    if (!grid || !root.contains(grid)) return null;
+    return { mode: 'before', el: grid };
+}
+
 function findModalPickerBrowseMount() {
     if (isTradePickerModal()) return findTradePickerBrowseMount();
+    if (isCreateOfferModal()) return findCreateOfferBrowseMount();
     const cards = getAllCards();
     if (!cards.length) return null;
     const grid = getCardGridParent(cards);
@@ -2743,10 +2827,23 @@ function findMainItemGrid() {
     return getCardGridParent(cards);
 }
 
+function isCreateOfferBrowseBarMisplaced() {
+    const bar = document.getElementById('csrx-browse');
+    if (!bar) return false;
+    if (!isBarVisible(bar)) return true;
+    const root = findCreateOfferModalRoot();
+    if (!root || !root.contains(bar)) return true;
+    const mount = findCreateOfferBrowseMount();
+    if (!mount?.el) return false;
+    if (mount.mode === 'before') return mount.el.previousElementSibling !== bar;
+    return mount.el.nextElementSibling !== bar;
+}
+
 function isBrowseBarMisplaced() {
     const bar = document.getElementById('csrx-browse');
     if (!bar) return false;
     if (isTradePickerModal()) return isTradeBrowseBarMisplaced();
+    if (isCreateOfferModal()) return isCreateOfferBrowseBarMisplaced();
     if (isInLeftNav(bar)) return true;
     const grid = findMainItemGrid();
     if (!grid) return false;
@@ -2885,6 +2982,9 @@ function getCardPriceFromDom(cardEl) {
 }
 
 function getBrowseCache() {
+    if (isCreateOfferModal()) {
+        return inventoryCache.map(normalizeInventoryEntry).filter(Boolean);
+    }
     if (isMarketplacePage()) return marketplaceCache;
     return inventoryCache.map(normalizeInventoryEntry).filter(Boolean);
 }
@@ -2901,20 +3001,34 @@ function buildCardItemMap(cards, cache) {
 }
 
 function getPickerGridContainer(cards) {
-    const counts = new Map();
+    const modalRoot = getItemPickerModalRoot();
+    const minCount = Math.max(3, Math.floor(cards.length * 0.4));
+    const candidates = new Set();
     for (const c of cards) {
         let p = c.parentElement;
         for (let i = 0; i < 10 && p; i++) {
-            counts.set(p, (counts.get(p) || 0) + 1);
+            if (modalRoot && !modalRoot.contains(p)) break;
+            candidates.add(p);
             p = p.parentElement;
         }
     }
-    const minCount = Math.max(3, Math.floor(cards.length * 0.4));
     let best = null;
-    let bestN = 0;
-    for (const [p, n] of counts) {
-        if (n >= minCount && n > bestN) {
-            bestN = n;
+    let bestScore = -1;
+    for (const p of candidates) {
+        let contained = 0;
+        let direct = 0;
+        for (const c of cards) {
+            if (!p.contains(c)) continue;
+            contained++;
+            if (c.parentElement === p || c.parentElement?.parentElement === p) direct++;
+        }
+        if (contained < minCount) continue;
+        const st = getComputedStyle(p);
+        const isGrid = st.display === 'grid' || st.display === 'inline-grid'
+            || (st.gridTemplateColumns && st.gridTemplateColumns !== 'none');
+        const score = direct * 20 + contained + (isGrid ? 500 : 0);
+        if (score > bestScore) {
+            bestScore = score;
             best = p;
         }
     }
@@ -3030,7 +3144,7 @@ function applyBrowseFilters() {
 
     if (sortVisibleBrowseItems(visible, f, mp)) {
         visible.forEach(({ card }) => grid?.appendChild(card));
-    } else {
+    } else if (!isItemPickerModal()) {
         restoreCardOrder(cards, grid);
     }
 
@@ -3136,8 +3250,8 @@ function initBrowseTools() {
     }
     const mount = findBrowseMountPoint();
     if (!mount?.el) return;
-    if (isTradePickerModal()) {
-        const root = findTradePickerModalRoot();
+    if (isItemPickerModal()) {
+        const root = getItemPickerModalRoot();
         if (!root || !root.contains(mount.el)) return;
     }
     const bar = buildBrowseBar();
@@ -3161,13 +3275,8 @@ function stopBrowseTools() {
     clearTimeout(browseInitTimer);
     if (isTradePickerModal()) resetTradePickerBrowseClasses();
     document.getElementById('csrx-browse')?.remove();
-    getAllCards().forEach(c => {
-        c.classList.remove('csrx-browse-hidden', 'csrx-browse-slot-hidden');
-        delete c.dataset.csrxOrder;
-    });
-    document.querySelectorAll('.csrx-browse-slot-hidden, .csrx-browse-hidden').forEach(c => {
-        c.classList.remove('csrx-browse-slot-hidden', 'csrx-browse-hidden');
-    });
+    resetBrowseFilterClasses();
+    document.querySelectorAll('[data-csrx-order]').forEach(c => delete c.dataset.csrxOrder);
 }
 
 function pruneOrphanOverlays(cardSet) {
@@ -3273,24 +3382,31 @@ function checkPageAndRun() {
     if (!onOverlay) {
         if (overlayRunning) stopAlwaysOnOverlay();
         overlayPageKind = null;
-        stopBrowseTools();
-        browsePageKind = null;
-        return;
     }
 
     if (!onBrowse) {
         stopBrowseTools();
         browsePageKind = null;
     } else {
-        const bk = isMarketplacePage() ? 'mp' : isItemPickerModal() ? 'picker' : 'inv';
+        const bk = isMarketplacePage() && !isCreateOfferModal() ? 'mp'
+            : isItemPickerModal() ? 'picker'
+            : 'inv';
         if (browsePageKind !== bk) {
             stopBrowseTools();
             browsePageKind = bk;
         }
         if (!document.getElementById('csrx-browse') || isBrowseBarMisplaced()) scheduleBrowseInit();
+        if (isCreateOfferModal() && !inventoryCache.length) {
+            fetchInventory().then(() => {
+                applyBrowseFilters();
+                scheduleBrowseInit();
+            });
+        } else if (!onOverlay && isMarketplacePage() && !isCreateOfferModal() && !marketplaceCache.length) {
+            fetchMarketplace().then(() => applyBrowseFilters());
+        } else if (!onOverlay && isInventoryPage() && !inventoryCache.length) {
+            fetchInventory().then(() => applyBrowseFilters());
+        }
     }
-
-    if (overlayRunning && overlayPageKind !== kind) stopAlwaysOnOverlay();
 
     const pickerOpen = isItemPickerModal();
     if (pickerOpen && isTradePickerModal()) {
@@ -3307,10 +3423,15 @@ function checkPageAndRun() {
         if (overlayRunning) scheduleOverlayBootstrap();
         scheduleBrowseInit();
     }
-    if (!pickerOpen && _tradeModalWasOpen && !isInventoryPage() && !isMarketplacePage()) {
-        stopBrowseTools();
+    if (!pickerOpen && _tradeModalWasOpen) {
+        if (isMarketplacePage()) resetPickerBrowseSideEffects();
+        else if (!isInventoryPage()) stopBrowseTools();
     }
     _tradeModalWasOpen = pickerOpen;
+
+    if (!onOverlay) return;
+
+    if (overlayRunning && overlayPageKind !== kind) stopAlwaysOnOverlay();
 
     if (!overlayRunning) {
         overlayPageKind = kind;

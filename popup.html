@@ -14,12 +14,47 @@
             <div class="hdr-sub">Toggle features on csrestored.fun</div>
         </div>
     </header>
-    <main id="feature-list" class="feature-list"></main>
+    <main id="feature-list" class="feature-list">
+        <label class="feature-row" data-key="floatOverlays">
+            <input type="checkbox" data-key="floatOverlays" checked>
+            <div class="feature-text">
+                <div class="feature-label">Float &amp; seed overlays</div>
+                <div class="feature-desc">Wear, float, and pattern on item cards</div>
+            </div>
+        </label>
+        <label class="feature-row" data-key="browseFilters">
+            <input type="checkbox" data-key="browseFilters" checked>
+            <div class="feature-text">
+                <div class="feature-label">Search &amp; filters</div>
+                <div class="feature-desc">Inventory, marketplace, and create offer</div>
+            </div>
+        </label>
+        <label class="feature-row" data-key="quickSellPanel">
+            <input type="checkbox" data-key="quickSellPanel" checked>
+            <div class="feature-text">
+                <div class="feature-label">Quick Sell &amp; Market</div>
+                <div class="feature-desc">Floating panel and confirm sale</div>
+            </div>
+        </label>
+        <label class="feature-row" data-key="tradeSearch">
+            <input type="checkbox" data-key="tradeSearch" checked>
+            <div class="feature-text">
+                <div class="feature-label">Trade offer search</div>
+                <div class="feature-desc">Search bar in Send Trade Offer modal</div>
+            </div>
+        </label>
+        <label class="feature-row" data-key="skinLock">
+            <input type="checkbox" data-key="skinLock" checked>
+            <div class="feature-text">
+                <div class="feature-label">Skin lock</div>
+                <div class="feature-desc">Padlock on inventory cards — blocks extension Quick Sell only</div>
+            </div>
+        </label>
+    </main>
     <footer class="ftr">
-        <span id="lock-count" class="lock-count"></span>
+        <span id="lock-count" class="lock-count">No locked skins</span>
         <button type="button" id="btn-reset" class="btn-reset">Reset defaults</button>
     </footer>
-    <script src="settings.js"></script>
     <script src="popup.js"></script>
 </body>
 </html>
