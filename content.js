@@ -446,6 +446,35 @@ S.textContent = `
     position: relative !important;
     transition: transform 0.15s !important;
 }
+.csrx-lock-btn {
+    position: absolute !important;
+    top: 6px !important;
+    left: 6px !important;
+    width: 22px !important;
+    height: 22px !important;
+    padding: 0 !important;
+    border: 1px solid #333 !important;
+    border-radius: 5px !important;
+    background: rgba(0,0,0,0.75) !important;
+    color: #888 !important;
+    cursor: pointer !important;
+    z-index: 25 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    line-height: 0 !important;
+}
+.csrx-lock-btn:hover { border-color: #555 !important; color: #ccc !important; }
+.csrx-lock-btn.csrx-locked {
+    border-color: #f59e0b55 !important;
+    background: rgba(245,158,11,0.2) !important;
+    color: #fbbf24 !important;
+}
+.csrx-card-wrap.csrx-has-lock .csrx-float-badge { top: 32px !important; }
+.csrx-locked-card {
+    outline: 1px solid rgba(245,158,11,0.35) !important;
+    outline-offset: 1px !important;
+}
 .csrx-check-badge {
     position: absolute !important;
     top: 6px !important;
@@ -1607,9 +1636,11 @@ function isTheirItemsTabActive() {
 }
 function isInventoryPage() {
     const p = window.location.pathname.replace(/\/$/, '');
-    return p === '/app/inventory';
+    return p === '/app/inventory' && !isMarketplacePage();
 }
 function isOverlayPage() {
+    if (isInventoryPage() && csrIsFeatureEnabled('skinLock') && !isMarketplacePage()) return true;
+    if (!csrIsFeatureEnabled('floatOverlays')) return false;
     return isInventoryPage() || isMarketplacePage() || isTradePage()
         || isTradePickerModal() || isTradeDetailView();
 }
@@ -2427,8 +2458,18 @@ function overlaySignature(item) {
 
 function injectCardOverlay(cardEl, item) {
     if (!item) return;
+    const wantOverlay = csrIsFeatureEnabled('floatOverlays');
+    const wantLock = csrIsFeatureEnabled('skinLock') && isInventoryPage() && item.weapon_id != null;
+    if (!wantOverlay && !wantLock) return;
+
     const existing = cardEl.querySelector('.csrx-card-wrap');
-    if (existing?.dataset.csrxSig === overlaySignature(item)) return;
+    const lockSig = wantLock
+        ? String(item.weapon_id) + (csrIsWeaponLocked(item.weapon_id) ? 'L' : 'U')
+        : '';
+    const sig = wantOverlay ? overlaySignature(item) : '';
+    if (existing?.dataset.csrxSig === sig && existing?.dataset.csrxLock === lockSig) {
+        return;
+    }
 
     existing?.remove();
 
@@ -2439,10 +2480,33 @@ function injectCardOverlay(cardEl, item) {
     const col = wearColor(f);
     const wrap = document.createElement('div');
     wrap.className = 'csrx-card-wrap' + (isMarketplacePage() ? ' csrx-mp-pos' : '');
-    wrap.dataset.csrxSig = overlaySignature(item);
+    wrap.dataset.csrxSig = sig;
     wrap.dataset.csrxKey = itemCacheKey(item);
+    wrap.dataset.csrxLock = lockSig;
 
-    if (f != null) {
+    if (wantLock) {
+        wrap.classList.add('csrx-has-lock');
+        const locked = csrIsWeaponLocked(item.weapon_id);
+        cardEl.classList.toggle('csrx-locked-card', locked);
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'csrx-lock-btn' + (locked ? ' csrx-locked' : '');
+        btn.title = locked ? 'Unlock skin (excluded from quick sell)' : 'Lock skin (excluded from quick sell)';
+        btn.innerHTML = locked
+            ? '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>'
+            : '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 019.9-1"/></svg>';
+        btn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            await csrToggleWeaponLock(item.weapon_id);
+            injectCardOverlay(cardEl, item);
+        });
+        wrap.appendChild(btn);
+    } else {
+        cardEl.classList.remove('csrx-locked-card');
+    }
+
+    if (wantOverlay && f != null) {
         const pill = document.createElement('div');
         pill.className = 'csrx-float-badge';
         pill.style.color = col;
@@ -2459,7 +2523,7 @@ function injectCardOverlay(cardEl, item) {
         wrap.appendChild(pill);
     }
 
-    if (item.seed != null) {
+    if (wantOverlay && item.seed != null) {
         const seed = document.createElement('div');
         seed.className = 'csrx-seed-badge';
         seed.textContent = `#${item.seed}`;
@@ -2476,7 +2540,12 @@ let browseDebounce    = null;
 let browseInitTimer   = null;
 
 function isBrowsePage() {
-    return isInventoryPage() || isMarketplacePage() || isItemPickerModal();
+    if (isInventoryPage() || isMarketplacePage()) {
+        return csrIsFeatureEnabled('browseFilters');
+    }
+    if (isTradePickerModal()) return csrIsFeatureEnabled('tradeSearch');
+    if (isCreateOfferModal()) return csrIsFeatureEnabled('browseFilters');
+    return false;
 }
 
 /** Sidebar inset only when the left nav is expanded (wide), not the collapsed icon rail. */
@@ -3247,9 +3316,6 @@ function checkPageAndRun() {
     }
 }
 
-checkPageAndRun();
-setInterval(checkPageAndRun, 1500);
-
 document.addEventListener('click', e => {
     const t = e.target?.textContent?.trim() || '';
     if (/^(my items|their items)$/i.test(t) && isItemPickerModal()) {
@@ -3280,6 +3346,7 @@ fab.id = 'csrx-fab';
 fab.title = 'CS:R Quick Sell & Market — pick skins, list or instant sell';
 fab.innerHTML = `<img alt="CS:R Inventory Helper" src="${extUrl('icons/icon-128.png')}">`;
 document.body.appendChild(fab);
+fab.style.display = 'none';
 
 const win = document.createElement('div');
 win.id = 'csrx-win';
@@ -3357,6 +3424,7 @@ win.innerHTML = `
     </div>
 </div>`;
 document.body.appendChild(win);
+win.style.display = 'none';
 
 const overlay = document.createElement('div');
 overlay.id = 'csrx-overlay';
@@ -3635,11 +3703,16 @@ document.addEventListener('click',e=>{
     e.preventDefault(); e.stopPropagation();
     const card=findCard(e.target);
     if(!card)return;
+    if(e.target.closest('.csrx-lock-btn'))return;
     if(picked.has(card)){
         picked.delete(card); cleanCard(card);
     } else {
         const usedIds=new Set([...picked.values()].filter(v=>v!=null));
         const result=matchCard(card,serverInv,usedIds);
+        if(result&&csrIsFeatureEnabled('skinLock')&&csrIsWeaponLocked(result.item.weapon_id)){
+            toast('This skin is locked — unlock it on the card first','warn');
+            return;
+        }
         if(result){
             card._csrxWid=result.item.weapon_id; card._csrxConf=result.confidence;
             picked.set(card,result.item.weapon_id);
@@ -3992,7 +4065,12 @@ document.getElementById('csrx-mlist').addEventListener('click', async () => {
 
 btnSell.addEventListener('click',async()=>{
     if(!picked.size||selling)return;
-    const entries=[...picked.entries()].map(([cardEl,weaponId])=>({cardEl,weaponId}));
+    const entries=[...picked.entries()]
+        .filter(([, weaponId]) => weaponId == null || !csrIsWeaponLocked(weaponId))
+        .map(([cardEl,weaponId])=>({cardEl,weaponId}));
+    const skipped=picked.size-entries.length;
+    if(skipped)toast(`${skipped} locked item${skipped!==1?'s':''} skipped`,'warn');
+    if(!entries.length)return;
     await openModal(entries);
 });
 
@@ -4002,7 +4080,9 @@ document.getElementById('csrx-massbtn').addEventListener('click',async()=>{
     setStatus('Fetching…','syncing');
     const inv=await apiInv();
     setStatus('Ready','ready');
-    const items=inv.filter(i=>parseInt(i.rarity)===val);
+    const items=inv.filter(i=>parseInt(i.rarity)===val&&!csrIsWeaponLocked(i.weapon_id));
+    const lockedSkip=inv.filter(i=>parseInt(i.rarity)===val&&csrIsWeaponLocked(i.weapon_id)).length;
+    if(lockedSkip)toast(`${lockedSkip} locked item${lockedSkip!==1?'s':''} skipped`,'info');
     if(!items.length){toast('No items for selected rarity','warn');return;}
     modalEntries=items.map(item=>({cardEl:null,weaponId:item.weapon_id,item,status:'ok',msg:'From API'}));
     enrichQuickSellPrices(modalEntries);
@@ -4017,4 +4097,27 @@ document.getElementById('csrx-massbtn').addEventListener('click',async()=>{
     refreshFooter();
     overlay.classList.add('open');
 });
+
+function applyCsrFeatureVisibility() {
+    const showPanel = csrIsFeatureEnabled('quickSellPanel');
+    fab.style.display = showPanel ? '' : 'none';
+    win.style.display = showPanel ? '' : 'none';
+    if (!showPanel && selMode) exitSel();
+}
+
+async function bootstrapCsrExtension() {
+    await csrLoadSettings();
+    csrWatchStorageChanges();
+    csrOnSettingsChanged(() => {
+        applyCsrFeatureVisibility();
+        cleanupOrphanTradeBrowse();
+        checkPageAndRun();
+        applyOverlaysToAll({ urgent: true });
+    });
+    applyCsrFeatureVisibility();
+    checkPageAndRun();
+    setInterval(checkPageAndRun, 1500);
+}
+
+bootstrapCsrExtension();
 })();

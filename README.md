@@ -4,7 +4,7 @@ Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.f
 
 Works in **Firefox**, **Microsoft Edge**, and **Chromium** browsers (Manifest V3).
 
-**Current version:** `3.1.16` (on branch `main`)
+**Current version:** `3.2.0` (on branch `feature/extension-popup-feature-toggles`)
 
 **Repository:** [github.com/smelbravo/CS-Restored-Inventory-Helper](https://github.com/smelbravo/CS-Restored-Inventory-Helper)
 
@@ -59,6 +59,20 @@ Floating button (bottom-right on inventory) opens the **Quick Sell & Market** pa
 - **Batch size** slider — parallel sell requests (1–10)
 
 Hidden on marketplace and trade pages.
+
+### Extension popup — feature toggles (v3.2+)
+
+Click the extension icon in the toolbar to open **Settings**:
+
+| Toggle | Effect |
+|--------|--------|
+| Float & seed overlays | Badges on item cards |
+| Search & filters | Browse bar on inventory, marketplace, create offer |
+| Quick Sell & Market | Floating panel + confirm sale |
+| Trade offer search | Search in Send Trade Offer modal |
+| Skin lock | Lock icon on inventory cards — locked skins are skipped by quick sell / sell by rarity |
+
+Settings are stored in the browser (`storage.local`), not cookies. Changes apply on the next page action or when you toggle a setting (no full reload required).
 
 ### Confirm Sale — marketplace list + quick sell (v3.1+)
 
@@ -148,6 +162,10 @@ Creates `../releases/CS-Restored-Inventory-Helper-v{version}.zip` (AMO-compatibl
 
 ```
 ├── manifest.json   # Extension manifest (MV3)
+├── settings.js     # Feature toggles & skin locks (shared with popup)
+├── popup.html      # Toolbar popup UI
+├── popup.js
+├── popup.css
 ├── content.js      # Content script (overlays, filters, quick-sell UI)
 ├── icons/          # Extension icons (16, 48, 128, 300 px)
 ├── PRIVACY.md      # Privacy policy (store listings)
@@ -163,6 +181,11 @@ Creates `../releases/CS-Restored-Inventory-Helper-v{version}.zip` (AMO-compatibl
 | `develop` | Active development |
 
 ## Changelog
+
+### v3.2.0
+
+- **New:** toolbar popup to enable/disable each feature (storage.local)
+- **New:** skin lock on inventory — padlock on card; locked items excluded from quick sell and sell by rarity
 
 ### v3.1.16
 
