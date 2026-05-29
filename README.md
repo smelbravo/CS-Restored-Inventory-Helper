@@ -1,6 +1,6 @@
 # CS:Restored Inventory Helper
 
-Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.fun) — float and paint seed overlays, search and filters on inventory/marketplace, and a quick-sell panel for your own items.
+Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.fun) — float and paint seed overlays, search and filters on inventory/marketplace, a quick-sell panel, optional **toolbar settings** to turn each feature on or off, and **skin lock** to avoid accidental sells.
 
 Works in **Firefox**, **Microsoft Edge**, and **Chromium** browsers (Manifest V3).
 
@@ -49,34 +49,50 @@ Horizontal bar above the item grid (same layout on both pages):
 - Shows `Showing X of Y items` when filters hide cards
 - Sorting reorders the visible grid without reloading the page
 
-### Quick Sell & Market panel (inventory only)
-
-Floating button (bottom-right on inventory) opens the **Quick Sell & Market** panel:
-
-- **Start Picking** — click cards to select items to sell
-- **Review & Sell** — confirm selection in a modal with validation
-- **Sell by Rarity** — bulk sell all items of a chosen rarity tier
-- **Batch size** slider — parallel sell requests (1–10)
-
-Hidden on marketplace and trade pages.
-
 ### Extension popup — feature toggles (v3.2+)
 
-Click the extension icon in the toolbar to open **Settings**:
+Click the **extension icon** in the browser toolbar (Firefox / Chrome / Edge) to open **Settings**. Each feature can be turned on or off; preferences are saved in **`storage.local`** (extension storage — not site cookies).
 
-| Toggle | Effect |
-|--------|--------|
-| Float & seed overlays | Badges on item cards |
-| Search & filters | Browse bar on inventory, marketplace, create offer |
-| Quick Sell & Market | Floating panel + confirm sale |
-| Trade offer search | Search in Send Trade Offer modal |
-| Skin lock | Padlock on inventory cards — blocks **extension** Quick Sell only |
+| Toggle | What it controls |
+|--------|------------------|
+| **Float & seed overlays** | Wear, float, and paint seed badges on item cards |
+| **Search & filters** | Browse bar on inventory, marketplace, and Create Offer |
+| **Quick Sell & Market** | Bottom-right CS:R button, helper panel, and Confirm Sale flow |
+| **Trade offer search** | Compact search bar in Send Trade Offer (My Items / Their Items) |
+| **Skin lock** | Padlock on inventory cards (see table below) |
 
-**Skin lock applies to:** picking skins, Sell by Rarity, Review & Sell, and the **Quick Sell** button in the Confirm Sale modal.
+- Disabled features stop injecting UI and skip related work on the page (useful on large inventories or if you only want overlays).
+- Changes apply within about **0.4 seconds** on the open tab, or immediately when you change a toggle in the popup.
+- **Reset defaults** restores all toggles to on.
 
-**Does not block:** the site’s own **Quick Sell** button inside Weapon Details (that is the CS:R website, not the extension).
+### Skin lock (v3.2+)
 
-Settings are stored in the browser (`storage.local`), not cookies. Changes apply when you toggle a setting or within ~0.4s on the page.
+When **Skin lock** is enabled, each skin on **your inventory** (`/app/inventory`, not marketplace) gets a **padlock** in the **top-left** of the card. Click to lock / unlock. Locked cards get a subtle gold outline.
+
+Use this if you sometimes sell by mistake while tired (e.g. items still selected for quick sell).
+
+| Quick sell path | Blocked when skin is locked? |
+|-----------------|------------------------------|
+| Extension — **Start Picking** → select card | Yes — cannot pick locked skins |
+| Extension — **Review & Sell** | Yes — locked skins skipped |
+| Extension — **Sell by Rarity** | Yes — locked skins skipped |
+| Extension — **Confirm Sale** → **Quick Sell** button | Yes — locked skins skipped |
+| **CS:R website** — **Weapon Details** → site Quick Sell | **No** — that button belongs to the site, not the extension |
+
+**List on Market** is not blocked by lock (only instant quick-sell paths above).
+
+Lock state is stored per `weapon_id` in `storage.local` and syncs across tabs. The popup shows how many skins are currently locked.
+
+### Quick Sell & Market panel (inventory only)
+
+When **Quick Sell & Market** is enabled in the popup, the floating **CS:R button** (bottom-right on inventory) opens the helper panel:
+
+- **Start Picking** — click cards to select items to sell (respects skin lock)
+- **Review & Sell** — confirm selection in a modal with validation
+- **Sell by Rarity** — bulk sell all items of a chosen rarity tier (respects skin lock)
+- **Batch size** slider — parallel sell requests (1–20)
+
+Hidden on marketplace and trade pages. With the toggle off, the floating button and panel do not appear.
 
 ### Confirm Sale — marketplace list + quick sell (v3.1+)
 
@@ -123,7 +139,9 @@ Compact **search bar** inside the trade modal (My Items and Their Items):
 
 ## Releases
 
-Download builds and release notes on GitHub: [Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) (latest: **v3.1.16**).
+Stable downloads: [GitHub Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) (latest on `main`: **v3.1.16**).
+
+**In development** on branch `feature/extension-popup-feature-toggles`: **v3.2.1** (popup toggles + skin lock) — not merged to `main` yet.
 
 Build the install zip locally:
 
@@ -136,19 +154,21 @@ Creates `../releases/CS-Restored-Inventory-Helper-v{version}.zip` (AMO-compatibl
 ## Usage
 
 1. Go to [csrestored.fun](https://csrestored.fun) and log in with Discord
-2. Open **Inventory** or **Marketplace** — wait for the site to load your items; float/seed badges and the search/filter bar appear shortly after (usually a few seconds)
-3. On inventory, click the **CS:R logo button** (bottom-right) to open the helper panel
-4. **Start Picking** → select skins → **Review & Sell** → set market prices and use **List on Market** or **Quick Sell**
-5. On **Play → Trades**, overlays show on your items in trade detail views when data is available
+2. (Optional) Click the **extension icon** in the toolbar → enable only the features you want
+3. Open **Inventory** or **Marketplace** — float/seed badges and the search/filter bar appear after items load (usually a few seconds)
+4. On inventory: use the **padlock** (top-left of a card) to lock skins you must not sell by accident
+5. If **Quick Sell & Market** is on: click the **CS:R logo button** (bottom-right) → **Start Picking** → **Review & Sell** → **List on Market** or **Quick Sell**
+6. On **Play → Trades** / **Send Trade Offer**, overlays and trade search work when those toggles are enabled
 
 ## Permissions
 
 | Permission | Why |
 |------------|-----|
+| `storage` | Save feature toggles and locked skin IDs (`storage.local`) |
 | `*://*.csrestored.fun/*` | Inject UI on the site |
 | `https://api.csrestored.fun/*` | Read inventory, marketplace, and trade data |
 | `https://cdn.csrestored.fun/*` | Skin images in the sell modal |
-| `icons/*.png` (web accessible) | Extension logo on the floating button and panel |
+| `icons/*.png` (web accessible) | Extension logo on the floating button, panel, and popup |
 
 ## API endpoints used
 
@@ -181,21 +201,24 @@ Creates `../releases/CS-Restored-Inventory-Helper-v{version}.zip` (AMO-compatibl
 
 | Branch | Description |
 |--------|-------------|
-| `main` | Stable releases |
-| `develop` | Active development |
+| `main` | Stable releases (v3.1.16) |
+| `develop` | Integration branch |
+| `feature/extension-popup-feature-toggles` | v3.2.x — popup toggles + skin lock (testing) |
 
 ## Changelog
 
 ### v3.2.1
 
-- **Fix:** Quick Sell panel FAB hidden when feature is disabled in popup
-- **Fix:** lock icon moved to top-left of card (no longer overlaps float)
-- **Clarify:** skin lock blocks extension Quick Sell paths only, not site Weapon Details
+- **Fix:** floating Quick Sell button stays hidden when **Quick Sell & Market** is off in the popup
+- **Fix:** lock icon on **top-left** of inventory card (no longer overlaps float badge)
+- **Docs:** skin lock scope — extension quick sell only, not site Weapon Details
 
 ### v3.2.0
 
-- **New:** toolbar popup to enable/disable each feature (storage.local)
-- **New:** skin lock on inventory — padlock on card; locked items excluded from quick sell and sell by rarity
+- **New:** toolbar **popup** (`popup.html`) — toggle each feature on/off
+- **New:** `settings.js` + `storage` permission — preferences and lock list in `storage.local`
+- **New:** **Skin lock** — padlock on inventory cards; locked `weapon_id`s excluded from extension quick sell flows
+- **New:** `action.default_popup` in manifest (click extension icon to open settings)
 
 ### v3.1.16
 
@@ -354,8 +377,9 @@ Matching float/seed to items is heavier with very large inventories. The extensi
 **Tips:**
 
 1. Reload the extension after updating (`about:debugging` → Reload)
-2. Use a **fresh tab** if Firefox/Chrome has been open for hours with many tabs
-3. Close unused tabs to free memory
+2. Turn off unused features in the **extension popup** (less UI and CPU on huge inventories)
+3. Use a **fresh tab** if Firefox/Chrome has been open for hours with many tabs
+4. Close unused tabs to free memory
 
 **If float/seed never appear:** reload the page while logged in. On **Send Trade Offer**, overlays should show on **My Items** without switching tabs. Report browser + inventory size on [GitHub Issues](https://github.com/smelbravo/CS-Restored-Inventory-Helper/issues).
 
@@ -395,6 +419,7 @@ WHAT IT DOES
 • Shows float, wear (FN/MW/FT/WW/BS), and paint seed on your inventory and marketplace item cards
 • Search and filter items by name, rarity, wear, float, and price (marketplace)
 • Quick-sell panel on your inventory — pick items, sell by rarity, or review before selling
+• Toolbar popup to turn features on/off; skin lock on inventory to avoid accidental quick sells
 
 WHERE IT WORKS
 • Inventory (/app/inventory)
@@ -434,7 +459,7 @@ https://github.com/smelbravo/CS-Restored-Inventory-Helper
 ### Notes for reviewer (private)
 
 ```
-Extension: CS:Restored Inventory Helper (v3.1.16)
+Extension: CS:Restored Inventory Helper (v3.2.1 on feature branch / v3.1.16 on main)
 Works only on https://csrestored.fun when logged in.
 
 Site requirements (enforced by CS:Restored, not the extension):
@@ -443,18 +468,24 @@ Site requirements (enforced by CS:Restored, not the extension):
 
 How to test:
 1. Go to https://csrestored.fun and log in with Discord (reviewer can use their own account if it meets the requirements above).
-2. Inventory (/app/inventory):
+2. Click the extension icon in the toolbar:
+   - Toggle features on/off (e.g. disable Quick Sell & Market → floating button should disappear on inventory)
+   - Skin lock toggle + count of locked skins
+3. Inventory (/app/inventory):
    - Float/wear/seed badges on item cards (bottom-right)
+   - Padlock top-left on cards — lock a skin, then try Quick Sell / Sell by Rarity (locked skins skipped)
    - Search & filter bar above the item grid (name, rarity, wear, float sort)
-   - Bottom-right CS:R logo button → quick-sell panel (Start Picking, Sell by Rarity, batch size)
-3. Marketplace (/app/inventory/marketplace):
+   - Bottom-right CS:R logo button → quick-sell panel (Start Picking, Sell by Rarity, batch size) when toggle is on
+4. Marketplace (/app/inventory/marketplace):
    - Badges below the price on each listing
    - Same search/filter bar; try searching "M4A4", filters for rarity/wear, price and float sort
-4. Send Trade Offer (site modal):
+5. Send Trade Offer (site modal):
    - Open Send Trade Offer → pick a friend → modal opens normally
    - My Items / Their Items: compact search under “Select … Items”; Clear resets; tab switch clears search
    - Float/seed on My Items; Their Items depends on site API
-5. Play → Trades (/app/play): open a trade — float/seed on your own items when the site API provides them (other players' items may not show float/seed until the site exposes those fields).
+6. Play → Trades (/app/play): open a trade — float/seed on your own items when the site API provides them (other players' items may not show float/seed until the site exposes those fields).
+
+Storage: feature toggles and locked weapon IDs use storage.local only (no cookies, no external servers).
 
 Large inventories:
 - With 500–1000+ items, float/seed may take a few extra seconds to appear and may slow the page on weaker PCs.
