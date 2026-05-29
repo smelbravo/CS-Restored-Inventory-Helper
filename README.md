@@ -4,7 +4,7 @@ Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.f
 
 Works in **Firefox**, **Microsoft Edge**, and **Chromium** browsers (Manifest V3).
 
-**Current version:** `3.2.7` (on branch `feature/extension-popup-feature-toggles`)
+**Current version:** `3.2.7`
 
 **Repository:** [github.com/smelbravo/CS-Restored-Inventory-Helper](https://github.com/smelbravo/CS-Restored-Inventory-Helper)
 
@@ -139,17 +139,20 @@ Compact **search bar** inside the trade modal (My Items and Their Items):
 
 ## Releases
 
-Stable downloads: [GitHub Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) (latest on `main`: **v3.1.16**).
+Stable downloads: [GitHub Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) (latest: **v3.2.7**).
 
-**In development** on branch `feature/extension-popup-feature-toggles`: **v3.2.7** (popup toggles + skin lock) — not merged to `main` yet.
+| Browser | File | Install |
+|---------|------|---------|
+| **Chrome, Edge, Brave** | `.zip` | Unzip → Load unpacked |
+| **Firefox** | `.xpi` | `about:addons` → gear → Install Add-on From File |
 
-Build the install zip locally:
+Build release packages locally:
 
 ```bash
 python build-zip.py
 ```
 
-Creates `../releases/CS-Restored-Inventory-Helper-v{version}.zip` (AMO-compatible paths).
+Creates `../releases/CS-Restored-Inventory-Helper-v{version}.zip` and `.xpi` (forward-slash paths).
 
 ## Usage
 
@@ -201,9 +204,8 @@ Creates `../releases/CS-Restored-Inventory-Helper-v{version}.zip` (AMO-compatibl
 
 | Branch | Description |
 |--------|-------------|
-| `main` | Stable releases (v3.1.16) |
+| `main` | Stable releases (v3.2.7) |
 | `develop` | Integration branch |
-| `feature/extension-popup-feature-toggles` | v3.2.x — popup toggles + skin lock (testing) |
 
 ## Changelog
 
@@ -484,7 +486,7 @@ https://github.com/smelbravo/CS-Restored-Inventory-Helper
 ### Notes for reviewer (private)
 
 ```
-Extension: CS:Restored Inventory Helper (v3.2.7 on feature branch / v3.1.16 on main)
+Extension: CS:Restored Inventory Helper (v3.2.7)
 Works only on https://csrestored.fun when logged in.
 
 Site requirements (enforced by CS:Restored, not the extension):
