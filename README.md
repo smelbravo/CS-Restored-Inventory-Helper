@@ -8,6 +8,8 @@ Works in **Firefox**, **Microsoft Edge**, and **Chromium** browsers (Manifest V3
 
 **Repository:** [github.com/smelbravo/CS-Restored-Inventory-Helper](https://github.com/smelbravo/CS-Restored-Inventory-Helper)
 
+**Firefox (signed):** [addons.mozilla.org/firefox/addon/csr-inventory-helper](https://addons.mozilla.org/firefox/addon/csr-inventory-helper/)
+
 ## Site requirements (CS:Restored)
 
 The extension only works on [csrestored.fun](https://csrestored.fun). To use the site (and this extension), you need:
@@ -140,6 +142,14 @@ Compact **search bar** inside the trade modal (My Items and Their Items):
 
 ## Installation
 
+### Firefox (recommended)
+
+Install or update from **[Firefox Add-ons](https://addons.mozilla.org/firefox/addon/csr-inventory-helper/)** — signed build, automatic updates.
+
+1. Open the link above (or search *CS:Restored Inventory Helper* on AMO)
+2. Click **Add to Firefox**
+3. Pin the extension on the toolbar if you like
+
 ### Chrome / Edge / Brave
 
 1. Download the **`.zip`** from [GitHub Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) and unzip, **or** clone this repo
@@ -147,55 +157,34 @@ Compact **search bar** inside the trade modal (My Items and Their Items):
 3. Enable **Developer mode**
 4. Click **Load unpacked** and select the folder that contains `manifest.json`
 
-### Firefox — GitHub download (unsigned)
+### Firefox — developers (GitHub `.zip`, temporary)
 
-Firefox **Release** only installs **Mozilla-signed** add-ons. The **`.xpi` on GitHub is unsigned** — *Install add-on from file*, installing from the releases page, or dragging the file into Firefox **will fail** with *“could not be installed because it has not been verified”* until the build is published on [Firefox Add-ons](https://addons.mozilla.org/) (AMO).
+For testing unsigned builds before they reach AMO:
 
-#### Standard Firefox Release — use the `.zip` (temporary)
+1. Download **`.zip`** from [GitHub Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) and unzip
+2. **`about:debugging`** → **This Firefox** → **Load Temporary Add-on** → `manifest.json`  
+   *(Reload after each Firefox restart.)*
 
-1. Download **`CS-Restored-Inventory-Helper-v{version}.zip`** from [GitHub Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) and unzip
-2. Open **`about:debugging`** → **This Firefox** → **Load Temporary Add-on**
-3. Select **`manifest.json`** inside the unzipped folder  
-   *(You must reload after every Firefox restart — normal for temporary add-ons.)*
-
-#### Already on AMO (e.g. v3.0.9)
-
-Wait for the signed update on the [Firefox Add-ons listing](https://addons.mozilla.org/) — that is the permanent install path for Release users.
-
-#### Optional — permanent `.xpi` (developers only)
-
-Only works in **[Firefox Developer Edition](https://www.mozilla.org/firefox/developer/)** (or Nightly), **not** standard Release:
-
-1. Install Firefox Developer Edition
-2. Open **`about:config`** → set **`xpinstall.signatures.required`** to **`false`**
-3. Open **`about:addons`** → gear → **Install Add-on From File…** → select the **`.xpi`** from [`../releases/`](../releases/)
-4. Stays installed across restarts; update by installing a newer `.xpi` manually
-
-Do **not** recommend this to players — use AMO once approved.
-
-The **`.xpi`** built by `build-zip.py` is for **AMO submission** and Developer Edition testing, not for manual install on Firefox Release from GitHub.
+The **`.xpi` on GitHub** is unsigned and **does not install** on Firefox Release via *Install from file* — use AMO or the temporary `.zip` method above.
 
 ### Updating
 
 | Platform | How |
 |----------|-----|
-| **Chrome / Edge / Brave** | Replace folder → **Reload** on extensions page, or remove and load again |
-| **Firefox (temporary `.zip`)** | Reload via `about:debugging` after restart, or load the new `.zip` again |
-| **Firefox (AMO)** | Update from Add-ons store when a signed version is published |
-| **Firefox (Developer Edition + `.xpi`)** | Install the new `.xpi` over the old one |
+| **Firefox** | Updates automatically from [Firefox Add-ons](https://addons.mozilla.org/firefox/addon/csr-inventory-helper/); or **Add-ons** → gear → **Check for Updates** |
+| **Chrome / Edge / Brave** | Replace folder → **Reload**, or remove and load again |
+| **Firefox (temporary `.zip`)** | Reload via `about:debugging` after restart |
 
 ## Releases
 
 Stable downloads: [GitHub Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) (latest: **v3.2.7**).
 
-| Browser | File | Install |
-|---------|------|---------|
-| **Chrome, Edge, Brave** | `.zip` | Unzip → Load unpacked |
-| **Firefox Release (now)** | `.zip` | Unzip → `about:debugging` → Load Temporary Add-on → `manifest.json` |
-| **Firefox Release (after AMO)** | Signed build on AMO | Install / update from Firefox Add-ons store |
-| **Firefox Developer Edition** | `.xpi` (optional) | `about:config` → `xpinstall.signatures.required` = `false` → install from file |
+| Browser | Install |
+|---------|---------|
+| **Firefox** | [Firefox Add-ons](https://addons.mozilla.org/firefox/addon/csr-inventory-helper/) (signed, auto-update) |
+| **Chrome, Edge, Brave** | [GitHub `.zip`](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) → Load unpacked |
 
-See **[Installation](#installation)** above for details (unsigned `.xpi` does **not** work on Firefox Release from GitHub).
+See **[Installation](#installation)** for details. GitHub `.xpi` is for AMO packaging only — use the store link on Firefox Release.
 
 Build release packages locally:
 
@@ -205,7 +194,7 @@ python build-zip.py
 
 Creates `../releases/CS-Restored-Inventory-Helper-v{version}.zip` and `.xpi` (forward-slash paths).
 
-Firefox Add-ons store copy (draft): [`../amo-listing/`](../amo-listing/) — local folder, same as [`../release-notes/`](../release-notes/).
+Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/)
 
 ## Usage
 
@@ -264,6 +253,7 @@ Firefox Add-ons store copy (draft): [`../amo-listing/`](../amo-listing/) — loc
 
 ### v3.2.7
 
+- **Published on [Firefox Add-ons](https://addons.mozilla.org/firefox/addon/csr-inventory-helper/)** (signed v3.2.7)
 - **Fix:** Firefox — settings popup opens on first click (`popup.js` standalone; does not load `settings.js` on open)
 - **Fix:** browse/search, Create Offer layout, and popup regressions shipped in v3.2.2–v3.2.6 (merged to `main`)
 - **Docs:** batch size (Speed slider) — parallel sell/list count (1–20) explained in README
