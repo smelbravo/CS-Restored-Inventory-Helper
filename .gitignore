@@ -1,0 +1,4 @@
+# Local build artifacts and release drafts (not published to GitHub)
+releases/
+release-notes/
+extension-zip/

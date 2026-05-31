@@ -192,7 +192,7 @@ Build release packages locally:
 python build-zip.py
 ```
 
-Creates `../releases/CS-Restored-Inventory-Helper-v{version}.zip` and `.xpi` (forward-slash paths).
+Creates `releases/CS-Restored-Inventory-Helper-v{version}.zip` and `.xpi` (forward-slash paths). Release notes and older zips stay in `release-notes/` and `extension-zip/` (all gitignored locally).
 
 Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/)
 
