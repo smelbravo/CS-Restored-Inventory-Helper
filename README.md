@@ -4,7 +4,7 @@ Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.f
 
 Works in **Firefox**, **Microsoft Edge**, and **Chromium** browsers (Manifest V3).
 
-**Current version:** `3.2.7`
+**Current version:** `3.3.0`
 
 **Repository:** [github.com/smelbravo/CS-Restored-Inventory-Helper](https://github.com/smelbravo/CS-Restored-Inventory-Helper)
 
@@ -60,6 +60,7 @@ Click the **extension icon** in the browser toolbar (Firefox / Chrome / Edge) to
 | **Float & seed overlays** | Wear, float, and paint seed badges on item cards |
 | **Search & filters** | Browse bar on inventory, marketplace, and Create Offer |
 | **Quick Sell & Market** | Bottom-right CS:R button, helper panel, and Confirm Sale flow |
+| **Case bulk buy** | Floating panel on [Cases](https://csrestored.fun/app/inventory/cases) — pick case + quantity, buy to in-game inventory |
 | **Trade offer search** | Compact search bar in Send Trade Offer (My Items / Their Items) |
 | **Skin lock** | Padlock on inventory cards (see table below) |
 
@@ -95,6 +96,17 @@ When **Quick Sell & Market** is enabled in the popup, the floating **CS:R button
 - **Batch size** (under **Speed**) — how many items are sold or listed **in parallel** during bulk Quick Sell or List on Market (see below)
 
 Hidden on marketplace and trade pages. With the toggle off, the floating button and panel do not appear.
+
+### Case bulk buy (Cases tab only, v3.3+)
+
+When **Case bulk buy** is enabled, a **gold floating button** appears only on [`/app/inventory/cases`](https://csrestored.fun/app/inventory/cases) (the case shop grid, not a single case detail page).
+
+- Choose **weapon case** and **quantity** (1–99)
+- Shows **total coin cost** and your balance (from the site API)
+- **Buy containers** calls the same API as the site’s **Buy Container** button (`POST /inventory/cases/buy/{id}`) once per case
+- Purchased cases go to your **in-game inventory** — open them in CS:R like normal, not via the website opener
+
+Use this for the “buy X cases in one click” workflow without clicking each case on the site.
 
 #### Batch size (Speed slider)
 

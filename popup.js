@@ -9,6 +9,7 @@ const DEFAULTS = {
     floatOverlays: true,
     browseFilters: true,
     quickSellPanel: true,
+    caseBulkBuy: true,
     tradeSearch: true,
     skinLock: true,
 };

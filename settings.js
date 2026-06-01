@@ -12,6 +12,7 @@
         floatOverlays: true,
         browseFilters: true,
         quickSellPanel: true,
+        caseBulkBuy: true,
         tradeSearch: true,
         skinLock: true,
     };
@@ -20,6 +21,7 @@
         { key: 'floatOverlays', label: 'Float & seed overlays', desc: 'Wear, float, and pattern on item cards' },
         { key: 'browseFilters', label: 'Search & filters', desc: 'Inventory, marketplace, and create offer' },
         { key: 'quickSellPanel', label: 'Quick Sell & Market', desc: 'Floating panel and confirm sale' },
+        { key: 'caseBulkBuy', label: 'Case bulk buy', desc: 'Buy weapon cases in bulk on the Cases tab (goes to in-game inventory)' },
         { key: 'tradeSearch', label: 'Trade offer search', desc: 'Search bar in Send Trade Offer modal' },
         { key: 'skinLock', label: 'Skin lock', desc: 'Padlock on inventory cards — blocks extension Quick Sell only (not the site Weapon Details button)' },
     ];
