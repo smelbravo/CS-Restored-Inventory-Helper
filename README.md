@@ -1,6 +1,6 @@
 # CS:Restored Inventory Helper
 
-Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.fun) — float and paint seed overlays, search and filters on inventory/marketplace, a quick-sell panel, optional **toolbar settings** to turn each feature on or off, and **skin lock** to avoid accidental sells.
+Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.fun) — float and paint seed overlays, search and filters on inventory/marketplace, a quick-sell panel, **case bulk buy** on the Cases tab, optional **toolbar settings** to turn each feature on or off, and **skin lock** to avoid accidental sells.
 
 Works in **Firefox**, **Microsoft Edge**, and **Chromium** browsers (Manifest V3).
 
@@ -215,7 +215,8 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 3. Open **Inventory** or **Marketplace** — float/seed badges and the search/filter bar appear after items load (usually a few seconds)
 4. On inventory: use the **padlock** (top-left of a card) to lock skins you must not sell by accident
 5. If **Quick Sell & Market** is on: click the **CS:R logo button** (bottom-right) → **Start Picking** → **Review & Sell** → **List on Market** or **Quick Sell**
-6. On **Play → Trades** / **Send Trade Offer**, overlays and trade search work when those toggles are enabled
+6. On **Cases** ([`/app/inventory/cases`](https://csrestored.fun/app/inventory/cases)), use the gold **bulk buy** button when that toggle is on
+7. On **Play → Trades** / **Send Trade Offer**, overlays and trade search work when those toggles are enabled
 
 ## Permissions
 
@@ -238,6 +239,8 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 | `GET /api/user/{id}/inventory` | Site inventory route (intercepted; may include quick sell prices) |
 | `POST /inventory/sell/{weapon_id}` | Instant quick sell from Confirm Sale |
 | `POST /inventory/marketplace/add` | List item on marketplace (`weapon_id`, `price`) |
+| `GET /inventory/cases` | Case shop list (bulk buy panel) |
+| `POST /inventory/cases/buy/{caseId}` | Buy one weapon case (bulk buy loops per quantity) |
 
 ## Project structure
 
@@ -504,37 +507,49 @@ MIT — see [LICENSE](LICENSE).
 ### Summary (short description)
 
 ```
-Float, seed, search, filters, and quick-sell for CS:Restored (csrestored.fun).
+Float, seed, search & filters, quick sell, case bulk buy, skin lock, and feature toggles for CS:Restored (csrestored.fun). Unofficial helper — runs only on the CS:R site in your browser session.
 ```
 
 ### About / Description (Firefox — public)
 
 ```
-CS:Restored Inventory Helper is an unofficial browser extension for Counter-Strike: Restored (https://csrestored.fun).
+CS:Restored Inventory Helper is an unofficial browser extension for Counter-Strike: Restored (https://csrestored.fun). It adds quality-of-life tools on top of the official website — everything runs locally in your browser using your existing login session. No data is sent to third-party servers.
 
 WHAT IT DOES
-• Shows float, wear (FN/MW/FT/WW/BS), and paint seed on your inventory and marketplace item cards
-• Search and filter items by name, rarity, wear, float, and price (marketplace)
-• Quick-sell panel on your inventory — pick items, sell by rarity, or review before selling
-• Toolbar popup to turn features on/off; skin lock on inventory to avoid accidental quick sells
+
+• Float & seed overlays — wear (FN/MW/FT/WW/BS), float value, and paint seed on inventory, marketplace, and trade item cards
+• Search & filters — filter by name, rarity, wear, float order, and (on marketplace) price; works on Inventory, Marketplace, and Create Offer; bar stays in place when the site sidebar expands
+• Quick Sell & Market panel — floating helper on inventory: pick items, sell by rarity, review before selling, list on marketplace or quick sell in bulk
+• Batch size control — choose how many items are sold or listed in parallel (1–20) for faster or safer bulk operations
+• Confirm Sale modal — per-item quick sell price, market price input, List on Market and Quick Sell buttons with validation
+• Case bulk buy — on the Cases tab (/app/inventory/cases), buy multiple weapon cases at once (quantity 1–99) using your coin balance; purchased cases go to your in-game inventory (toggle in extension settings)
+• Trade offer search — compact search bar in Send Trade Offer (My Items / Their Items)
+• Toolbar settings popup — turn each feature on or off; preferences saved in extension storage
+• Skin lock — padlock on inventory cards to block accidental quick sell from the extension (does not block the site’s own Weapon Details button)
 
 WHERE IT WORKS
+
 • Inventory (/app/inventory)
 • Marketplace (/app/inventory/marketplace)
-• Trade views (/app/play) and Send Trade Offer — float/seed for your own items (My Items)
-
-LARGE INVENTORIES (500+ skins)
-• Float/seed may take a few extra seconds to appear; very large inventories (1000+) can slow the page on weaker PCs
+• Cases shop (/app/inventory/cases) — bulk buy panel only
+• Trade views (/app/play) — float/seed for your own items when inventory data is available
+• Send Trade Offer modal — search on item grid (My Items / Their Items)
 
 REQUIREMENTS (from the CS:Restored website)
+
 • Log in with Discord at https://csrestored.fun
 • Steam level greater than 0
 • At least 25 hours of CS2 playtime
 
 PRIVACY
+
 • Runs only on csrestored.fun
 • Does not collect or send data to external servers
 • Reads site API data in your browser session to display overlays and filters
+• Feature toggles and locked skin IDs stored locally in extension storage (storage.local)
+
+Source: https://github.com/smelbravo/CS-Restored-Inventory-Helper
+Privacy: https://github.com/smelbravo/CS-Restored-Inventory-Helper/blob/main/PRIVACY.md
 
 NOT AFFILIATED with Valve Corporation or the CS:Restored team.
 
@@ -556,7 +571,7 @@ https://github.com/smelbravo/CS-Restored-Inventory-Helper
 ### Notes for reviewer (private)
 
 ```
-Extension: CS:Restored Inventory Helper (v3.2.7)
+Extension: CS:Restored Inventory Helper (v3.3.0)
 Works only on https://csrestored.fun when logged in.
 
 Site requirements (enforced by CS:Restored, not the extension):
@@ -576,11 +591,14 @@ How to test:
 4. Marketplace (/app/inventory/marketplace):
    - Badges below the price on each listing
    - Same search/filter bar; try searching "M4A4", filters for rarity/wear, price and float sort
-5. Send Trade Offer (site modal):
+   - Hover-expand the site left sidebar — search bar should not jump or disappear
+5. Cases (/app/inventory/cases):
+   - Gold floating button → bulk buy panel (case dropdown, quantity 1–99, total cost, Buy containers) when toggle is on
+6. Send Trade Offer (site modal):
    - Open Send Trade Offer → pick a friend → modal opens normally
    - My Items / Their Items: compact search under “Select … Items”; Clear resets; tab switch clears search
    - Float/seed on My Items; Their Items depends on site API
-6. Play → Trades (/app/play): open a trade — float/seed on your own items when the site API provides them (other players' items may not show float/seed until the site exposes those fields).
+7. Play → Trades (/app/play): open a trade — float/seed on your own items when the site API provides them (other players' items may not show float/seed until the site exposes those fields).
 
 Storage: feature toggles and locked weapon IDs use storage.local only (no cookies, no external servers).
 
