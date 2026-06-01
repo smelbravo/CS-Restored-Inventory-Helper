@@ -392,7 +392,7 @@ S.textContent = `
     align-items: flex-end !important;
     gap: 2px !important;
     pointer-events: none !important;
-    z-index: 10 !important;
+    z-index: 5 !important;
 }
 /* Marketplace: abaixo do preço (coins), canto superior direito */
 .csrx-card-wrap.csrx-mp-pos {
@@ -461,12 +461,14 @@ S.textContent = `
     background: rgba(0,0,0,0.75) !important;
     color: #888 !important;
     cursor: pointer !important;
-    z-index: 25 !important;
+    z-index: 2 !important;
+    pointer-events: auto !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
     line-height: 0 !important;
 }
+/* Below CS:R fixed sidebar (site uses ~z-20); stay above card art only */
 .csrx-lock-btn:hover { border-color: #555 !important; color: #ccc !important; }
 .csrx-lock-btn.csrx-locked {
     border-color: #f59e0b55 !important;
@@ -488,7 +490,7 @@ S.textContent = `
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    z-index: 20 !important;
+    z-index: 6 !important;
     pointer-events: none !important;
 }
 
@@ -1430,10 +1432,10 @@ input[type=range].csrx-range:hover::-moz-range-thumb { transform: scale(1.2); }
     margin: 12px 0 16px 0;
     padding: 0;
     font-family: 'Inter', sans-serif;
-    z-index: 2;
+    z-index: 5;
     position: relative;
     box-sizing: border-box;
-    transition: margin-left 0.2s ease, width 0.2s ease, opacity 0.15s;
+    transition: opacity 0.15s;
 }
 #csrx-browse.csrx-browse-under-modal {
     opacity: 0;
@@ -1828,6 +1830,91 @@ function isInventoryPage() {
 function isCasesListPage() {
     return CASES_LIST_PAGE_RE.test(window.location.pathname.replace(/\/$/, ''));
 }
+
+/** CS:R app left nav (~z-20). Use widest matching rail (collapsed vs hover-expanded). */
+function getSiteSidebarRect() {
+    let best = null;
+    for (const el of document.querySelectorAll('div.fixed, aside')) {
+        const r = el.getBoundingClientRect();
+        if (r.width < 40 || r.width > 320) continue;
+        if (r.left > 24) continue;
+        if (r.top > 140) continue;
+        if (r.height < window.innerHeight * 0.35) continue;
+        if (!best || r.width > best.width) best = r;
+    }
+    return best;
+}
+
+/** Refresh lock clip when site sidebar width changes — does not move extension UI. */
+function bindSidebarLockClipWatch() {
+    if (window._csrxLockClipWatch) return;
+    window._csrxLockClipWatch = true;
+    const handler = () => scheduleSidebarChromeAlign();
+    const attach = () => {
+        for (const el of document.querySelectorAll('div.fixed, aside')) {
+            if (el._csrxLockClipOnly) continue;
+            const r = el.getBoundingClientRect();
+            if (r.left > 24 || r.width < 40 || r.height < window.innerHeight * 0.35) continue;
+            el._csrxLockClipOnly = true;
+            el.addEventListener('transitionend', handler);
+        }
+    };
+    attach();
+    setInterval(attach, 3000);
+}
+
+let _sidebarChromeTimer = null;
+function scheduleSidebarChromeAlign() {
+    clearTimeout(_sidebarChromeTimer);
+    _sidebarChromeTimer = setTimeout(() => {
+        updateLocksBelowSiteSidebar();
+    }, 40);
+}
+
+function scheduleLockSidebarClip() {
+    scheduleSidebarChromeAlign();
+}
+
+function updateLocksBelowSiteSidebar() {
+    const locks = document.querySelectorAll('.csrx-lock-btn');
+    if (!locks.length) return;
+
+    if (!csrIsFeatureEnabled('skinLock') || !isInventoryPage() || isMarketplacePage()) {
+        locks.forEach(btn => {
+            btn.style.visibility = '';
+            btn.style.pointerEvents = '';
+        });
+        return;
+    }
+
+    const sb = getSiteSidebarRect();
+    if (!sb) {
+        locks.forEach(btn => {
+            btn.style.visibility = '';
+            btn.style.pointerEvents = '';
+        });
+        return;
+    }
+
+    const pad = 4;
+    const left = sb.left - pad;
+    const right = sb.right + pad;
+    const top = sb.top - pad;
+    const bottom = sb.bottom + pad;
+
+    locks.forEach(btn => {
+        const br = btn.getBoundingClientRect();
+        const overlap = br.left < right && br.right > left && br.top < bottom && br.bottom > top;
+        if (overlap) {
+            btn.style.visibility = 'hidden';
+            btn.style.pointerEvents = 'none';
+        } else {
+            btn.style.visibility = '';
+            btn.style.pointerEvents = 'auto';
+        }
+    });
+}
+
 function isOverlayPage() {
     if (isInventoryPage() && csrIsFeatureEnabled('skinLock') && !isMarketplacePage()) return true;
     if (!csrIsFeatureEnabled('floatOverlays')) return false;
@@ -2713,6 +2800,7 @@ function injectCardOverlay(cardEl, item) {
             e.stopPropagation();
             await csrToggleWeaponLock(item.weapon_id);
             injectCardOverlay(cardEl, item);
+            scheduleLockSidebarClip();
         });
         cardEl.appendChild(btn);
     } else {
@@ -2761,21 +2849,14 @@ function isBrowsePage() {
     return false;
 }
 
-/** Sidebar inset only when the left nav is expanded (wide), not the collapsed icon rail. */
-function measureSidebarInset() {
-    if (!isInventoryPage() && !isMarketplacePage()) return 0;
-    let inset = 0;
-    for (const el of document.querySelectorAll('aside, nav, div')) {
-        const r = el.getBoundingClientRect();
-        if (r.left > 12) continue;
-        if (r.width < 130 || r.width > 380) continue;
-        if (r.height < window.innerHeight * 0.35) continue;
-        const t = (el.innerText || '').toLowerCase();
-        if (!t.includes('matchmaking') || !t.includes('inventory')) continue;
-        if (t.length > 400) continue;
-        inset = Math.max(inset, Math.round(r.right));
-    }
-    return inset;
+/** Browse bar stays in the DOM flow — no margin/width shifts when the site sidebar expands. */
+function resetBrowseBarStaticStyles(bar) {
+    if (!bar) return;
+    bar.style.marginLeft = '';
+    bar.style.width = '';
+    bar.style.maxWidth = '';
+    bar.style.visibility = '';
+    bar.style.pointerEvents = '';
 }
 
 function isWeaponDetailsOpen() {
@@ -2802,20 +2883,10 @@ function updateBrowseBarLayout() {
     bar.classList.toggle('csrx-browse-create-offer', createOffer);
     bar.classList.toggle('csrx-browse-under-modal', !tradeModal && !createOffer && isWeaponDetailsOpen());
     if (tradeModal || createOffer) {
-        bar.style.marginLeft = '';
-        bar.style.width = '';
-        bar.style.maxWidth = '';
+        resetBrowseBarStaticStyles(bar);
         if (tradeModal) repositionTradeBrowseBar();
     } else {
-        const inset = measureSidebarInset();
-        if (inset > 0) {
-            bar.style.marginLeft = `${inset}px`;
-            bar.style.width = `calc(100% - ${inset}px)`;
-        } else {
-            bar.style.marginLeft = '';
-            bar.style.width = '';
-        }
-        bar.style.maxWidth = '';
+        resetBrowseBarStaticStyles(bar);
     }
 }
 
@@ -3424,6 +3495,7 @@ function initBrowseTools() {
         mount.el.insertAdjacentElement('afterend', bar);
     }
     browseToolsActive = true;
+    resetBrowseBarStaticStyles(bar);
     updateBrowseBarLayout();
     applyBrowseFilters();
 }
@@ -3488,6 +3560,7 @@ function applyOverlaysToAll(opts) {
         _currentOverlayCards = null;
     }
     if (isTradePickerModal()) hideTradePickerEmptySlots();
+    scheduleSidebarChromeAlign();
 }
 
 async function startAlwaysOnOverlay() {
@@ -3614,6 +3687,8 @@ document.addEventListener('click', e => {
 }, true);
 
 window.addEventListener('resize', scheduleBrowseLayoutUpdate);
+window.addEventListener('resize', scheduleSidebarChromeAlign);
+window.addEventListener('scroll', scheduleSidebarChromeAlign, true);
 
 function extUrl(p) {
     try {
@@ -4439,11 +4514,28 @@ function populateCasesSelect() {
     const sel = document.getElementById('csrx-cases-select');
     if (!sel) return;
     const prev = sel.value;
-    const sorted = [...casesCatalogCache].sort((a, b) => a.name.localeCompare(b.name));
+    const sorted = [...casesCatalogCache].sort((a, b) => a.price - b.price || a.name.localeCompare(b.name));
     sel.innerHTML = sorted.map(c =>
         `<option value="${c.id}">${c.name} — ${formatCoins(c.price)}</option>`
     ).join('');
     if (prev && sorted.some(c => String(c.id) === prev)) sel.value = prev;
+}
+
+function normalizeCasesQtyInput(inp) {
+    if (!inp) return 1;
+    const raw = String(inp.value ?? '').trim();
+    const n = parseInt(raw, 10);
+    const qty = Number.isFinite(n) ? Math.max(1, Math.min(99, n)) : 1;
+    inp.value = String(qty);
+    return qty;
+}
+
+function readCasesQtyInput(inp) {
+    const raw = String(inp?.value ?? '').trim();
+    if (!raw) return { qty: null, valid: false, empty: true };
+    const n = parseInt(raw, 10);
+    if (!Number.isFinite(n) || n < 1 || n > 99) return { qty: n, valid: false, empty: false };
+    return { qty: n, valid: true, empty: false };
 }
 
 function updateCasesCostSummary() {
@@ -4451,22 +4543,33 @@ function updateCasesCostSummary() {
     const btn = document.getElementById('csrx-cases-buy');
     if (!summary) return;
     const qtyInp = document.getElementById('csrx-cases-qty');
-    const qty = Math.max(1, Math.min(99, parseInt(qtyInp?.value, 10) || 1));
-    if (qtyInp && String(qty) !== qtyInp.value) qtyInp.value = String(qty);
+    const q = readCasesQtyInput(qtyInp);
     const picked = getSelectedCase();
     if (!picked) {
         summary.innerHTML = 'Select a case to see total cost.';
         if (btn) btn.disabled = true;
         return;
     }
-    const total = picked.price * qty;
     const coinsLine = cachedUserCoins != null
         ? `Your coins: <strong>${formatCoins(cachedUserCoins)}</strong><br>`
         : '';
+
+    if (q.empty) {
+        summary.innerHTML = `${coinsLine}Enter quantity (1–99) to see total.`;
+        if (btn) btn.disabled = true;
+        return;
+    }
+    if (!q.valid) {
+        summary.innerHTML = `${coinsLine}<span style="color:#ef4444">Quantity must be between 1 and 99.</span>`;
+        if (btn) btn.disabled = true;
+        return;
+    }
+
+    const total = picked.price * q.qty;
     const afford = cachedUserCoins != null && cachedUserCoins < total
         ? '<br><span style="color:#ef4444">Not enough coins for this purchase.</span>'
         : '';
-    summary.innerHTML = `${coinsLine}Total: <strong>${formatCoins(total)}</strong> (${qty}× ${formatCoins(picked.price)})${afford}`;
+    summary.innerHTML = `${coinsLine}Total: <strong>${formatCoins(total)}</strong> (${q.qty}× ${formatCoins(picked.price)})${afford}`;
     if (btn) btn.disabled = cachedUserCoins != null && cachedUserCoins < total;
 }
 
@@ -4535,7 +4638,7 @@ function sleep(ms) {
 async function runCasesBulkBuy() {
     const picked = getSelectedCase();
     const qtyInp = document.getElementById('csrx-cases-qty');
-    const qty = Math.max(1, Math.min(99, parseInt(qtyInp?.value, 10) || 1));
+    const qty = normalizeCasesQtyInput(qtyInp);
     if (!picked) {
         toast('Select a case first', 'warn');
         return;
@@ -4654,7 +4757,7 @@ function setupCasesBulkBuy() {
     </div>
     <div>
         <label for="csrx-cases-qty">Quantity (1–99)</label>
-        <input type="number" id="csrx-cases-qty" min="1" max="99" value="1" style="margin-top:6px;">
+        <input type="text" id="csrx-cases-qty" inputmode="numeric" autocomplete="off" spellcheck="false" value="1" style="margin-top:6px;">
     </div>
     <div id="csrx-cases-summary">Loading cases…</div>
     <div id="csrx-cases-progress"><div id="csrx-cases-progress-bar"></div></div>
@@ -4681,6 +4784,12 @@ function setupCasesBulkBuy() {
 
     document.getElementById('csrx-cases-select')?.addEventListener('change', updateCasesCostSummary);
     document.getElementById('csrx-cases-qty')?.addEventListener('input', updateCasesCostSummary);
+    document.getElementById('csrx-cases-qty')?.addEventListener('blur', (e) => {
+        const inp = e.target;
+        if (!String(inp.value ?? '').trim()) inp.value = '1';
+        else normalizeCasesQtyInput(inp);
+        updateCasesCostSummary();
+    });
     document.getElementById('csrx-cases-buy')?.addEventListener('click', () => runCasesBulkBuy());
     document.getElementById('csrx-cases-cancel')?.addEventListener('click', () => {
         casesBuyAbort = true;
@@ -4721,6 +4830,7 @@ function applyCsrFeatureVisibility() {
 
 async function bootstrapCsrExtension() {
     await csrLoadSettings();
+    bindSidebarLockClipWatch();
     csrWatchStorageChanges();
     csrOnSettingsChanged(() => {
         applyCsrFeatureVisibility();

@@ -189,7 +189,7 @@ The **`.xpi` on GitHub** is unsigned and **does not install** on Firefox Release
 
 ## Releases
 
-Stable downloads: [GitHub Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) (latest: **v3.2.7**).
+Stable downloads: [GitHub Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) (latest: **v3.3.0**).
 
 | Browser | Install |
 |---------|---------|
@@ -258,10 +258,17 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 
 | Branch | Description |
 |--------|-------------|
-| `main` | Stable releases (v3.2.7) |
+| `main` | Stable releases (v3.3.0) |
 | `develop` | Integration branch |
 
 ## Changelog
+
+### v3.3.0
+
+- **New:** **Case bulk buy** — gold floating panel on `/app/inventory/cases`; pick case + quantity (1–99), buy containers via site API (toggle in toolbar popup)
+- **Fix:** search & filters bar stays **static** when the CS:R sidebar expands (no margin shift, no remount/disappear loop)
+- **Fix:** extension UI (browse bar, skin lock icons) stays **below** the site sidebar (`z-index` + hide locks when overlapping nav)
+- **Fix:** case bulk buy quantity field allows normal typing (normalize on blur, not on every keystroke)
 
 ### v3.2.7
 
