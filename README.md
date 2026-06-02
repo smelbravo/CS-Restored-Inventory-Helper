@@ -108,6 +108,17 @@ When **Case bulk buy** is enabled, a **gold floating button** appears only on [`
 
 Use this for the “buy X cases in one click” workflow without clicking each case on the site.
 
+### Auto case opening (Cases tab only, vNext)
+
+When **Auto case opening** is enabled, the same gold **Cases** panel shows an **Auto open** tab on [`/app/inventory/cases`](https://csrestored.fun/app/inventory/cases):
+
+- Choose **weapon case**
+- Configure **delay**, **time limit**, and **spend limit**
+- Click **Start auto open** and watch the drop log (includes gold count)
+- Click **Stop** to cancel after the current open completes
+
+Settings (delay / limits) are stored in `storage.local`.
+
 #### Batch size (Speed slider)
 
 Controls parallel API requests when you **Quick Sell** or **List on Market** from the Confirm Sale modal (bulk flows only — not single sells on the site).
@@ -241,6 +252,7 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 | `POST /inventory/marketplace/add` | List item on marketplace (`weapon_id`, `price`) |
 | `GET /inventory/cases` | Case shop list (bulk buy panel) |
 | `POST /inventory/cases/buy/{caseId}` | Buy one weapon case (bulk buy loops per quantity) |
+| `POST /inventory/cases/open/{caseId}` | Auto-open one case (auto case opening) |
 
 ## Project structure
 

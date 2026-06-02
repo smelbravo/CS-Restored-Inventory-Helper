@@ -10,6 +10,7 @@ const DEFAULTS = {
     browseFilters: true,
     quickSellPanel: true,
     caseBulkBuy: true,
+    caseAutoOpen: false,
     tradeSearch: true,
     skinLock: true,
 };
