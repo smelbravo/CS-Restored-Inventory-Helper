@@ -647,6 +647,49 @@ S.textContent = `
 }
 .csrx-cases-log-line { margin: 0 0 6px; }
 .csrx-cases-log-line:last-child { margin-bottom: 0; }
+#csrx-cases-open-results {
+    display: none;
+    flex-direction: column;
+    gap: 6px;
+}
+#csrx-cases-open-results-label {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #71717a;
+}
+#csrx-cases-open-results-body {
+    border: 1px solid #1f1f1f;
+    background: #0c0c0c;
+    border-radius: 10px;
+    padding: 8px 10px;
+    max-height: 200px;
+    overflow: auto;
+}
+.csrx-cases-result-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 5px 0;
+    border-bottom: 1px solid #1a1a1a;
+    font-size: 0.75rem;
+    line-height: 1.35;
+}
+.csrx-cases-result-row:last-child { border-bottom: none; }
+.csrx-cases-result-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.csrx-cases-result-float {
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+}
 #csrx-cases-summary {
     font-size: 0.8125rem;
     color: #b1a7a6;
@@ -4975,6 +5018,83 @@ function appendCasesOpenLog(htmlLine) {
     while (log.childElementCount > 60) log.lastElementChild?.remove();
 }
 
+function escapeCasesHtml(str) {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function extractFloatFromOpenData(data) {
+    if (!data || typeof data !== 'object') return null;
+    const tryVal = (v) => {
+        if (v == null || v === '') return null;
+        const f = parseFloat(v);
+        return Number.isFinite(f) && f >= 0 && f <= 1 ? f : null;
+    };
+    for (const k of ['float', 'skin_float', 'wear', 'item_float', 'paint_wear']) {
+        const f = tryVal(data[k]);
+        if (f != null) return f;
+    }
+    for (const k of ['item', 'weapon', 'skin', 'data']) {
+        if (data[k] && typeof data[k] === 'object') {
+            const nested = extractFloatFromOpenData(data[k]);
+            if (nested != null) return nested;
+        }
+    }
+    return null;
+}
+
+function clearCasesOpenResults() {
+    const box = document.getElementById('csrx-cases-open-results');
+    const body = document.getElementById('csrx-cases-open-results-body');
+    if (body) body.innerHTML = '';
+    if (box) box.style.display = 'none';
+}
+
+function renderCasesOpenResults(drops) {
+    const box = document.getElementById('csrx-cases-open-results');
+    const body = document.getElementById('csrx-cases-open-results-body');
+    if (!box || !body) return;
+    if (!drops.length) {
+        box.style.display = 'none';
+        return;
+    }
+
+    const sorted = [...drops].sort((a, b) => {
+        const fa = a.float;
+        const fb = b.float;
+        if (fa == null && fb == null) return String(a.name).localeCompare(String(b.name));
+        if (fa == null) return 1;
+        if (fb == null) return -1;
+        if (fa !== fb) return fa - fb;
+        return String(a.name).localeCompare(String(b.name));
+    });
+
+    body.innerHTML = sorted.map((d) => {
+        const safeName = escapeCasesHtml(d.name || 'Unknown');
+        const isGold = String(d.name || '').includes('★');
+        const nameStyle = isGold
+            ? 'color:#facc15;font-weight:800'
+            : rarityStyle(d.rarity);
+        let floatHtml;
+        if (d.float != null) {
+            const wear = getCondition(d.float);
+            const wearCol = wearColor(d.float);
+            floatHtml = `<span class="csrx-cases-result-float" style="color:${wearCol}">${d.float.toFixed(4)} ${wear}</span>`;
+        } else {
+            floatHtml = '<span class="csrx-cases-result-float" style="color:#737373">—</span>';
+        }
+        return `<div class="csrx-cases-result-row">
+            <span class="csrx-cases-result-name" style="${nameStyle}">${safeName}</span>
+            ${floatHtml}
+        </div>`;
+    }).join('');
+
+    box.style.display = 'flex';
+}
+
 function refreshCasesOpenStatsUi() {
     const el = document.getElementById('csrx-cases-open-stats');
     if (!el) return;
@@ -5009,6 +5129,10 @@ async function runCasesAutoOpen() {
     casesOpenAbort = false;
     casesOpenRunning = true;
     casesOpenStats = { opened: 0, gold: 0, lastName: '', lastRarity: null };
+    const sessionDrops = [];
+    clearCasesOpenResults();
+    const liveLog = document.getElementById('csrx-cases-open-log');
+    if (liveLog) liveLog.innerHTML = '';
     refreshCasesOpenStatsUi();
     updateCasesAutoOpenSummary();
 
@@ -5036,6 +5160,9 @@ async function runCasesAutoOpen() {
             const data = await openCaseOnce(picked.id);
             const name = data?.name ? String(data.name) : 'Unknown item';
             const rarity = data?.rarity != null ? parseInt(data.rarity, 10) : null;
+            const floatVal = extractFloatFromOpenData(data);
+
+            sessionDrops.push({ name, rarity, float: floatVal });
 
             casesOpenStats.opened++;
             casesOpenStats.lastName = name;
@@ -5075,6 +5202,7 @@ async function runCasesAutoOpen() {
     scrapeCoinsFromPage();
     updateCasesAutoOpenSummary();
     updateCasesCostSummary();
+    renderCasesOpenResults(sessionDrops);
 
     if (lastErr) toast(lastErr, 'error');
     else toast(`Auto-open finished — opened ${casesOpenStats.opened}${casesOpenStats.gold ? ` · ${casesOpenStats.gold} gold` : ''}`, 'success');
@@ -5140,6 +5268,10 @@ function setupCasesBulkBuy() {
         <div id="csrx-cases-open-summary">Configure limits…</div>
         <div id="csrx-cases-open-stats" style="font-size:0.8125rem;color:#b1a7a6;"></div>
         <div id="csrx-cases-open-log"></div>
+        <div id="csrx-cases-open-results">
+            <div id="csrx-cases-open-results-label">Results — best float first</div>
+            <div id="csrx-cases-open-results-body"></div>
+        </div>
         <button type="button" id="csrx-cases-open-start">Start auto open</button>
         <button type="button" id="csrx-cases-open-stop">Stop</button>
     </div>
