@@ -1,6 +1,6 @@
 # CS:Restored Inventory Helper
 
-Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.fun) — float and paint seed overlays, search and filters on inventory/marketplace, a quick-sell panel, **case bulk buy** on the Cases tab, optional **toolbar settings** to turn each feature on or off, and **skin lock** to avoid accidental sells.
+Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.fun) — float and paint seed overlays, search and filters on inventory/marketplace, a quick-sell panel, **case bulk buy** and **auto case opening** on the Cases tab, optional **toolbar settings** to turn each feature on or off, and **skin lock** to avoid accidental sells.
 
 Works in **Firefox**, **Microsoft Edge**, and **Chromium** browsers (Manifest V3).
 
@@ -61,6 +61,7 @@ Click the **extension icon** in the browser toolbar (Firefox / Chrome / Edge) to
 | **Search & filters** | Browse bar on inventory, marketplace, and Create Offer |
 | **Quick Sell & Market** | Bottom-right CS:R button, helper panel, and Confirm Sale flow |
 | **Case bulk buy** | Floating panel on [Cases](https://csrestored.fun/app/inventory/cases) — pick case + quantity, buy to in-game inventory |
+| **Auto case opening** | Auto-open cases on [Cases](https://csrestored.fun/app/inventory/cases) — spend/time limits, results sorted by float |
 | **Trade offer search** | Compact search bar in Send Trade Offer (My Items / Their Items) |
 | **Skin lock** | Padlock on inventory cards (see table below) |
 
@@ -97,28 +98,6 @@ When **Quick Sell & Market** is enabled in the popup, the floating **CS:R button
 
 Hidden on marketplace and trade pages. With the toggle off, the floating button and panel do not appear.
 
-### Case bulk buy (Cases tab only, v3.3+)
-
-When **Case bulk buy** is enabled, a **gold floating button** appears only on [`/app/inventory/cases`](https://csrestored.fun/app/inventory/cases) (the case shop grid, not a single case detail page).
-
-- Choose **weapon case** and **quantity** (1–99)
-- Shows **total coin cost** and your balance (from the site API)
-- **Buy containers** calls the same API as the site’s **Buy Container** button (`POST /inventory/cases/buy/{id}`) once per case
-- Purchased cases go to your **in-game inventory** — open them in CS:R like normal, not via the website opener
-
-Use this for the “buy X cases in one click” workflow without clicking each case on the site.
-
-### Auto case opening (Cases tab only, vNext)
-
-When **Auto case opening** is enabled, the same gold **Cases** panel shows an **Auto open** tab on [`/app/inventory/cases`](https://csrestored.fun/app/inventory/cases):
-
-- Choose **weapon case**
-- Configure **delay**, **time limit**, and **spend limit**
-- Click **Start auto open** and watch the drop log (includes gold count)
-- Click **Stop** to cancel after the current open completes
-
-Settings (delay / limits) are stored in `storage.local`.
-
 #### Batch size (Speed slider)
 
 Controls parallel API requests when you **Quick Sell** or **List on Market** from the Confirm Sale modal (bulk flows only — not single sells on the site).
@@ -132,6 +111,30 @@ Controls parallel API requests when you **Quick Sell** or **List on Market** fro
 - **Lower** (1–3) = slower, but usually more reliable if you see errors.
 
 Example reply for players: *“Batch size is how many skins get sold or listed at the same time during bulk Quick Sell / List on Market. Higher = faster; lower = safer if requests fail.”*
+
+### Case bulk buy (Cases tab only, v3.3+)
+
+When **Case bulk buy** is enabled, a **gold floating button** appears only on [`/app/inventory/cases`](https://csrestored.fun/app/inventory/cases) (the case shop grid, not a single case detail page).
+
+- Choose **weapon case** and **quantity** (1–99)
+- Shows **total coin cost** and your balance (from the site API)
+- **Buy containers** calls the same API as the site’s **Buy Container** button (`POST /inventory/cases/buy/{id}`) once per case
+- Purchased cases go to your **in-game inventory** — open them in CS:R like normal, not via the website opener
+
+Use this for the “buy X cases in one click” workflow without clicking each case on the site.
+
+### Auto case opening (Cases tab only, develop)
+
+When **Auto case opening** is enabled, the same gold **Cases** panel shows an **Auto open** tab on [`/app/inventory/cases`](https://csrestored.fun/app/inventory/cases) (toggle in the extension popup; off by default).
+
+- Choose **weapon case** from the shop list
+- Configure **delay (ms)**, **minutes** (time limit), and **spend limit (coins)** — saved in `storage.local`
+- **Start auto open** loops `POST /inventory/cases/open/{caseId}` until limits, stop, or an error
+- **Live log** during the run (rarity-colored drops, gold ★ highlighted)
+- **Results** table when the session ends: every skin with **float + wear**, sorted **best float first** (lowest → highest)
+- **Stop** cancels after the current open finishes
+
+If the API omits float on a drop, that row shows `—` and sorts after items with a known float.
 
 ### Confirm Sale — marketplace list + quick sell (v3.1+)
 
@@ -226,7 +229,7 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 3. Open **Inventory** or **Marketplace** — float/seed badges and the search/filter bar appear after items load (usually a few seconds)
 4. On inventory: use the **padlock** (top-left of a card) to lock skins you must not sell by accident
 5. If **Quick Sell & Market** is on: click the **CS:R logo button** (bottom-right) → **Start Picking** → **Review & Sell** → **List on Market** or **Quick Sell**
-6. On **Cases** ([`/app/inventory/cases`](https://csrestored.fun/app/inventory/cases)), use the gold **bulk buy** button when that toggle is on
+6. On **Cases** ([`/app/inventory/cases`](https://csrestored.fun/app/inventory/cases)), open the gold **Cases** button → **Bulk buy** and/or **Auto open** (enable toggles in the popup)
 7. On **Play → Trades** / **Send Trade Offer**, overlays and trade search work when those toggles are enabled
 
 ## Permissions
@@ -274,9 +277,16 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 | Branch | Description |
 |--------|-------------|
 | `main` | Stable releases (v3.3.0) |
-| `develop` | Integration branch |
+| `develop` | Integration branch — includes auto case opening |
+| `feature/auto-case-opening` | Auto open + float-sorted results |
 
 ## Changelog
+
+### Unreleased (develop)
+
+- **New:** **Auto case opening** — Auto open tab on `/app/inventory/cases`; delay, time limit, spend limit (persisted in `storage.local`); live log; **Stop** button
+- **New:** **Results table** after each auto-open session — all drops with float/wear, sorted **lowest float first** (best → worst)
+- **New:** Toggle **Auto case opening** in extension popup (default off)
 
 ### v3.3.0
 
