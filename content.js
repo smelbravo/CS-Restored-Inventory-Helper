@@ -854,7 +854,7 @@ S.textContent = `
 }
 .csrx-hdr-sub {
     font-size: 10px;
-    color: #3d3d3d;
+    color: #b4b4b4;
     margin-top: 2px;
     font-weight: 400;
 }
@@ -894,14 +894,14 @@ S.textContent = `
 .csrx-dot.syncing { background: #f59e0b; animation: csrxBlink 0.9s infinite; }
 .csrx-dot.active  { background: #ef4444; }
 @keyframes csrxBlink { 0%,100%{opacity:1} 50%{opacity:0.2} }
-#csrx-stat { font-size: 10px; font-weight: 500; color: #3d3d3d; flex: 1; }
+#csrx-stat { font-size: 10px; font-weight: 500; color: #d4d4d4; flex: 1; }
 
 #csrx-body { padding: 12px; display: flex; flex-direction: column; gap: 14px; }
 
 .csrx-section {
     font-size: 9px;
     font-weight: 600;
-    color: #2a2a2a;
+    color: #a8a8a8;
     text-transform: uppercase;
     letter-spacing: 1.5px;
     margin-bottom: 8px;
@@ -909,7 +909,7 @@ S.textContent = `
     align-items: center;
     gap: 6px;
 }
-.csrx-section::after { content: ''; flex: 1; height: 1px; background: #1a1a1a; }
+.csrx-section::after { content: ''; flex: 1; height: 1px; background: #2a2a2a; }
 
 .csrx-btn {
     width: 100%;
@@ -988,7 +988,7 @@ select.csrx-sel {
     background: #111;
     border: 1px solid #1f1f1f;
     border-radius: 8px;
-    color: #666;
+    color: #e5e5e5;
     font-family: 'Inter', sans-serif;
     font-size: 11px;
     font-weight: 500;
@@ -1000,12 +1000,12 @@ select.csrx-sel {
     background-repeat: no-repeat;
     background-position: right 9px center;
 }
-select.csrx-sel:focus { border-color: #2a2a2a; color: #aaa; outline: none; }
-select.csrx-sel option { background: #0a0a0a; color: #aaa; }
+select.csrx-sel:focus { border-color: #2a2a2a; color: #fafafa; outline: none; }
+select.csrx-sel option { background: #0a0a0a; color: #e5e5e5; }
 
 .csrx-slider-wrap { padding: 1px 0; }
 .csrx-slider-row  { display: flex; justify-content: space-between; align-items: center; margin-bottom: 9px; }
-.csrx-slider-lbl  { font-size: 10px; font-weight: 500; color: #333; }
+.csrx-slider-lbl  { font-size: 10px; font-weight: 500; color: #c4c4c4; }
 .csrx-slider-val  {
     font-size: 11px;
     font-weight: 700;
@@ -1108,7 +1108,7 @@ input[type=range].csrx-range:hover::-moz-range-thumb { transform: scale(1.2); }
     line-height: 1;
 }
 .csrx-mhdr-title span { color: #ef4444; }
-.csrx-mhdr-sub { font-size: 11px; color: #333; font-weight: 400; }
+.csrx-mhdr-sub { font-size: 11px; color: #b4b4b4; font-weight: 400; }
 
 #csrx-mxbtn {
     width: 28px;
@@ -1755,7 +1755,14 @@ function resetTradePickerBrowseOnTabSwitch() {
     browseToolsActive = false;
 }
 let _largeInvWarned      = false;
-const LARGE_INV_WARN     = 500;
+const LARGE_INV_WARN     = 200;
+const OVERLAY_LAZY_MIN_CARDS = 80;
+const OVERLAY_LAZY_VIEW_MARGIN = 400;
+const OVERLAY_LAZY_BATCH = 45;
+let _overlayLazyScroll = null;
+let _overlayLazyScrollTarget = null;
+let _overlayLazyCards = null;
+let _overlayLazyTick = null;
 
 function rebuildInvItemIndex() {
     invIndexByItemId = new Map();
@@ -1797,10 +1804,15 @@ function candidatesForImgId(imgId) {
 }
 
 function maybeWarnLargeInventory() {
-    if (_largeInvWarned || inventoryCache.length < LARGE_INV_WARN) return;
-    if (!isInventoryPage() && !isTradePickerModal()) return;
+    if (_largeInvWarned) return;
+    const count = isMarketplacePage()
+        ? marketplaceCache.length
+        : inventoryCache.length;
+    if (count < LARGE_INV_WARN) return;
+    if (!isInventoryPage() && !isMarketplacePage() && !isItemPickerModal()) return;
     _largeInvWarned = true;
-    toast(`Large inventory (${inventoryCache.length}+ items): float/seed may load slower.`, 'warn');
+    const label = isMarketplacePage() ? 'marketplace' : 'inventory';
+    toast(`Large ${label} (${count}+ items): float/seed load in batches as you scroll.`, 'info');
 }
 
 function scheduleOverlayBootstrap() {
@@ -2477,29 +2489,53 @@ function getOfferSectionCards(which) {
 
 function applyTradeDetailOverlays() {
     clearSkinOverlays();
+    stopOverlayLazyScroll();
     const yourCards  = getOfferSectionCards('your');
     const theirCards = getOfferSectionCards('their');
     const inv        = inventoryCache.map(normalizeInventoryEntry).filter(Boolean);
     const trade      = getCurrentTrade();
     const yourItems  = trade ? getTradeSideItems(trade, 'your') : [];
     const theirItems = trade ? getTradeSideItems(trade, 'their') : [];
+    const yourSet    = new Set(yourCards);
 
-    let used = new Set();
-    for (const card of yourCards) {
-        let item = matchOverlayItem(card, inv, used);
-        if (!item && yourItems.length) item = matchOverlayItem(card, yourItems, used);
-        if (!item && tradeItemsCache.length) item = matchOverlayItem(card, tradeItemsCache, used);
-        if (item) injectCardOverlay(card, item);
+    const applyYourBatch = (list, used) => {
+        for (const card of list) {
+            let item = matchOverlayItem(card, inv, used);
+            if (!item && yourItems.length) item = matchOverlayItem(card, yourItems, used);
+            if (!item && tradeItemsCache.length) item = matchOverlayItem(card, tradeItemsCache, used);
+            if (item) injectCardOverlay(card, item);
+        }
+    };
+
+    const applyTheirBatch = (list, used) => {
+        for (const card of list) {
+            let item = theirItems.length ? matchOverlayItem(card, theirItems, used) : null;
+            if (!item && tradeItemsCache.length) item = matchOverlayItem(card, tradeItemsCache, used);
+            if (item) injectCardOverlay(card, item);
+        }
+    };
+
+    const applyBatch = (batch) => {
+        const usedYour = new Set();
+        const usedTheir = new Set();
+        applyYourBatch(batch.filter((c) => yourSet.has(c)), usedYour);
+        applyTheirBatch(batch.filter((c) => !yourSet.has(c)), usedTheir);
+    };
+
+    const allCards = [...yourCards, ...theirCards];
+    if (!allCards.length) {
+        applyTradeOverlays();
+        return;
     }
 
-    used = new Set();
-    for (const card of theirCards) {
-        let item = theirItems.length ? matchOverlayItem(card, theirItems, used) : null;
-        if (!item && tradeItemsCache.length) item = matchOverlayItem(card, tradeItemsCache, used);
-        if (item) injectCardOverlay(card, item);
+    if (shouldUseLazyOverlays(allCards.length)) {
+        runLazyOverlayPass(allCards, applyBatch);
+    } else {
+        const usedYour = new Set();
+        const usedTheir = new Set();
+        applyYourBatch(yourCards, usedYour);
+        applyTheirBatch(theirCards, usedTheir);
     }
-
-    if (!yourCards.length && !theirCards.length) applyTradeOverlays();
 }
 
 function getOfferIdFromCard(cardEl) {
@@ -3641,6 +3677,108 @@ function pruneOrphanOverlays(cardSet) {
     });
 }
 
+function isCardNearViewport(cardEl, margin = OVERLAY_LAZY_VIEW_MARGIN) {
+    if (!cardEl?.isConnected) return false;
+    const r = cardEl.getBoundingClientRect();
+    return r.bottom >= -margin && r.top <= window.innerHeight + margin
+        && r.right >= -margin && r.left <= window.innerWidth + margin;
+}
+
+function isLazyOverlayGridPage() {
+    if (isMarketplacePage()) return true;
+    if (isInventoryPage() && !isMarketplacePage()) return true;
+    if (isItemPickerModal()) return true;
+    if (isTradeDetailView()) return true;
+    if (isTradePage()) return true;
+    return false;
+}
+
+function shouldUseLazyOverlays(cardCount) {
+    if (cardCount < OVERLAY_LAZY_MIN_CARDS) return false;
+    if (!isLazyOverlayGridPage()) return false;
+    if (csrIsFeatureEnabled('floatOverlays')) return true;
+    return csrIsFeatureEnabled('skinLock') && isInventoryPage() && !isMarketplacePage();
+}
+
+function applyOverlaysToCardList(cards, cache) {
+    if (!cards.length || !cache.length) return;
+    const used = new Set();
+    for (const cardEl of cards) {
+        const item = matchOverlayItem(cardEl, cache, used);
+        if (!item) {
+            cardEl.querySelector('.csrx-card-wrap')?.remove();
+            continue;
+        }
+        injectCardOverlay(cardEl, item);
+    }
+}
+
+function findOverlayScrollRoot() {
+    const cards = getAllCards();
+    if (!cards.length) return null;
+    let el = cards[0].parentElement;
+    while (el && el !== document.body) {
+        const st = getComputedStyle(el);
+        const oy = st.overflowY;
+        if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight + 8) {
+            return el;
+        }
+        el = el.parentElement;
+    }
+    return null;
+}
+
+function stopOverlayLazyScroll() {
+    if (_overlayLazyScroll && _overlayLazyScrollTarget) {
+        _overlayLazyScrollTarget.removeEventListener('scroll', _overlayLazyScroll);
+    }
+    if (_overlayLazyScroll) {
+        window.removeEventListener('scroll', _overlayLazyScroll);
+    }
+    _overlayLazyScroll = null;
+    _overlayLazyScrollTarget = null;
+    _overlayLazyCards = null;
+    _overlayLazyTick = null;
+}
+
+function bindOverlayLazyScrollListener() {
+    if (_overlayLazyScroll && _overlayLazyScrollTarget) {
+        _overlayLazyScrollTarget.removeEventListener('scroll', _overlayLazyScroll);
+    }
+    if (_overlayLazyScroll) {
+        window.removeEventListener('scroll', _overlayLazyScroll);
+    }
+    let ticking = false;
+    const onScroll = () => {
+        if (!overlayRunning || ticking || !_overlayLazyTick || !_overlayLazyCards) return;
+        ticking = true;
+        requestAnimationFrame(() => {
+            ticking = false;
+            if (!overlayRunning || !_overlayLazyTick || !_overlayLazyCards) return;
+            const pending = _overlayLazyCards.filter((c) =>
+                c.isConnected && isCardNearViewport(c) && !c.querySelector('.csrx-card-wrap')
+            );
+            if (!pending.length) return;
+            _overlayLazyTick(pending.slice(0, OVERLAY_LAZY_BATCH));
+        });
+    };
+    _overlayLazyScroll = onScroll;
+    const root = findOverlayScrollRoot();
+    _overlayLazyScrollTarget = root;
+    if (root) root.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('scroll', onScroll, { passive: true });
+}
+
+function runLazyOverlayPass(allCards, applyBatch) {
+    stopOverlayLazyScroll();
+    _overlayLazyCards = allCards;
+    _overlayLazyTick = applyBatch;
+    const visible = allCards.filter((c) => isCardNearViewport(c));
+    const firstBatch = visible.length ? visible : allCards.slice(0, OVERLAY_LAZY_BATCH);
+    applyBatch(firstBatch);
+    bindOverlayLazyScrollListener();
+}
+
 function applyOverlaysToAll(opts) {
     const urgent = opts?.urgent === true;
     if (isTradeDetailView()) {
@@ -3667,15 +3805,12 @@ function applyOverlaysToAll(opts) {
     }
 
     _currentOverlayCards = cards;
-    const used = new Set();
     try {
-        for (const cardEl of cards) {
-            const item = matchOverlayItem(cardEl, cache, used);
-            if (!item) {
-                cardEl.querySelector('.csrx-card-wrap')?.remove();
-                continue;
-            }
-            injectCardOverlay(cardEl, item);
+        if (shouldUseLazyOverlays(cards.length)) {
+            runLazyOverlayPass(cards, (batch) => applyOverlaysToCardList(batch, cache));
+        } else {
+            stopOverlayLazyScroll();
+            applyOverlaysToCardList(cards, cache);
         }
         pruneOrphanOverlays(cardSet);
     } finally {
@@ -3721,6 +3856,7 @@ function stopAlwaysOnOverlay() {
     clearTimeout(_overlayBootTimer);
     clearInterval(overlayTimer);
     overlayTimer = null;
+    stopOverlayLazyScroll();
     stopOverlayDomObserver();
     document.querySelectorAll('.csrx-card-wrap').forEach(el => el.remove());
 }

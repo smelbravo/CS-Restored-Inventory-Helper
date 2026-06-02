@@ -34,6 +34,25 @@ Shows **wear abbreviation** (FN, MW, FT, WW, BS), **float value** (e.g. `0.1962`
 
 Data is matched by offer ID, skin image, wear, StatTrak, and name. The extension reads data from the site's own API responses in your browser session — it does not send data to external servers or spam duplicate API calls.
 
+#### Large inventories — lazy overlay loading (develop)
+
+On grids with **80+ item cards**, float/seed badges (and skin-lock buttons on inventory) are applied in **batches** instead of all at once:
+
+| When | What happens |
+|------|----------------|
+| Page open | Only **visible** cards (plus a small buffer) get overlays first |
+| Scroll | More cards are processed as they enter the viewport (~45 per frame) |
+
+This applies on:
+
+- **Inventory** (`/app/inventory`)
+- **Marketplace** (`/app/inventory/marketplace`)
+- **Trades** (`/app/play`, `/trades`, trade-up)
+- **Trade detail** (Your offer / Their offer)
+- **Send Trade Offer** and **Create Offer** modals
+
+With **200+** items you may still see some site slowness, but the extension should no longer spike the page by stamping every card immediately. A short info toast may appear on very large inventory or marketplace lists.
+
 ### Search & filters (inventory + marketplace)
 
 Horizontal bar above the item grid (same layout on both pages):
@@ -97,6 +116,8 @@ When **Quick Sell & Market** is enabled in the popup, the floating **CS:R button
 - **Batch size** (under **Speed**) — how many items are sold or listed **in parallel** during bulk Quick Sell or List on Market (see below)
 
 Hidden on marketplace and trade pages. With the toggle off, the floating button and panel do not appear.
+
+Panel labels (**Picker**, **Global**, **Speed**), status text, rarity dropdown, and batch-size label use **lighter text** on the dark background for readability (develop).
 
 #### Batch size (Speed slider)
 
@@ -277,8 +298,8 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 | Branch | Description |
 |--------|-------------|
 | `main` | Stable releases (v3.3.0) |
-| `develop` | Integration branch — includes auto case opening |
-| `feature/auto-case-opening` | Auto open + float-sorted results |
+| `develop` | Integration branch — auto case opening + performance fixes |
+| `feature/fix-performence-issues-bugs` | Lazy overlays, Quick Sell UI contrast |
 
 ## Changelog
 
@@ -287,6 +308,10 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 - **New:** **Auto case opening** — Auto open tab on `/app/inventory/cases`; delay, time limit, spend limit (persisted in `storage.local`); live log; **Stop** button
 - **New:** **Results table** after each auto-open session — all drops with float/wear, sorted **lowest float first** (best → worst)
 - **New:** Toggle **Auto case opening** in extension popup (default off)
+- **Perf:** **Lazy overlay loading** on large grids (80+ cards) — inventory, marketplace, trades, trade detail, Send Trade Offer / Create Offer modals; visible cards first, rest on scroll
+- **Perf:** Large-list hint at **200+** items (inventory or marketplace)
+- **Fix:** **Quick Sell & Market** panel — brighter section labels, status, dropdown, and slider text
+- **Fix:** Confirm Sale modal subtitle contrast improved
 
 ### v3.3.0
 
