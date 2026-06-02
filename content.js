@@ -7,6 +7,7 @@ const MP_ADD_URL = 'https://api.csrestored.fun/inventory/marketplace/add';
 const TRADE_API_RE = /api\.csrestored\.fun\/(?:api\/)?trades\b/i;
 const CASES_API_URL = 'https://api.csrestored.fun/inventory/cases';
 const CASES_BUY_URL = (caseId) => `https://api.csrestored.fun/inventory/cases/buy/${caseId}`;
+const CASES_OPEN_URL = (caseId) => `https://api.csrestored.fun/inventory/cases/open/${caseId}`;
 const CASES_LIST_PAGE_RE = /^\/app\/inventory\/cases$/i;
 
 const RARITY = {
@@ -575,6 +576,31 @@ S.textContent = `
     flex-direction: column;
     gap: 10px;
 }
+#csrx-cases-tabs {
+    display: flex;
+    gap: 8px;
+}
+.csrx-cases-tab {
+    flex: 1;
+    padding: 8px 10px;
+    border-radius: 10px;
+    border: 1px solid #2a2a2a;
+    background: #111;
+    color: #b1a7a6;
+    font-weight: 700;
+    font-size: 0.75rem;
+    cursor: pointer;
+}
+.csrx-cases-tab.active {
+    background: #1a1a1a;
+    color: #e5e7eb;
+    border-color: #3a3a3a;
+}
+.csrx-cases-mode {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
 #csrx-cases-body label {
     font-size: 0.6875rem;
     font-weight: 600;
@@ -591,6 +617,78 @@ S.textContent = `
     background: #111;
     color: #fff;
     font-size: 0.875rem;
+}
+#csrx-cases-open-delay,
+#csrx-cases-open-mins,
+#csrx-cases-open-spend {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid #2a2a2a;
+    background: #111;
+    color: #fff;
+    font-size: 0.875rem;
+}
+#csrx-cases-open-summary {
+    font-size: 0.8125rem;
+    color: #b1a7a6;
+    line-height: 1.45;
+}
+#csrx-cases-open-summary strong { color: #eab308; }
+#csrx-cases-open-log {
+    border: 1px solid #1f1f1f;
+    background: #0c0c0c;
+    border-radius: 10px;
+    padding: 10px;
+    max-height: 130px;
+    overflow: auto;
+    font-size: 0.75rem;
+    line-height: 1.4;
+}
+.csrx-cases-log-line { margin: 0 0 6px; }
+.csrx-cases-log-line:last-child { margin-bottom: 0; }
+#csrx-cases-open-results {
+    display: none;
+    flex-direction: column;
+    gap: 6px;
+}
+#csrx-cases-open-results-label {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #71717a;
+}
+#csrx-cases-open-results-body {
+    border: 1px solid #1f1f1f;
+    background: #0c0c0c;
+    border-radius: 10px;
+    padding: 8px 10px;
+    max-height: 200px;
+    overflow: auto;
+}
+.csrx-cases-result-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 5px 0;
+    border-bottom: 1px solid #1a1a1a;
+    font-size: 0.75rem;
+    line-height: 1.35;
+}
+.csrx-cases-result-row:last-child { border-bottom: none; }
+.csrx-cases-result-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.csrx-cases-result-float {
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
 }
 #csrx-cases-summary {
     font-size: 0.8125rem;
@@ -628,6 +726,30 @@ S.textContent = `
 }
 #csrx-cases-buy:not(:disabled):hover { filter: brightness(1.08); }
 #csrx-cases-cancel {
+    width: 100%;
+    padding: 9px 14px;
+    border-radius: 10px;
+    border: 1px solid #2a2a2a;
+    background: transparent;
+    color: #b1a7a6;
+    font-size: 0.8125rem;
+    cursor: pointer;
+    display: none;
+}
+#csrx-cases-open-start {
+    width: 100%;
+    padding: 11px 14px;
+    border-radius: 10px;
+    border: none;
+    background: #eab308;
+    color: #0a0a0a;
+    font-weight: 800;
+    font-size: 0.875rem;
+    cursor: pointer;
+}
+#csrx-cases-open-start:disabled { opacity: 0.45; cursor: not-allowed; }
+#csrx-cases-open-start:not(:disabled):hover { filter: brightness(1.08); }
+#csrx-cases-open-stop {
     width: 100%;
     padding: 9px 14px;
     border-radius: 10px;
@@ -732,7 +854,7 @@ S.textContent = `
 }
 .csrx-hdr-sub {
     font-size: 10px;
-    color: #3d3d3d;
+    color: #b4b4b4;
     margin-top: 2px;
     font-weight: 400;
 }
@@ -772,14 +894,14 @@ S.textContent = `
 .csrx-dot.syncing { background: #f59e0b; animation: csrxBlink 0.9s infinite; }
 .csrx-dot.active  { background: #ef4444; }
 @keyframes csrxBlink { 0%,100%{opacity:1} 50%{opacity:0.2} }
-#csrx-stat { font-size: 10px; font-weight: 500; color: #3d3d3d; flex: 1; }
+#csrx-stat { font-size: 10px; font-weight: 500; color: #d4d4d4; flex: 1; }
 
 #csrx-body { padding: 12px; display: flex; flex-direction: column; gap: 14px; }
 
 .csrx-section {
     font-size: 9px;
     font-weight: 600;
-    color: #2a2a2a;
+    color: #a8a8a8;
     text-transform: uppercase;
     letter-spacing: 1.5px;
     margin-bottom: 8px;
@@ -787,7 +909,7 @@ S.textContent = `
     align-items: center;
     gap: 6px;
 }
-.csrx-section::after { content: ''; flex: 1; height: 1px; background: #1a1a1a; }
+.csrx-section::after { content: ''; flex: 1; height: 1px; background: #2a2a2a; }
 
 .csrx-btn {
     width: 100%;
@@ -866,7 +988,7 @@ select.csrx-sel {
     background: #111;
     border: 1px solid #1f1f1f;
     border-radius: 8px;
-    color: #666;
+    color: #e5e5e5;
     font-family: 'Inter', sans-serif;
     font-size: 11px;
     font-weight: 500;
@@ -878,12 +1000,12 @@ select.csrx-sel {
     background-repeat: no-repeat;
     background-position: right 9px center;
 }
-select.csrx-sel:focus { border-color: #2a2a2a; color: #aaa; outline: none; }
-select.csrx-sel option { background: #0a0a0a; color: #aaa; }
+select.csrx-sel:focus { border-color: #2a2a2a; color: #fafafa; outline: none; }
+select.csrx-sel option { background: #0a0a0a; color: #e5e5e5; }
 
 .csrx-slider-wrap { padding: 1px 0; }
 .csrx-slider-row  { display: flex; justify-content: space-between; align-items: center; margin-bottom: 9px; }
-.csrx-slider-lbl  { font-size: 10px; font-weight: 500; color: #333; }
+.csrx-slider-lbl  { font-size: 10px; font-weight: 500; color: #c4c4c4; }
 .csrx-slider-val  {
     font-size: 11px;
     font-weight: 700;
@@ -986,7 +1108,7 @@ input[type=range].csrx-range:hover::-moz-range-thumb { transform: scale(1.2); }
     line-height: 1;
 }
 .csrx-mhdr-title span { color: #ef4444; }
-.csrx-mhdr-sub { font-size: 11px; color: #333; font-weight: 400; }
+.csrx-mhdr-sub { font-size: 11px; color: #b4b4b4; font-weight: 400; }
 
 #csrx-mxbtn {
     width: 28px;
@@ -1633,7 +1755,14 @@ function resetTradePickerBrowseOnTabSwitch() {
     browseToolsActive = false;
 }
 let _largeInvWarned      = false;
-const LARGE_INV_WARN     = 500;
+const LARGE_INV_WARN     = 200;
+const OVERLAY_LAZY_MIN_CARDS = 80;
+const OVERLAY_LAZY_VIEW_MARGIN = 400;
+const OVERLAY_LAZY_BATCH = 45;
+let _overlayLazyScroll = null;
+let _overlayLazyScrollTarget = null;
+let _overlayLazyCards = null;
+let _overlayLazyTick = null;
 
 function rebuildInvItemIndex() {
     invIndexByItemId = new Map();
@@ -1675,10 +1804,15 @@ function candidatesForImgId(imgId) {
 }
 
 function maybeWarnLargeInventory() {
-    if (_largeInvWarned || inventoryCache.length < LARGE_INV_WARN) return;
-    if (!isInventoryPage() && !isTradePickerModal()) return;
+    if (_largeInvWarned) return;
+    const count = isMarketplacePage()
+        ? marketplaceCache.length
+        : inventoryCache.length;
+    if (count < LARGE_INV_WARN) return;
+    if (!isInventoryPage() && !isMarketplacePage() && !isItemPickerModal()) return;
     _largeInvWarned = true;
-    toast(`Large inventory (${inventoryCache.length}+ items): float/seed may load slower.`, 'warn');
+    const label = isMarketplacePage() ? 'marketplace' : 'inventory';
+    toast(`Large ${label} (${count}+ items): float/seed load in batches as you scroll.`, 'info');
 }
 
 function scheduleOverlayBootstrap() {
@@ -2355,29 +2489,53 @@ function getOfferSectionCards(which) {
 
 function applyTradeDetailOverlays() {
     clearSkinOverlays();
+    stopOverlayLazyScroll();
     const yourCards  = getOfferSectionCards('your');
     const theirCards = getOfferSectionCards('their');
     const inv        = inventoryCache.map(normalizeInventoryEntry).filter(Boolean);
     const trade      = getCurrentTrade();
     const yourItems  = trade ? getTradeSideItems(trade, 'your') : [];
     const theirItems = trade ? getTradeSideItems(trade, 'their') : [];
+    const yourSet    = new Set(yourCards);
 
-    let used = new Set();
-    for (const card of yourCards) {
-        let item = matchOverlayItem(card, inv, used);
-        if (!item && yourItems.length) item = matchOverlayItem(card, yourItems, used);
-        if (!item && tradeItemsCache.length) item = matchOverlayItem(card, tradeItemsCache, used);
-        if (item) injectCardOverlay(card, item);
+    const applyYourBatch = (list, used) => {
+        for (const card of list) {
+            let item = matchOverlayItem(card, inv, used);
+            if (!item && yourItems.length) item = matchOverlayItem(card, yourItems, used);
+            if (!item && tradeItemsCache.length) item = matchOverlayItem(card, tradeItemsCache, used);
+            if (item) injectCardOverlay(card, item);
+        }
+    };
+
+    const applyTheirBatch = (list, used) => {
+        for (const card of list) {
+            let item = theirItems.length ? matchOverlayItem(card, theirItems, used) : null;
+            if (!item && tradeItemsCache.length) item = matchOverlayItem(card, tradeItemsCache, used);
+            if (item) injectCardOverlay(card, item);
+        }
+    };
+
+    const applyBatch = (batch) => {
+        const usedYour = new Set();
+        const usedTheir = new Set();
+        applyYourBatch(batch.filter((c) => yourSet.has(c)), usedYour);
+        applyTheirBatch(batch.filter((c) => !yourSet.has(c)), usedTheir);
+    };
+
+    const allCards = [...yourCards, ...theirCards];
+    if (!allCards.length) {
+        applyTradeOverlays();
+        return;
     }
 
-    used = new Set();
-    for (const card of theirCards) {
-        let item = theirItems.length ? matchOverlayItem(card, theirItems, used) : null;
-        if (!item && tradeItemsCache.length) item = matchOverlayItem(card, tradeItemsCache, used);
-        if (item) injectCardOverlay(card, item);
+    if (shouldUseLazyOverlays(allCards.length)) {
+        runLazyOverlayPass(allCards, applyBatch);
+    } else {
+        const usedYour = new Set();
+        const usedTheir = new Set();
+        applyYourBatch(yourCards, usedYour);
+        applyTheirBatch(theirCards, usedTheir);
     }
-
-    if (!yourCards.length && !theirCards.length) applyTradeOverlays();
 }
 
 function getOfferIdFromCard(cardEl) {
@@ -3519,6 +3677,108 @@ function pruneOrphanOverlays(cardSet) {
     });
 }
 
+function isCardNearViewport(cardEl, margin = OVERLAY_LAZY_VIEW_MARGIN) {
+    if (!cardEl?.isConnected) return false;
+    const r = cardEl.getBoundingClientRect();
+    return r.bottom >= -margin && r.top <= window.innerHeight + margin
+        && r.right >= -margin && r.left <= window.innerWidth + margin;
+}
+
+function isLazyOverlayGridPage() {
+    if (isMarketplacePage()) return true;
+    if (isInventoryPage() && !isMarketplacePage()) return true;
+    if (isItemPickerModal()) return true;
+    if (isTradeDetailView()) return true;
+    if (isTradePage()) return true;
+    return false;
+}
+
+function shouldUseLazyOverlays(cardCount) {
+    if (cardCount < OVERLAY_LAZY_MIN_CARDS) return false;
+    if (!isLazyOverlayGridPage()) return false;
+    if (csrIsFeatureEnabled('floatOverlays')) return true;
+    return csrIsFeatureEnabled('skinLock') && isInventoryPage() && !isMarketplacePage();
+}
+
+function applyOverlaysToCardList(cards, cache) {
+    if (!cards.length || !cache.length) return;
+    const used = new Set();
+    for (const cardEl of cards) {
+        const item = matchOverlayItem(cardEl, cache, used);
+        if (!item) {
+            cardEl.querySelector('.csrx-card-wrap')?.remove();
+            continue;
+        }
+        injectCardOverlay(cardEl, item);
+    }
+}
+
+function findOverlayScrollRoot() {
+    const cards = getAllCards();
+    if (!cards.length) return null;
+    let el = cards[0].parentElement;
+    while (el && el !== document.body) {
+        const st = getComputedStyle(el);
+        const oy = st.overflowY;
+        if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight + 8) {
+            return el;
+        }
+        el = el.parentElement;
+    }
+    return null;
+}
+
+function stopOverlayLazyScroll() {
+    if (_overlayLazyScroll && _overlayLazyScrollTarget) {
+        _overlayLazyScrollTarget.removeEventListener('scroll', _overlayLazyScroll);
+    }
+    if (_overlayLazyScroll) {
+        window.removeEventListener('scroll', _overlayLazyScroll);
+    }
+    _overlayLazyScroll = null;
+    _overlayLazyScrollTarget = null;
+    _overlayLazyCards = null;
+    _overlayLazyTick = null;
+}
+
+function bindOverlayLazyScrollListener() {
+    if (_overlayLazyScroll && _overlayLazyScrollTarget) {
+        _overlayLazyScrollTarget.removeEventListener('scroll', _overlayLazyScroll);
+    }
+    if (_overlayLazyScroll) {
+        window.removeEventListener('scroll', _overlayLazyScroll);
+    }
+    let ticking = false;
+    const onScroll = () => {
+        if (!overlayRunning || ticking || !_overlayLazyTick || !_overlayLazyCards) return;
+        ticking = true;
+        requestAnimationFrame(() => {
+            ticking = false;
+            if (!overlayRunning || !_overlayLazyTick || !_overlayLazyCards) return;
+            const pending = _overlayLazyCards.filter((c) =>
+                c.isConnected && isCardNearViewport(c) && !c.querySelector('.csrx-card-wrap')
+            );
+            if (!pending.length) return;
+            _overlayLazyTick(pending.slice(0, OVERLAY_LAZY_BATCH));
+        });
+    };
+    _overlayLazyScroll = onScroll;
+    const root = findOverlayScrollRoot();
+    _overlayLazyScrollTarget = root;
+    if (root) root.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('scroll', onScroll, { passive: true });
+}
+
+function runLazyOverlayPass(allCards, applyBatch) {
+    stopOverlayLazyScroll();
+    _overlayLazyCards = allCards;
+    _overlayLazyTick = applyBatch;
+    const visible = allCards.filter((c) => isCardNearViewport(c));
+    const firstBatch = visible.length ? visible : allCards.slice(0, OVERLAY_LAZY_BATCH);
+    applyBatch(firstBatch);
+    bindOverlayLazyScrollListener();
+}
+
 function applyOverlaysToAll(opts) {
     const urgent = opts?.urgent === true;
     if (isTradeDetailView()) {
@@ -3545,15 +3805,12 @@ function applyOverlaysToAll(opts) {
     }
 
     _currentOverlayCards = cards;
-    const used = new Set();
     try {
-        for (const cardEl of cards) {
-            const item = matchOverlayItem(cardEl, cache, used);
-            if (!item) {
-                cardEl.querySelector('.csrx-card-wrap')?.remove();
-                continue;
-            }
-            injectCardOverlay(cardEl, item);
+        if (shouldUseLazyOverlays(cards.length)) {
+            runLazyOverlayPass(cards, (batch) => applyOverlaysToCardList(batch, cache));
+        } else {
+            stopOverlayLazyScroll();
+            applyOverlaysToCardList(cards, cache);
         }
         pruneOrphanOverlays(cardSet);
     } finally {
@@ -3599,6 +3856,7 @@ function stopAlwaysOnOverlay() {
     clearTimeout(_overlayBootTimer);
     clearInterval(overlayTimer);
     overlayTimer = null;
+    stopOverlayLazyScroll();
     stopOverlayDomObserver();
     document.querySelectorAll('.csrx-card-wrap').forEach(el => el.remove());
 }
@@ -4489,6 +4747,13 @@ document.getElementById('csrx-massbtn').addEventListener('click',async()=>{
 let casesCatalogCache = [];
 let cachedUserCoins = null;
 let casesBuyAbort = false;
+let casesOpenAbort = false;
+let casesOpenRunning = false;
+let casesOpenStats = { opened: 0, gold: 0, lastName: '', lastRarity: null };
+let casesMode = 'bulk';
+const CASES_AUTO_OPEN_CFG_KEY = 'csrCasesAutoOpenConfig';
+let casesAutoOpenCfg = { delayMs: 250, spendLimit: 150000, minutes: 10 };
+let _casesCfgSaveTimer = null;
 
 function normalizeCaseEntry(c) {
     if (!c || c.id == null) return null;
@@ -4635,6 +4900,70 @@ function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+function rarityStyle(r) {
+    const n = parseInt(r, 10);
+    if (!Number.isFinite(n)) return 'color:#e5e7eb';
+    const hex = RARITY[n]?.hex;
+    return hex ? `color:${hex};font-weight:700` : 'color:#e5e7eb';
+}
+
+function csrStorageLocal() {
+    if (typeof browser !== 'undefined' && browser.storage?.local) return browser.storage.local;
+    if (typeof chrome !== 'undefined' && chrome.storage?.local) return chrome.storage.local;
+    return null;
+}
+
+function normalizeCasesAutoCfg(raw) {
+    const out = { delayMs: 250, spendLimit: 150000, minutes: 10 };
+    if (!raw || typeof raw !== 'object') return out;
+    const d = parseInt(raw.delayMs, 10);
+    const s = parseInt(raw.spendLimit, 10);
+    const m = parseInt(raw.minutes, 10);
+    if (Number.isFinite(d)) out.delayMs = Math.max(100, Math.min(5000, d));
+    if (Number.isFinite(s)) out.spendLimit = Math.max(0, Math.min(999999999, s));
+    if (Number.isFinite(m)) out.minutes = Math.max(1, Math.min(120, m));
+    return out;
+}
+
+async function loadCasesAutoOpenConfig() {
+    const st = csrStorageLocal();
+    if (!st) return casesAutoOpenCfg;
+
+    const finish = (data) => {
+        const cfg = normalizeCasesAutoCfg(data?.[CASES_AUTO_OPEN_CFG_KEY]);
+        casesAutoOpenCfg = cfg;
+        return cfg;
+    };
+
+    try {
+        return await new Promise((resolve) => {
+            st.get([CASES_AUTO_OPEN_CFG_KEY], (data) => resolve(finish(data || null)));
+        });
+    } catch (_) {
+        try {
+            const data = await st.get([CASES_AUTO_OPEN_CFG_KEY]);
+            return finish(data || null);
+        } catch (_) {
+            return casesAutoOpenCfg;
+        }
+    }
+}
+
+function scheduleSaveCasesAutoOpenConfig(cfg) {
+    casesAutoOpenCfg = normalizeCasesAutoCfg(cfg);
+    clearTimeout(_casesCfgSaveTimer);
+    _casesCfgSaveTimer = setTimeout(async () => {
+        const st = csrStorageLocal();
+        if (!st) return;
+        const payload = { [CASES_AUTO_OPEN_CFG_KEY]: casesAutoOpenCfg };
+        try {
+            st.set(payload, () => {});
+        } catch (_) {
+            try { await st.set(payload); } catch (_) { /* ignore */ }
+        }
+    }, 250);
+}
+
 async function runCasesBulkBuy() {
     const picked = getSelectedCase();
     const qtyInp = document.getElementById('csrx-cases-qty');
@@ -4701,7 +5030,7 @@ async function runCasesBulkBuy() {
 let casesWinOpen = false;
 
 function syncCasesPanelVisibility() {
-    const on = csrIsFeatureEnabled('caseBulkBuy') && isCasesListPage();
+    const on = isCasesListPage() && (csrIsFeatureEnabled('caseBulkBuy') || csrIsFeatureEnabled('caseAutoOpen'));
     const fab = document.getElementById('csrx-cases-fab');
     const win = document.getElementById('csrx-cases-win');
     if (!fab || !win) return;
@@ -4714,6 +5043,8 @@ function syncCasesPanelVisibility() {
         win.classList.remove('open');
         casesWinOpen = false;
         casesBuyAbort = true;
+        casesOpenAbort = true;
+        casesOpenRunning = false;
         return;
     }
 
@@ -4726,10 +5057,297 @@ function syncCasesPanelVisibility() {
     }
 }
 
+function syncCasesModeUi() {
+    const bulkOn = csrIsFeatureEnabled('caseBulkBuy');
+    const openOn = csrIsFeatureEnabled('caseAutoOpen');
+
+    const tabs = document.getElementById('csrx-cases-tabs');
+    const tabBulk = document.getElementById('csrx-cases-tab-bulk');
+    const tabOpen = document.getElementById('csrx-cases-tab-open');
+    const bulkBody = document.getElementById('csrx-cases-bulk');
+    const openBody = document.getElementById('csrx-cases-open');
+
+    if (tabs) tabs.style.display = bulkOn && openOn ? 'flex' : 'none';
+    if (tabBulk) tabBulk.style.display = bulkOn ? '' : 'none';
+    if (tabOpen) tabOpen.style.display = openOn ? '' : 'none';
+
+    if (bulkOn && !openOn) casesMode = 'bulk';
+    if (openOn && !bulkOn) casesMode = 'open';
+    if (!bulkOn && !openOn) casesMode = 'bulk';
+
+    if (tabBulk) tabBulk.classList.toggle('active', casesMode === 'bulk');
+    if (tabOpen) tabOpen.classList.toggle('active', casesMode === 'open');
+
+    if (bulkBody) bulkBody.style.display = casesMode === 'bulk' ? 'flex' : 'none';
+    if (openBody) openBody.style.display = casesMode === 'open' ? 'flex' : 'none';
+
+    updateCasesCostSummary();
+    updateCasesAutoOpenSummary();
+}
+
+function readInt(inp, fallback) {
+    const raw = String(inp?.value ?? '').replace(/[^\d]/g, '').trim();
+    const n = parseInt(raw, 10);
+    return Number.isFinite(n) ? n : fallback;
+}
+
+function updateCasesAutoOpenSummary() {
+    const sum = document.getElementById('csrx-cases-open-summary');
+    const btnStart = document.getElementById('csrx-cases-open-start');
+    if (!sum) return;
+
+    const picked = getSelectedCase();
+    if (!picked) {
+        sum.innerHTML = 'Select a case to configure auto opening.';
+        if (btnStart) btnStart.disabled = true;
+        return;
+    }
+
+    const delayMs = Math.max(100, Math.min(5000, readInt(document.getElementById('csrx-cases-open-delay'), casesAutoOpenCfg.delayMs)));
+    const spendLimit = Math.max(0, readInt(document.getElementById('csrx-cases-open-spend'), casesAutoOpenCfg.spendLimit));
+    const minutes = Math.max(1, Math.min(120, readInt(document.getElementById('csrx-cases-open-mins'), casesAutoOpenCfg.minutes)));
+    const runMs = minutes * 60 * 1000;
+    const maxBySpend = picked.price > 0 ? Math.floor(spendLimit / picked.price) : 0;
+    const maxByCoins = (cachedUserCoins != null && picked.price > 0) ? Math.floor(cachedUserCoins / picked.price) : null;
+    const maxCases = maxByCoins == null ? maxBySpend : Math.min(maxBySpend, maxByCoins);
+
+    const coinsLine = cachedUserCoins != null
+        ? `Your coins: <strong>${formatCoins(cachedUserCoins)}</strong><br>`
+        : '';
+
+    const warn = maxCases <= 0
+        ? '<br><span style="color:#ef4444">Spend limit too low (or not enough coins) for this case.</span>'
+        : '';
+
+    sum.innerHTML = `${coinsLine}Will open up to <strong>${maxCases}</strong> case${maxCases !== 1 ? 's' : ''} · Delay: <strong>${delayMs}ms</strong> · Time limit: <strong>${minutes} min</strong>${warn}`;
+    if (btnStart) btnStart.disabled = casesOpenRunning || maxCases <= 0;
+    void runMs;
+}
+
+async function openCaseOnce(caseId) {
+    const r = await _nativeFetch(CASES_OPEN_URL(caseId), {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+    });
+    let data = null;
+    try { data = await r.json(); } catch (_) {}
+    if (!r.ok) {
+        const msg = data?.message || data?.detail || `Open failed (${r.status})`;
+        throw new Error(typeof msg === 'string' ? msg : JSON.stringify(msg));
+    }
+    if (data && typeof data === 'object') {
+        const coins = parseCoinVal(data.coins ?? data.coin_balance ?? data.balance);
+        if (coins != null) cachedUserCoins = coins;
+    }
+    return data;
+}
+
+function appendCasesOpenLog(htmlLine) {
+    const log = document.getElementById('csrx-cases-open-log');
+    if (!log) return;
+    const line = document.createElement('div');
+    line.className = 'csrx-cases-log-line';
+    line.innerHTML = htmlLine;
+    log.prepend(line);
+    while (log.childElementCount > 60) log.lastElementChild?.remove();
+}
+
+function escapeCasesHtml(str) {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function extractFloatFromOpenData(data) {
+    if (!data || typeof data !== 'object') return null;
+    const tryVal = (v) => {
+        if (v == null || v === '') return null;
+        const f = parseFloat(v);
+        return Number.isFinite(f) && f >= 0 && f <= 1 ? f : null;
+    };
+    for (const k of ['float', 'skin_float', 'wear', 'item_float', 'paint_wear']) {
+        const f = tryVal(data[k]);
+        if (f != null) return f;
+    }
+    for (const k of ['item', 'weapon', 'skin', 'data']) {
+        if (data[k] && typeof data[k] === 'object') {
+            const nested = extractFloatFromOpenData(data[k]);
+            if (nested != null) return nested;
+        }
+    }
+    return null;
+}
+
+function clearCasesOpenResults() {
+    const box = document.getElementById('csrx-cases-open-results');
+    const body = document.getElementById('csrx-cases-open-results-body');
+    if (body) body.innerHTML = '';
+    if (box) box.style.display = 'none';
+}
+
+function renderCasesOpenResults(drops) {
+    const box = document.getElementById('csrx-cases-open-results');
+    const body = document.getElementById('csrx-cases-open-results-body');
+    if (!box || !body) return;
+    if (!drops.length) {
+        box.style.display = 'none';
+        return;
+    }
+
+    const sorted = [...drops].sort((a, b) => {
+        const fa = a.float;
+        const fb = b.float;
+        if (fa == null && fb == null) return String(a.name).localeCompare(String(b.name));
+        if (fa == null) return 1;
+        if (fb == null) return -1;
+        if (fa !== fb) return fa - fb;
+        return String(a.name).localeCompare(String(b.name));
+    });
+
+    body.innerHTML = sorted.map((d) => {
+        const safeName = escapeCasesHtml(d.name || 'Unknown');
+        const isGold = String(d.name || '').includes('★');
+        const nameStyle = isGold
+            ? 'color:#facc15;font-weight:800'
+            : rarityStyle(d.rarity);
+        let floatHtml;
+        if (d.float != null) {
+            const wear = getCondition(d.float);
+            const wearCol = wearColor(d.float);
+            floatHtml = `<span class="csrx-cases-result-float" style="color:${wearCol}">${d.float.toFixed(4)} ${wear}</span>`;
+        } else {
+            floatHtml = '<span class="csrx-cases-result-float" style="color:#737373">—</span>';
+        }
+        return `<div class="csrx-cases-result-row">
+            <span class="csrx-cases-result-name" style="${nameStyle}">${safeName}</span>
+            ${floatHtml}
+        </div>`;
+    }).join('');
+
+    box.style.display = 'flex';
+}
+
+function refreshCasesOpenStatsUi() {
+    const el = document.getElementById('csrx-cases-open-stats');
+    if (!el) return;
+    const last = casesOpenStats.lastName
+        ? ` · Last: <span style="${rarityStyle(casesOpenStats.lastRarity)}">${casesOpenStats.lastName}</span>`
+        : '';
+    el.innerHTML = `Opened: <strong>${casesOpenStats.opened}</strong> · Gold: <strong style="color:#facc15">${casesOpenStats.gold}</strong>${last}`;
+}
+
+async function runCasesAutoOpen() {
+    const picked = getSelectedCase();
+    if (!picked) {
+        toast('Select a case first', 'warn');
+        return;
+    }
+    const delayMs = Math.max(100, Math.min(5000, readInt(document.getElementById('csrx-cases-open-delay'), casesAutoOpenCfg.delayMs)));
+    const spendLimit = Math.max(0, readInt(document.getElementById('csrx-cases-open-spend'), casesAutoOpenCfg.spendLimit));
+    const minutes = Math.max(1, Math.min(120, readInt(document.getElementById('csrx-cases-open-mins'), casesAutoOpenCfg.minutes)));
+    const runDurationMs = minutes * 60 * 1000;
+    const maxCases = picked.price > 0 ? Math.floor(spendLimit / picked.price) : 0;
+    const coinsLimit = (cachedUserCoins != null && picked.price > 0) ? Math.floor(cachedUserCoins / picked.price) : null;
+    const hardMax = coinsLimit == null ? maxCases : Math.min(maxCases, coinsLimit);
+    if (hardMax <= 0) {
+        toast('Spend limit too low (or not enough coins)', 'error');
+        return;
+    }
+
+    if (!confirm(`Auto-open up to ${hardMax}× ${picked.name}?\n\nLimits:\n- Spend: ${formatCoins(spendLimit)} (case price ${formatCoins(picked.price)})\n- Time: ${minutes} min\n- Delay: ${delayMs} ms\n\nUse Stop to cancel after current open.`)) {
+        return;
+    }
+
+    casesOpenAbort = false;
+    casesOpenRunning = true;
+    casesOpenStats = { opened: 0, gold: 0, lastName: '', lastRarity: null };
+    const sessionDrops = [];
+    clearCasesOpenResults();
+    const liveLog = document.getElementById('csrx-cases-open-log');
+    if (liveLog) liveLog.innerHTML = '';
+    refreshCasesOpenStatsUi();
+    updateCasesAutoOpenSummary();
+
+    const btnStart = document.getElementById('csrx-cases-open-start');
+    const btnStop = document.getElementById('csrx-cases-open-stop');
+    const prog = document.getElementById('csrx-cases-progress');
+    const bar = document.getElementById('csrx-cases-progress-bar');
+    if (btnStart) btnStart.disabled = true;
+    if (btnStop) btnStop.style.display = 'block';
+    if (prog) prog.style.display = 'block';
+
+    const start = Date.now();
+    const end = start + runDurationMs;
+    let lastErr = '';
+
+    appendCasesOpenLog(`<span style="color:#a3a3a3">Starting auto open: ${picked.name} · max ${hardMax} · ${minutes} min</span>`);
+
+    for (let i = 0; i < hardMax; i++) {
+        if (casesOpenAbort) break;
+        if (Date.now() >= end) break;
+        if (cachedUserCoins != null && cachedUserCoins < picked.price) break;
+        if (bar) bar.style.width = `${Math.round(((i) / hardMax) * 100)}%`;
+
+        try {
+            const data = await openCaseOnce(picked.id);
+            const name = data?.name ? String(data.name) : 'Unknown item';
+            const rarity = data?.rarity != null ? parseInt(data.rarity, 10) : null;
+            const floatVal = extractFloatFromOpenData(data);
+
+            sessionDrops.push({ name, rarity, float: floatVal });
+
+            casesOpenStats.opened++;
+            casesOpenStats.lastName = name;
+            casesOpenStats.lastRarity = rarity;
+
+            const isGold = name.includes('★');
+            if (isGold) casesOpenStats.gold++;
+
+            if (cachedUserCoins != null) cachedUserCoins = Math.max(0, cachedUserCoins - picked.price);
+            refreshCasesOpenStatsUi();
+            updateCasesAutoOpenSummary();
+            updateCasesCostSummary();
+
+            const safeName = String(name).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            if (isGold) {
+                appendCasesOpenLog(`<span style="color:#facc15;font-weight:800">GOLD</span> · <span style="color:#e5e7eb">${safeName}</span>`);
+            } else {
+                appendCasesOpenLog(`<span style="${rarityStyle(rarity)}">${safeName}</span> <span style="color:#737373">(${rarity ?? '?'})</span>`);
+            }
+        } catch (e) {
+            lastErr = e?.message || 'Unknown error';
+            appendCasesOpenLog(`<span style="color:#ef4444">Error: ${String(lastErr).replace(/</g, '&lt;')}</span>`);
+            break;
+        }
+
+        if (i < hardMax - 1) await sleep(delayMs);
+    }
+
+    casesOpenRunning = false;
+    casesOpenAbort = false;
+    if (bar) bar.style.width = '100%';
+    if (btnStart) btnStart.disabled = false;
+    if (btnStop) btnStop.style.display = 'none';
+    setTimeout(() => { if (prog) prog.style.display = 'none'; if (bar) bar.style.width = '0%'; }, 800);
+
+    await fetchUserCoins();
+    scrapeCoinsFromPage();
+    updateCasesAutoOpenSummary();
+    updateCasesCostSummary();
+    renderCasesOpenResults(sessionDrops);
+
+    if (lastErr) toast(lastErr, 'error');
+    else toast(`Auto-open finished — opened ${casesOpenStats.opened}${casesOpenStats.gold ? ` · ${casesOpenStats.gold} gold` : ''}`, 'success');
+}
+
 function setupCasesBulkBuy() {
     const fab = document.createElement('div');
     fab.id = 'csrx-cases-fab';
-    fab.title = 'CS:R Case Bulk Buy — select case and quantity';
+    fab.title = 'CS:R Cases tools — bulk buy / auto open';
     fab.innerHTML = `<img alt="Case bulk buy" src="${extUrl('icons/icon-128.png')}">`;
     document.body.appendChild(fab);
 
@@ -4751,27 +5369,60 @@ function setupCasesBulkBuy() {
     </div>
 </div>
 <div id="csrx-cases-body">
+    <div id="csrx-cases-tabs">
+        <button type="button" id="csrx-cases-tab-bulk" class="csrx-cases-tab active">Bulk buy</button>
+        <button type="button" id="csrx-cases-tab-open" class="csrx-cases-tab">Auto open</button>
+    </div>
     <div>
         <label for="csrx-cases-select">Weapon case</label>
         <select id="csrx-cases-select" class="csrx-sel" style="margin-top:6px;width:100%;"></select>
     </div>
-    <div>
-        <label for="csrx-cases-qty">Quantity (1–99)</label>
-        <input type="text" id="csrx-cases-qty" inputmode="numeric" autocomplete="off" spellcheck="false" value="1" style="margin-top:6px;">
+    <div id="csrx-cases-bulk" class="csrx-cases-mode">
+        <div>
+            <label for="csrx-cases-qty">Quantity (1–99)</label>
+            <input type="text" id="csrx-cases-qty" inputmode="numeric" autocomplete="off" spellcheck="false" value="1" style="margin-top:6px;">
+        </div>
+        <div id="csrx-cases-summary">Loading cases…</div>
+        <button type="button" id="csrx-cases-buy">Buy containers</button>
+        <button type="button" id="csrx-cases-cancel">Cancel</button>
     </div>
-    <div id="csrx-cases-summary">Loading cases…</div>
+    <div id="csrx-cases-open" class="csrx-cases-mode" style="display:none;">
+        <div style="display:flex;gap:10px;">
+            <div style="flex:1;">
+                <label for="csrx-cases-open-delay">Delay (ms)</label>
+                <input type="text" id="csrx-cases-open-delay" inputmode="numeric" autocomplete="off" spellcheck="false" value="250" style="margin-top:6px;">
+            </div>
+            <div style="flex:1;">
+                <label for="csrx-cases-open-mins">Minutes</label>
+                <input type="text" id="csrx-cases-open-mins" inputmode="numeric" autocomplete="off" spellcheck="false" value="10" style="margin-top:6px;">
+            </div>
+        </div>
+        <div>
+            <label for="csrx-cases-open-spend">Spend limit (coins)</label>
+            <input type="text" id="csrx-cases-open-spend" inputmode="numeric" autocomplete="off" spellcheck="false" value="150000" style="margin-top:6px;">
+        </div>
+        <div id="csrx-cases-open-summary">Configure limits…</div>
+        <div id="csrx-cases-open-stats" style="font-size:0.8125rem;color:#b1a7a6;"></div>
+        <div id="csrx-cases-open-log"></div>
+        <div id="csrx-cases-open-results">
+            <div id="csrx-cases-open-results-label">Results — best float first</div>
+            <div id="csrx-cases-open-results-body"></div>
+        </div>
+        <button type="button" id="csrx-cases-open-start">Start auto open</button>
+        <button type="button" id="csrx-cases-open-stop">Stop</button>
+    </div>
     <div id="csrx-cases-progress"><div id="csrx-cases-progress-bar"></div></div>
-    <button type="button" id="csrx-cases-buy">Buy containers</button>
-    <button type="button" id="csrx-cases-cancel">Cancel</button>
 </div>`;
     document.body.appendChild(win);
     fab.classList.add('csrx-feature-off');
     win.classList.add('csrx-feature-off');
 
     fab.addEventListener('click', () => {
-        if (!csrIsFeatureEnabled('caseBulkBuy') || !isCasesListPage()) return;
+        if (!isCasesListPage()) return;
+        if (!csrIsFeatureEnabled('caseBulkBuy') && !csrIsFeatureEnabled('caseAutoOpen')) return;
         casesWinOpen = true;
         syncCasesPanelVisibility();
+        syncCasesModeUi();
         fetchCasesCatalog();
         fetchUserCoins();
         scrapeCoinsFromPage();
@@ -4782,7 +5433,13 @@ function setupCasesBulkBuy() {
         syncCasesPanelVisibility();
     });
 
-    document.getElementById('csrx-cases-select')?.addEventListener('change', updateCasesCostSummary);
+    document.getElementById('csrx-cases-tab-bulk')?.addEventListener('click', () => { casesMode = 'bulk'; syncCasesModeUi(); });
+    document.getElementById('csrx-cases-tab-open')?.addEventListener('click', () => { casesMode = 'open'; syncCasesModeUi(); });
+
+    document.getElementById('csrx-cases-select')?.addEventListener('change', () => {
+        updateCasesCostSummary();
+        updateCasesAutoOpenSummary();
+    });
     document.getElementById('csrx-cases-qty')?.addEventListener('input', updateCasesCostSummary);
     document.getElementById('csrx-cases-qty')?.addEventListener('blur', (e) => {
         const inp = e.target;
@@ -4794,6 +5451,29 @@ function setupCasesBulkBuy() {
     document.getElementById('csrx-cases-cancel')?.addEventListener('click', () => {
         casesBuyAbort = true;
         toast('Cancelling after current purchase…', 'info');
+    });
+
+    const delayInp = document.getElementById('csrx-cases-open-delay');
+    const minsInp = document.getElementById('csrx-cases-open-mins');
+    const spendInp = document.getElementById('csrx-cases-open-spend');
+
+    const handleCfgChange = () => {
+        const next = {
+            delayMs: Math.max(100, Math.min(5000, readInt(delayInp, casesAutoOpenCfg.delayMs))),
+            minutes: Math.max(1, Math.min(120, readInt(minsInp, casesAutoOpenCfg.minutes))),
+            spendLimit: Math.max(0, readInt(spendInp, casesAutoOpenCfg.spendLimit)),
+        };
+        scheduleSaveCasesAutoOpenConfig(next);
+        updateCasesAutoOpenSummary();
+    };
+
+    delayInp?.addEventListener('input', handleCfgChange);
+    minsInp?.addEventListener('input', handleCfgChange);
+    spendInp?.addEventListener('input', handleCfgChange);
+    document.getElementById('csrx-cases-open-start')?.addEventListener('click', () => runCasesAutoOpen());
+    document.getElementById('csrx-cases-open-stop')?.addEventListener('click', () => {
+        casesOpenAbort = true;
+        toast('Stopping after current open…', 'info');
     });
 
     {
@@ -4819,6 +5499,13 @@ function setupCasesBulkBuy() {
             oy = e.clientY;
         });
     }
+
+    loadCasesAutoOpenConfig().then((cfg) => {
+        if (delayInp) delayInp.value = String(cfg.delayMs ?? 250);
+        if (minsInp) minsInp.value = String(cfg.minutes ?? 10);
+        if (spendInp) spendInp.value = String(cfg.spendLimit ?? 150000);
+        updateCasesAutoOpenSummary();
+    }).catch(() => {});
 }
 
 setupCasesBulkBuy();
