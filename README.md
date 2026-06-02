@@ -4,7 +4,7 @@ Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.f
 
 Works in **Firefox**, **Microsoft Edge**, and **Chromium** browsers (Manifest V3).
 
-**Current version:** `3.3.0`
+**Current version:** `3.4.0`
 
 **Repository:** [github.com/smelbravo/CS-Restored-Inventory-Helper](https://github.com/smelbravo/CS-Restored-Inventory-Helper)
 
@@ -34,7 +34,7 @@ Shows **wear abbreviation** (FN, MW, FT, WW, BS), **float value** (e.g. `0.1962`
 
 Data is matched by offer ID, skin image, wear, StatTrak, and name. The extension reads data from the site's own API responses in your browser session — it does not send data to external servers or spam duplicate API calls.
 
-#### Large inventories — lazy overlay loading (develop)
+#### Large inventories — lazy overlay loading (v3.4+)
 
 On grids with **80+ item cards**, float/seed badges (and skin-lock buttons on inventory) are applied in **batches** instead of all at once:
 
@@ -117,7 +117,7 @@ When **Quick Sell & Market** is enabled in the popup, the floating **CS:R button
 
 Hidden on marketplace and trade pages. With the toggle off, the floating button and panel do not appear.
 
-Panel labels (**Picker**, **Global**, **Speed**), status text, rarity dropdown, and batch-size label use **lighter text** on the dark background for readability (develop).
+Panel labels (**Picker**, **Global**, **Speed**), status text, rarity dropdown, and batch-size label use **lighter text** on the dark background for readability (v3.4+).
 
 #### Batch size (Speed slider)
 
@@ -144,7 +144,7 @@ When **Case bulk buy** is enabled, a **gold floating button** appears only on [`
 
 Use this for the “buy X cases in one click” workflow without clicking each case on the site.
 
-### Auto case opening (Cases tab only, develop)
+### Auto case opening (Cases tab only, v3.4+)
 
 When **Auto case opening** is enabled, the same gold **Cases** panel shows an **Auto open** tab on [`/app/inventory/cases`](https://csrestored.fun/app/inventory/cases) (toggle in the extension popup; off by default).
 
@@ -224,7 +224,7 @@ The **`.xpi` on GitHub** is unsigned and **does not install** on Firefox Release
 
 ## Releases
 
-Stable downloads: [GitHub Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) (latest: **v3.3.0**).
+Stable downloads: [GitHub Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) (latest: **v3.4.0**).
 
 | Browser | Install |
 |---------|---------|
@@ -297,20 +297,18 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 
 | Branch | Description |
 |--------|-------------|
-| `main` | Stable releases (v3.3.0) |
-| `develop` | Integration branch — auto case opening + performance fixes |
-| `feature/fix-performence-issues-bugs` | Lazy overlays, Quick Sell UI contrast |
+| `main` | Stable releases (v3.4.0) |
+| `develop` | Integration branch for next release |
 
 ## Changelog
 
-### Unreleased (develop)
+### v3.4.0
 
-- **New:** **Auto case opening** — Auto open tab on `/app/inventory/cases`; delay, time limit, spend limit (persisted in `storage.local`); live log; **Stop** button
-- **New:** **Results table** after each auto-open session — all drops with float/wear, sorted **lowest float first** (best → worst)
-- **New:** Toggle **Auto case opening** in extension popup (default off)
-- **Perf:** **Lazy overlay loading** on large grids (80+ cards) — inventory, marketplace, trades, trade detail, Send Trade Offer / Create Offer modals; visible cards first, rest on scroll
-- **Perf:** Large-list hint at **200+** items (inventory or marketplace)
-- **Fix:** **Quick Sell & Market** panel — brighter section labels, status, dropdown, and slider text
+- **New:** **Auto case opening** — **Auto open** tab on `/app/inventory/cases`; configure delay, time limit, and spend limit (saved in `storage.local`); live drop log; **Stop** button; toggle in popup (default off)
+- **New:** **Results table** after each auto-open session — every skin with float/wear, sorted **lowest float first** (best → worst)
+- **Perf:** **Lazy overlay loading** on large grids (**80+** cards) — inventory, marketplace, trades, trade detail, Send Trade Offer, and Create Offer modals; visible cards first, more on scroll (reduces lag with 200+ items)
+- **Perf:** Info toast for very large lists (**200+** items on inventory or marketplace)
+- **Fix:** **Quick Sell & Market** panel — brighter labels (**Picker**, **Global**, **Speed**), status text, rarity dropdown, and batch-size label
 - **Fix:** Confirm Sale modal subtitle contrast improved
 
 ### v3.3.0
@@ -517,9 +515,9 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 
 The **search/filter bar** loads with the page. **Float/seed badges** appear once your item data is loaded and cards are visible — usually within a few seconds.
 
-### Large inventories (500–1000+ skins)
+### Large inventories (200+ skins)
 
-Matching float/seed to items is heavier with very large inventories. The extension shows a **one-time warning** at 500+ items and uses optimized lookups, but you may still see a short delay or brief page slowdown on low-end PCs. If the site becomes unresponsive, reload the page or use a fresh browser tab.
+With **80+** visible item cards, float/seed badges load in **batches** (visible area first, then as you scroll) on inventory, marketplace, trades, and picker modals. The extension shows a **one-time info message** at **200+** items. Very large inventories can still feel slow because the CS:R site itself loads many cards — if the page freezes, reload or use a fresh tab.
 
 **Tips:**
 
@@ -554,7 +552,7 @@ MIT — see [LICENSE](LICENSE).
 ### Summary (short description)
 
 ```
-Float, seed, search & filters, quick sell, case bulk buy, skin lock, and feature toggles for CS:Restored (csrestored.fun). Unofficial helper — runs only on the CS:R site in your browser session.
+Float, seed, quick sell, case bulk buy & auto open, skin lock, lazy overlays for large inventories. CS:Restored (csrestored.fun). Unofficial — browser session only.
 ```
 
 ### About / Description (Firefox — public)
@@ -570,6 +568,8 @@ WHAT IT DOES
 • Batch size control — choose how many items are sold or listed in parallel (1–20) for faster or safer bulk operations
 • Confirm Sale modal — per-item quick sell price, market price input, List on Market and Quick Sell buttons with validation
 • Case bulk buy — on the Cases tab (/app/inventory/cases), buy multiple weapon cases at once (quantity 1–99) using your coin balance; purchased cases go to your in-game inventory (toggle in extension settings)
+• Auto case opening — Auto open tab on Cases: set delay, time limit, and spend limit; live log; results sorted by float when finished; Stop button (toggle in extension settings, default off)
+• Lazy overlays on large inventories — float/seed badges load in batches on big grids (80+ cards) to reduce lag; scroll to load more
 • Trade offer search — compact search bar in Send Trade Offer (My Items / Their Items)
 • Toolbar settings popup — turn each feature on or off; preferences saved in extension storage
 • Skin lock — padlock on inventory cards to block accidental quick sell from the extension (does not block the site’s own Weapon Details button)
@@ -578,7 +578,7 @@ WHERE IT WORKS
 
 • Inventory (/app/inventory)
 • Marketplace (/app/inventory/marketplace)
-• Cases shop (/app/inventory/cases) — bulk buy panel only
+• Cases shop (/app/inventory/cases) — bulk buy and auto open panels
 • Trade views (/app/play) — float/seed for your own items when inventory data is available
 • Send Trade Offer modal — search on item grid (My Items / Their Items)
 
@@ -618,7 +618,7 @@ https://github.com/smelbravo/CS-Restored-Inventory-Helper
 ### Notes for reviewer (private)
 
 ```
-Extension: CS:Restored Inventory Helper (v3.3.0)
+Extension: CS:Restored Inventory Helper (v3.4.0)
 Works only on https://csrestored.fun when logged in.
 
 Site requirements (enforced by CS:Restored, not the extension):
@@ -640,7 +640,8 @@ How to test:
    - Same search/filter bar; try searching "M4A4", filters for rarity/wear, price and float sort
    - Hover-expand the site left sidebar — search bar should not jump or disappear
 5. Cases (/app/inventory/cases):
-   - Gold floating button → bulk buy panel (case dropdown, quantity 1–99, total cost, Buy containers) when toggle is on
+   - Gold floating button → **Bulk buy** tab (case dropdown, quantity 1–99, Buy containers) when Case bulk buy toggle is on
+   - Same panel → **Auto open** tab: delay, minutes, spend limit, Start/Stop, results table sorted by float when Case auto opening toggle is on
 6. Send Trade Offer (site modal):
    - Open Send Trade Offer → pick a friend → modal opens normally
    - My Items / Their Items: compact search under “Select … Items”; Clear resets; tab switch clears search
@@ -650,7 +651,8 @@ How to test:
 Storage: feature toggles and locked weapon IDs use storage.local only (no cookies, no external servers).
 
 Large inventories:
-- With 500–1000+ items, float/seed may take a few extra seconds to appear and may slow the page on weaker PCs.
+- With 200+ items, overlays load in batches as you scroll (lazy loading). Page may still feel heavy on weak PCs due to site rendering.
+- Quick Sell panel text should be clearly readable (Picker / Global / Speed labels).
 
 Data collection: The extension declares required ["none"] in the manifest. It does not transmit data to developer servers. It only reads csrestored.fun API responses in the page (via the site's own fetch/XHR) to match float/seed to UI cards and power filters.
 

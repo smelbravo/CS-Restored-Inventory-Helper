@@ -4,9 +4,9 @@
 
   "name": "CS:Restored Inventory Helper",
 
-  "version": "3.3.0",
+  "version": "3.4.0",
 
-  "description": "Float, seed, and quick-sell tools for Counter-Strike: Restored (csrestored.fun). Unofficial extension.",
+  "description": "Float, seed, quick sell, case bulk buy, auto case opening, and skin lock for CS:Restored (csrestored.fun). Unofficial extension.",
 
   "icons": {
 
