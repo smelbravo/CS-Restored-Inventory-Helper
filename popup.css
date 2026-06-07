@@ -34,6 +34,70 @@ body {
     margin-top: 2px;
 }
 
+.popup-tabs {
+    display: flex;
+    gap: 6px;
+    padding: 8px 14px 0;
+    border-bottom: 1px solid #1a1a1a;
+}
+
+.popup-tab {
+    flex: 1;
+    padding: 8px 10px;
+    border: none;
+    border-radius: 8px 8px 0 0;
+    background: transparent;
+    color: #888;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.popup-tab.active {
+    background: #141414;
+    color: #fff;
+    border: 1px solid #2a2a2a;
+    border-bottom-color: #141414;
+    margin-bottom: -1px;
+}
+
+.popup-panel {
+    display: none;
+}
+
+.popup-panel.active {
+    display: block;
+}
+
+.settings-block {
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.settings-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #eee;
+}
+
+.settings-select {
+    width: 100%;
+    padding: 9px 10px;
+    border-radius: 8px;
+    border: 1px solid #2a2a2a;
+    background: #111;
+    color: #fff;
+    font-size: 12px;
+}
+
+.settings-hint {
+    font-size: 10px;
+    color: #666;
+    line-height: 1.4;
+}
+
 .feature-list {
     padding: 8px 0;
     max-height: 480px;

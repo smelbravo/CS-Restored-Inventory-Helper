@@ -1,6 +1,6 @@
 'use strict';
 
-/** Popup-only — does not load settings.js (faster open on Firefox). Uses same storage keys as settings.js. */
+/** Popup — loads i18n.js for translations. Same storage keys as settings.js. */
 
 const FEATURES_KEY = 'csrFeatureSettings';
 const LOCKS_KEY = 'csrLockedWeaponIds';
@@ -72,28 +72,32 @@ function normalizeLocks(raw) {
 function readStorage(done) {
     const st = storageLocal();
     if (!st) {
-        done(normalizeFeatures(null), normalizeLocks(null), normalizeSellConfig(null));
+        csrLoadLanguage().then(() => {
+            done(normalizeFeatures(null), normalizeLocks(null), normalizeSellConfig(null));
+        });
         return;
     }
     const finish = (data) => {
-        done(
-            normalizeFeatures(data?.[FEATURES_KEY]),
-            normalizeLocks(data?.[LOCKS_KEY]),
-            normalizeSellConfig(data?.[SELL_CFG_KEY])
-        );
+        csrLoadLanguage().then(() => {
+            done(
+                normalizeFeatures(data?.[FEATURES_KEY]),
+                normalizeLocks(data?.[LOCKS_KEY]),
+                normalizeSellConfig(data?.[SELL_CFG_KEY])
+            );
+        });
     };
     try {
-        st.get([FEATURES_KEY, LOCKS_KEY, SELL_CFG_KEY], (data) => {
+        st.get([FEATURES_KEY, LOCKS_KEY, SELL_CFG_KEY, CSR_LANG_KEY], (data) => {
             const err = typeof chrome !== 'undefined' && chrome.runtime?.lastError;
             if (err) finish(null);
             else finish(data || null);
         });
     } catch (_) {
-        st.get([FEATURES_KEY, LOCKS_KEY, SELL_CFG_KEY]).then(finish).catch(() => finish(null));
+        st.get([FEATURES_KEY, LOCKS_KEY, SELL_CFG_KEY, CSR_LANG_KEY]).then(finish).catch(() => finish(null));
     }
 }
 
-function writeStorage(features, sellCfg, done) {
+function writeFeatures(features, sellCfg, done) {
     const st = storageLocal();
     if (!st) {
         if (done) done();
@@ -116,12 +120,34 @@ let featureState = { ...DEFAULTS };
 let sellState = normalizeSellConfig(null);
 let lockIds = [];
 
+function applyPopupI18n() {
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.dataset.i18n;
+        if (key) el.textContent = csrT(key);
+    });
+    document.documentElement.lang = csrGetLanguage().slice(0, 2);
+}
+
+function populateLanguageSelect() {
+    const sel = document.getElementById('lang-select');
+    if (!sel) return;
+    const cur = csrGetLanguage();
+    sel.innerHTML = csrGetSupportedLanguages()
+        .map(({ code, label }) => `<option value="${code}">${label}</option>`)
+        .join('');
+    sel.value = cur;
+}
+
 function updateLockCount() {
     const lockEl = document.getElementById('lock-count');
     if (!lockEl) return;
-    lockEl.textContent = lockIds.length
-        ? `${lockIds.length} skin${lockIds.length !== 1 ? 's' : ''} locked`
-        : 'No locked skins';
+    if (!lockIds.length) {
+        lockEl.textContent = csrT('popup.lockCount.none');
+    } else if (lockIds.length === 1) {
+        lockEl.textContent = csrT('popup.lockCount.one', { n: lockIds.length });
+    } else {
+        lockEl.textContent = csrT('popup.lockCount.many', { n: lockIds.length });
+    }
 }
 
 function readSellUi() {
@@ -180,8 +206,20 @@ function syncCheckboxes() {
 }
 
 function persist() {
-    writeStorage(featureState, sellState);
+    writeFeatures(featureState, sellState);
 }
+
+function switchTab(tab) {
+    document.querySelectorAll('.popup-tab').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tab === tab);
+    });
+    document.getElementById('panel-features')?.classList.toggle('active', tab === 'features');
+    document.getElementById('panel-settings')?.classList.toggle('active', tab === 'settings');
+}
+
+document.querySelectorAll('.popup-tab').forEach(btn => {
+    btn.addEventListener('click', () => switchTab(btn.dataset.tab || 'features'));
+});
 
 document.querySelectorAll('#feature-list input[type="checkbox"][data-key]').forEach(inp => {
     inp.addEventListener('change', () => {
@@ -223,6 +261,14 @@ document.getElementById('sell-batch')?.addEventListener('blur', (e) => {
     persist();
 });
 
+document.getElementById('lang-select')?.addEventListener('change', (e) => {
+    csrSaveLanguage(e.target.value).then(() => {
+        applyPopupI18n();
+        populateLanguageSelect();
+        updateLockCount();
+    });
+});
+
 document.getElementById('btn-reset')?.addEventListener('click', () => {
     featureState = { ...DEFAULTS };
     sellState = normalizeSellConfig(null);
@@ -235,6 +281,8 @@ setTimeout(() => {
         featureState = features;
         lockIds = locks;
         sellState = sellCfg;
+        applyPopupI18n();
+        populateLanguageSelect();
         syncCheckboxes();
     });
 }, 0);

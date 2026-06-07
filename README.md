@@ -1,6 +1,6 @@
 # CS:Restored Inventory Helper
 
-Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.fun) — float and paint seed overlays, search and filters on inventory/marketplace, a quick-sell panel, **case bulk buy** and **auto case opening** (with optional **session auto-sell**) on the Cases tab, optional **toolbar settings** to turn each feature on or off, and **skin lock** to avoid accidental sells.
+Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.fun) — float and paint seed overlays, search and filters on inventory/marketplace, a quick-sell panel, **case bulk buy** and **auto case opening** (with optional **session auto-sell**) on the Cases tab, optional **toolbar settings** to turn each feature on or off, **skin lock** to avoid accidental sells, and **multi-language UI** (popup + on-site panels).
 
 Works in **Firefox**, **Microsoft Edge**, and **Chromium** browsers (Manifest V3).
 
@@ -70,9 +70,35 @@ Horizontal bar above the item grid (same layout on both pages):
 - Shows `Showing X of Y items` when filters hide cards
 - Sorting reorders the visible grid without reloading the page
 
-### Extension popup — feature toggles (v3.2+)
+### Extension popup — Features & Settings (v3.2+)
 
-Click the **extension icon** in the browser toolbar (Firefox / Chrome / Edge) to open **Settings**. Each feature can be turned on or off; preferences are saved in **`storage.local`** (extension storage — not site cookies).
+Click the **extension icon** in the browser toolbar (Firefox / Chrome / Edge). The popup has two tabs:
+
+| Tab | What it contains |
+|-----|------------------|
+| **Features** | Toggles for each extension feature (same as before) |
+| **Settings** | **Language** picker for extension UI on csrestored.fun |
+
+Each feature can be turned on or off; preferences are saved in **`storage.local`** (extension storage — not site cookies).
+
+#### Language (v3.4+ develop)
+
+Choose a language under **Settings → Language**. Applies to the **toolbar popup** and **injected UI** on csrestored.fun (browse bar, Quick Sell panel, Cases panel, toasts, confirm dialogs). Reload the tab if some labels do not update immediately.
+
+| Code | Language |
+|------|----------|
+| `en-US` | English (US) |
+| `en-GB` | English (UK) |
+| `pt-PT` | Português (Portugal) |
+| `pt-BR` | Português (Brasil) |
+| `de` | Deutsch |
+| `ru` | Русский |
+| `es` | Español |
+
+- First install: language is guessed from the browser locale (`navigator.language`).
+- Saved under `csrLanguage` in `storage.local`.
+- **Rarity names** stay in **English** (Consumer Grade, Mil-Spec, Covert / Knives / Gloves, etc.) in all locales — same as the CS community convention.
+- Wear abbreviations in overlays (FN, MW, FT, WW, BS) are unchanged.
 
 | Toggle | What it controls |
 |--------|------------------|
@@ -282,7 +308,7 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 ## Usage
 
 1. Go to [csrestored.fun](https://csrestored.fun) and log in with Discord
-2. (Optional) Click the **extension icon** in the toolbar → enable only the features you want
+2. (Optional) Click the **extension icon** in the toolbar → **Features** tab: enable only what you want; **Settings** tab: pick your language
 3. Open **Inventory** or **Marketplace** — float/seed badges and the search/filter bar appear after items load (usually a few seconds)
 4. On inventory: use the **padlock** (top-left of a card) to lock skins you must not sell by accident
 5. If **Quick Sell & Market** is on: click the **CS:R logo button** (bottom-right) → **Start Picking** → **Review & Sell** → **List on Market** or **Quick Sell**
@@ -293,7 +319,7 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 
 | Permission | Why |
 |------------|-----|
-| `storage` | Save feature toggles, locked skin IDs, case auto-open config, and auto-sell rules (`storage.local`) |
+| `storage` | Save feature toggles, locked skin IDs, case auto-open config, auto-sell rules, and language (`csrLanguage`) in `storage.local` |
 | `*://*.csrestored.fun/*` | Inject UI on the site |
 | `https://api.csrestored.fun/*` | Read inventory, marketplace, and trade data |
 | `https://cdn.csrestored.fun/*` | Skin images in the sell modal |
@@ -317,15 +343,19 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 ## Project structure
 
 ```
-├── manifest.json   # Extension manifest (MV3)
-├── settings.js     # Feature toggles & skin locks (shared with popup)
-├── popup.html      # Toolbar popup UI
+├── manifest.json          # Extension manifest (MV3)
+├── settings.js            # Feature toggles & skin locks (shared with popup)
+├── i18n-packs.js          # Locale packs (pt-PT, pt-BR)
+├── i18n-packs-generated.js # Full locale packs (de, ru, es) — run scripts/build-locale-packs.js to regenerate
+├── i18n.js                # Translation API (csrT, csrLoadLanguage, …)
+├── popup.html             # Toolbar popup UI (Features + Settings tabs)
 ├── popup.js
 ├── popup.css
-├── content.js      # Content script (overlays, filters, quick-sell UI)
-├── icons/          # Extension icons (16, 48, 128, 300 px)
-├── PRIVACY.md      # Privacy policy (store listings)
-├── LICENSE         # MIT
+├── content.js             # Content script (overlays, filters, quick-sell UI)
+├── scripts/               # i18n scan/build helpers
+├── icons/                 # Extension icons (16, 48, 128, 300 px)
+├── PRIVACY.md             # Privacy policy (store listings)
+├── LICENSE                # MIT
 └── README.md
 ```
 
@@ -334,13 +364,13 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 | Branch | Description |
 |--------|-------------|
 | `main` | Stable releases (v3.4.0) |
-| `develop` | Integration branch for next release (session auto-sell, popup case section) |
-| `feature/settings-languages` | Planned i18n / language settings |
+| `develop` | Integration branch for next release (session auto-sell, i18n) |
 
 ## Changelog
 
 ### Unreleased (develop)
 
+- **New:** **Multi-language UI** — popup **Settings** tab with language picker (en-US, en-GB, pt-PT, pt-BR, de, ru, es); browse bar, Quick Sell, Cases panel, toasts, and confirms use `csrT()`; rarity tier names stay English in all locales
 - **New:** **Session auto-sell** for auto case opening — popup rules: manual (default), all non-gold, or selected rarities; sell when session ends or after each open; batch size 1–20
 - **New:** **Quick sell session drops** on Cases panel — **Quick sell all non-gold** always available after a run; full manual block (rarity dropdown + sell-by-rarity + batch size) only when popup auto-sell is **Manual only**
 - **New:** Toolbar popup **Auto case opening** subsection — master toggle + auto-sell options (collapsible when feature off)
