@@ -535,9 +535,10 @@ S.textContent = `
 }
 #csrx-cases-win {
     position: fixed;
-    bottom: 84px;
+    bottom: 24px;
     right: 24px;
     width: 320px;
+    max-height: calc(100vh - 48px);
     background: #0a0a0a;
     border: 1px solid #2a2a2a;
     border-radius: 14px;
@@ -557,6 +558,7 @@ S.textContent = `
     border-bottom: 1px solid #1e1e1e;
     cursor: move;
     user-select: none;
+    flex-shrink: 0;
 }
 #csrx-cases-winx {
     margin-left: auto;
@@ -575,6 +577,9 @@ S.textContent = `
     display: flex;
     flex-direction: column;
     gap: 10px;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
 }
 #csrx-cases-tabs {
     display: flex;
@@ -759,6 +764,65 @@ S.textContent = `
     font-size: 0.8125rem;
     cursor: pointer;
     display: none;
+}
+#csrx-cases-open-sell-wrap {
+    display: none;
+    flex-direction: column;
+    gap: 8px;
+    padding-top: 4px;
+    border-top: 1px solid #1f1f1f;
+}
+#csrx-cases-open-sell-manual {
+    display: none;
+    flex-direction: column;
+    gap: 8px;
+}
+#csrx-cases-open-sell-label {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #71717a;
+}
+#csrx-cases-open-sell-hint {
+    font-size: 0.6875rem;
+    color: #737373;
+    line-height: 1.4;
+}
+#csrx-cases-open-sell-batch {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 0.75rem;
+    color: #b1a7a6;
+}
+#csrx-cases-open-sell-spd {
+    width: 56px;
+    padding: 6px 8px;
+    border-radius: 8px;
+    border: 1px solid #2a2a2a;
+    background: #111;
+    color: #fff;
+    font-size: 0.8125rem;
+    text-align: center;
+}
+.csrx-cases-sell-btn {
+    width: 100%;
+    padding: 9px 12px;
+    border-radius: 10px;
+    border: 1px solid #2a2a2a;
+    background: #141414;
+    color: #e5e7eb;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+.csrx-cases-sell-btn:hover:not(:disabled) { filter: brightness(1.08); }
+.csrx-cases-sell-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+#csrx-cases-open-sell-nongold {
+    border-color: #3f3f46;
+    color: #fca5a5;
 }
 #csrx-fab {
     position: fixed;
@@ -4749,10 +4813,19 @@ let cachedUserCoins = null;
 let casesBuyAbort = false;
 let casesOpenAbort = false;
 let casesOpenRunning = false;
+let casesOpenSelling = false;
+let casesSessionDrops = [];
 let casesOpenStats = { opened: 0, gold: 0, lastName: '', lastRarity: null };
 let casesMode = 'bulk';
 const CASES_AUTO_OPEN_CFG_KEY = 'csrCasesAutoOpenConfig';
-let casesAutoOpenCfg = { delayMs: 250, spendLimit: 150000, minutes: 10 };
+const CASES_AUTO_OPEN_SELL_CFG_KEY = 'csrCasesAutoOpenSellConfig';
+let casesAutoOpenCfg = { delayMs: 1000, spendLimit: 150000, minutes: 10 };
+let casesAutoOpenSellCfg = {
+    mode: 'manual',
+    timing: 'end',
+    rarities: { 1: false, 2: false, 3: false, 4: false, 5: false, 6: false, 7: false },
+    batchSize: 5,
+};
 let _casesCfgSaveTimer = null;
 
 function normalizeCaseEntry(c) {
@@ -4914,7 +4987,7 @@ function csrStorageLocal() {
 }
 
 function normalizeCasesAutoCfg(raw) {
-    const out = { delayMs: 250, spendLimit: 150000, minutes: 10 };
+    const out = { delayMs: 1000, spendLimit: 150000, minutes: 10 };
     if (!raw || typeof raw !== 'object') return out;
     const d = parseInt(raw.delayMs, 10);
     const s = parseInt(raw.spendLimit, 10);
@@ -4923,6 +4996,98 @@ function normalizeCasesAutoCfg(raw) {
     if (Number.isFinite(s)) out.spendLimit = Math.max(0, Math.min(999999999, s));
     if (Number.isFinite(m)) out.minutes = Math.max(1, Math.min(120, m));
     return out;
+}
+
+function normalizeCasesAutoSellCfg(raw) {
+    const out = {
+        mode: 'manual',
+        timing: 'end',
+        rarities: { 1: false, 2: false, 3: false, 4: false, 5: false, 6: false, 7: false },
+        batchSize: 5,
+    };
+    if (!raw || typeof raw !== 'object') return out;
+    if (raw.mode === 'manual' || raw.mode === 'nonGold' || raw.mode === 'rarities') out.mode = raw.mode;
+    if (raw.timing === 'each' || raw.timing === 'end') out.timing = raw.timing;
+    const bs = parseInt(raw.batchSize, 10);
+    if (Number.isFinite(bs)) out.batchSize = Math.max(1, Math.min(20, bs));
+    if (raw.rarities && typeof raw.rarities === 'object') {
+        for (let i = 1; i <= 7; i++) {
+            if (typeof raw.rarities[i] === 'boolean') out.rarities[i] = raw.rarities[i];
+            if (typeof raw.rarities[String(i)] === 'boolean') out.rarities[i] = raw.rarities[String(i)];
+        }
+    }
+    return out;
+}
+
+async function loadCasesAutoOpenSellConfig() {
+    const st = csrStorageLocal();
+    if (!st) return casesAutoOpenSellCfg;
+
+    const finish = (data) => {
+        const cfg = normalizeCasesAutoSellCfg(data?.[CASES_AUTO_OPEN_SELL_CFG_KEY]);
+        casesAutoOpenSellCfg = cfg;
+        syncCasesAutoSellBatchInput();
+        updateCasesAutoOpenSummary();
+        return cfg;
+    };
+
+    try {
+        return await new Promise((resolve) => {
+            st.get([CASES_AUTO_OPEN_SELL_CFG_KEY], (data) => resolve(finish(data || null)));
+        });
+    } catch (_) {
+        try {
+            const data = await st.get([CASES_AUTO_OPEN_SELL_CFG_KEY]);
+            return finish(data || null);
+        } catch (_) {
+            return casesAutoOpenSellCfg;
+        }
+    }
+}
+
+function syncCasesAutoSellBatchInput() {
+    const inp = document.getElementById('csrx-cases-open-sell-spd');
+    if (inp && casesAutoOpenSellCfg.batchSize) inp.value = String(casesAutoOpenSellCfg.batchSize);
+}
+
+function isCasesAutoSellEnabled() {
+    return casesAutoOpenSellCfg.mode !== 'manual';
+}
+
+function casesDropMatchesAutoSellRules(d) {
+    if (!isCasesAutoSellEnabled()) return false;
+    if (isCasesDropGold(d.name)) return false;
+    if (casesAutoOpenSellCfg.mode === 'nonGold') return true;
+    if (casesAutoOpenSellCfg.mode === 'rarities') {
+        const r = parseInt(d.rarity, 10);
+        return casesAutoOpenSellCfg.rarities[r] === true;
+    }
+    return false;
+}
+
+function describeAutoSellRules() {
+    if (!isCasesAutoSellEnabled()) return 'Manual (use buttons when finished)';
+    let rule = 'Selected rarities';
+    if (casesAutoOpenSellCfg.mode === 'nonGold') rule = 'All non-gold (★ kept)';
+    const when = casesAutoOpenSellCfg.timing === 'each' ? 'after each open' : 'when session ends';
+    return `${rule} · ${when}`;
+}
+
+async function tryAutoSellSessionDrop(drop) {
+    if (!casesDropMatchesAutoSellRules(drop)) return false;
+    if (!drop.weaponId) await resolveSessionDropWeaponIds([drop]);
+    if (!drop.weaponId || drop.sold) return false;
+    if (csrIsItemSellBlocked({ weapon_id: drop.weaponId })) return false;
+    const ok = await apiSell(drop.weaponId);
+    if (ok) {
+        drop.sold = true;
+        await fetchUserCoins();
+        scrapeCoinsFromPage();
+        updateCasesAutoOpenSummary();
+        updateCasesCostSummary();
+        return true;
+    }
+    return false;
 }
 
 async function loadCasesAutoOpenConfig() {
@@ -5029,6 +5194,14 @@ async function runCasesBulkBuy() {
 
 let casesWinOpen = false;
 
+function resetCasesWinPosition(win) {
+    if (!win) return;
+    win.style.left = '';
+    win.style.top = '';
+    win.style.right = '24px';
+    win.style.bottom = '24px';
+}
+
 function syncCasesPanelVisibility() {
     const on = isCasesListPage() && (csrIsFeatureEnabled('caseBulkBuy') || csrIsFeatureEnabled('caseAutoOpen'));
     const fab = document.getElementById('csrx-cases-fab');
@@ -5119,7 +5292,7 @@ function updateCasesAutoOpenSummary() {
         ? '<br><span style="color:#ef4444">Spend limit too low (or not enough coins) for this case.</span>'
         : '';
 
-    sum.innerHTML = `${coinsLine}Will open up to <strong>${maxCases}</strong> case${maxCases !== 1 ? 's' : ''} · Delay: <strong>${delayMs}ms</strong> · Time limit: <strong>${minutes} min</strong>${warn}`;
+    sum.innerHTML = `${coinsLine}Will open up to <strong>${maxCases}</strong> case${maxCases !== 1 ? 's' : ''} · Delay: <strong>${delayMs}ms</strong> · Time limit: <strong>${minutes} min</strong>${warn}<br><span style="color:#737373">Auto-sell: ${describeAutoSellRules()}</span>`;
     if (btnStart) btnStart.disabled = casesOpenRunning || maxCases <= 0;
     void runMs;
 }
@@ -5182,11 +5355,119 @@ function extractFloatFromOpenData(data) {
     return null;
 }
 
+function extractWeaponIdFromOpenData(data) {
+    if (!data || typeof data !== 'object') return null;
+    const tryVal = (v) => {
+        if (v == null || v === '') return null;
+        const n = parseInt(v, 10);
+        return Number.isFinite(n) && n > 0 ? n : null;
+    };
+    for (const k of ['weapon_id', 'weaponId', 'skin_id', 'skinId']) {
+        const w = tryVal(data[k]);
+        if (w != null) return w;
+    }
+    for (const k of ['item', 'weapon', 'skin', 'data']) {
+        if (data[k] && typeof data[k] === 'object') {
+            const nested = extractWeaponIdFromOpenData(data[k]);
+            if (nested != null) return nested;
+        }
+    }
+    return null;
+}
+
+function isCasesDropGold(name) {
+    return String(name || '').includes('★');
+}
+
+async function resolveSessionDropWeaponIds(drops) {
+    const need = drops.filter(d => !d.weaponId);
+    if (!need.length) return drops;
+    const inv = await apiInv();
+    const used = new Set(drops.filter(d => d.weaponId).map(d => d.weaponId));
+    for (const d of need) {
+        const match = inv.find(i => {
+            if (used.has(i.weapon_id)) return false;
+            if (String(i.name || '') !== String(d.name || '')) return false;
+            if (d.rarity != null && parseInt(i.rarity, 10) !== parseInt(d.rarity, 10)) return false;
+            if (d.float != null && i.float != null) {
+                return Math.abs(parseFloat(i.float) - d.float) < 0.00001;
+            }
+            return d.float == null;
+        });
+        if (match?.weapon_id != null) {
+            d.weaponId = parseInt(match.weapon_id, 10);
+            used.add(d.weaponId);
+        }
+    }
+    return drops;
+}
+
+function getCasesSessionSellBatchSize() {
+    const inp = document.getElementById('csrx-cases-open-sell-spd');
+    const n = parseInt(String(inp?.value ?? '').trim(), 10);
+    if (Number.isFinite(n)) return Math.max(1, Math.min(20, n));
+    return casesAutoOpenSellCfg.batchSize || 5;
+}
+
+function getSellableSessionDrops(filterFn) {
+    return casesSessionDrops.filter(d => {
+        if (!d.weaponId || d.sold) return false;
+        if (csrIsItemSellBlocked({ weapon_id: d.weaponId })) return false;
+        return filterFn(d);
+    });
+}
+
+function updateCasesOpenSellUi() {
+    const wrap = document.getElementById('csrx-cases-open-sell-wrap');
+    const manualBox = document.getElementById('csrx-cases-open-sell-manual');
+    const hint = document.getElementById('csrx-cases-open-sell-hint');
+    const btnRarity = document.getElementById('csrx-cases-open-sell-rarity');
+    const btnNonGold = document.getElementById('csrx-cases-open-sell-nongold');
+    const sel = document.getElementById('csrx-cases-open-sell-rar');
+    if (!wrap) return;
+
+    const remaining = casesSessionDrops.filter(d => !d.sold);
+    if (!remaining.length) {
+        wrap.style.display = 'none';
+        return;
+    }
+
+    wrap.style.display = 'flex';
+    if (manualBox) manualBox.style.display = isCasesAutoSellEnabled() ? 'none' : 'flex';
+
+    const nonGold = getSellableSessionDrops(d => !isCasesDropGold(d.name));
+    const rarVal = sel ? parseInt(sel.value, 10) : 1;
+    const byRarity = getSellableSessionDrops(d => parseInt(d.rarity, 10) === rarVal);
+    const rarName = RARITY[rarVal]?.name || `Rarity ${rarVal}`;
+    const unresolved = remaining.filter(d => !d.weaponId).length;
+
+    if (hint) {
+        const parts = [`${remaining.length} drop${remaining.length !== 1 ? 's' : ''} this session`];
+        if (unresolved) parts.push(`${unresolved} without ID (can't sell)`);
+        hint.textContent = parts.join(' · ');
+    }
+    if (btnRarity) {
+        btnRarity.disabled = casesOpenSelling || casesOpenRunning || !byRarity.length;
+        btnRarity.textContent = byRarity.length
+            ? `Quick sell ${byRarity.length}× ${rarName}`
+            : `Quick sell this rarity (0 in session)`;
+    }
+    if (btnNonGold) {
+        btnNonGold.disabled = casesOpenSelling || casesOpenRunning || !nonGold.length;
+        btnNonGold.textContent = nonGold.length
+            ? `Quick sell all non-gold (${nonGold.length})`
+            : 'Quick sell all non-gold (0 in session)';
+    }
+}
+
 function clearCasesOpenResults() {
     const box = document.getElementById('csrx-cases-open-results');
     const body = document.getElementById('csrx-cases-open-results-body');
+    const sellWrap = document.getElementById('csrx-cases-open-sell-wrap');
     if (body) body.innerHTML = '';
     if (box) box.style.display = 'none';
+    if (sellWrap) sellWrap.style.display = 'none';
+    casesSessionDrops = [];
 }
 
 function renderCasesOpenResults(drops) {
@@ -5210,7 +5491,7 @@ function renderCasesOpenResults(drops) {
 
     body.innerHTML = sorted.map((d) => {
         const safeName = escapeCasesHtml(d.name || 'Unknown');
-        const isGold = String(d.name || '').includes('★');
+        const isGold = isCasesDropGold(d.name);
         const nameStyle = isGold
             ? 'color:#facc15;font-weight:800'
             : rarityStyle(d.rarity);
@@ -5229,6 +5510,71 @@ function renderCasesOpenResults(drops) {
     }).join('');
 
     box.style.display = 'flex';
+    updateCasesOpenSellUi();
+}
+
+async function runCasesSessionQuickSell(filterFn, label, options = {}) {
+    const silent = options.silent === true;
+    if (casesOpenSelling) return { sold: 0, failed: 0 };
+    const toSell = getSellableSessionDrops(filterFn);
+    if (!toSell.length) {
+        if (!silent) toast('Nothing to sell for this selection', 'warn');
+        return { sold: 0, failed: 0 };
+    }
+    const spd = getCasesSessionSellBatchSize();
+    if (!silent && !confirm(`Quick sell ${toSell.length} item${toSell.length !== 1 ? 's' : ''} from this session?\n\n${label}\n\nBatch size: ${spd}\n\nOnly drops from this auto-open run — not your whole inventory.`)) {
+        return { sold: 0, failed: 0 };
+    }
+
+    casesOpenSelling = true;
+    updateCasesOpenSellUi();
+    const btnStart = document.getElementById('csrx-cases-open-start');
+    if (btnStart) btnStart.disabled = true;
+
+    let sold = 0;
+    let failed = 0;
+    const prog = document.getElementById('csrx-cases-progress');
+    const bar = document.getElementById('csrx-cases-progress-bar');
+    if (prog && !casesOpenRunning) prog.style.display = 'block';
+
+    for (let i = 0; i < toSell.length; i += spd) {
+        const chunk = toSell.slice(i, i + spd);
+        await Promise.all(chunk.map(async (d) => {
+            const ok = await apiSell(d.weaponId);
+            if (ok) {
+                sold++;
+                d.sold = true;
+            } else {
+                failed++;
+            }
+        }));
+        if (bar) bar.style.width = `${Math.round(Math.min(i + spd, toSell.length) / toSell.length * 100)}%`;
+        appendCasesOpenLog(`<span style="color:#a3a3a3">${silent ? 'Auto-sell' : 'Session quick sell'}… ${sold}/${toSell.length}</span>`);
+    }
+
+    casesOpenSelling = false;
+    if (bar && !casesOpenRunning) bar.style.width = '100%';
+    if (!casesOpenRunning) {
+        setTimeout(() => { if (prog) prog.style.display = 'none'; if (bar) bar.style.width = '0%'; }, 800);
+    }
+    if (btnStart) btnStart.disabled = casesOpenRunning;
+
+    casesSessionDrops = casesSessionDrops.filter(d => !d.sold);
+    renderCasesOpenResults(casesSessionDrops);
+    updateCasesOpenSellUi();
+    await fetchUserCoins();
+    scrapeCoinsFromPage();
+    updateCasesAutoOpenSummary();
+
+    if (!silent) {
+        toast(
+            `Quick sold ${sold} from session${failed ? ` · ${failed} failed (site may be busy — try lower batch size)` : ''}`,
+            sold > 0 ? 'success' : 'error'
+        );
+    } else if (sold > 0 || failed > 0) {
+        appendCasesOpenLog(`<span style="color:${sold > 0 ? '#86efac' : '#ef4444'}">Auto-sell done — ${sold} sold${failed ? ` · ${failed} failed` : ''}</span>`);
+    }
+    return { sold, failed };
 }
 
 function refreshCasesOpenStatsUi() {
@@ -5258,7 +5604,7 @@ async function runCasesAutoOpen() {
         return;
     }
 
-    if (!confirm(`Auto-open up to ${hardMax}× ${picked.name}?\n\nLimits:\n- Spend: ${formatCoins(spendLimit)} (case price ${formatCoins(picked.price)})\n- Time: ${minutes} min\n- Delay: ${delayMs} ms\n\nUse Stop to cancel after current open.`)) {
+    if (!confirm(`Auto-open up to ${hardMax}× ${picked.name}?\n\nLimits:\n- Spend: ${formatCoins(spendLimit)} (case price ${formatCoins(picked.price)})\n- Time: ${minutes} min\n- Delay: ${delayMs} ms\n- Auto-sell: ${describeAutoSellRules()}\n\nUse Stop to cancel after current open.`)) {
         return;
     }
 
@@ -5297,14 +5643,16 @@ async function runCasesAutoOpen() {
             const name = data?.name ? String(data.name) : 'Unknown item';
             const rarity = data?.rarity != null ? parseInt(data.rarity, 10) : null;
             const floatVal = extractFloatFromOpenData(data);
+            const weaponId = extractWeaponIdFromOpenData(data);
 
-            sessionDrops.push({ name, rarity, float: floatVal });
+            sessionDrops.push({ name, rarity, float: floatVal, weaponId, sold: false });
+            const drop = sessionDrops[sessionDrops.length - 1];
 
             casesOpenStats.opened++;
             casesOpenStats.lastName = name;
             casesOpenStats.lastRarity = rarity;
 
-            const isGold = name.includes('★');
+            const isGold = isCasesDropGold(name);
             if (isGold) casesOpenStats.gold++;
 
             if (cachedUserCoins != null) cachedUserCoins = Math.max(0, cachedUserCoins - picked.price);
@@ -5317,6 +5665,13 @@ async function runCasesAutoOpen() {
                 appendCasesOpenLog(`<span style="color:#facc15;font-weight:800">GOLD</span> · <span style="color:#e5e7eb">${safeName}</span>`);
             } else {
                 appendCasesOpenLog(`<span style="${rarityStyle(rarity)}">${safeName}</span> <span style="color:#737373">(${rarity ?? '?'})</span>`);
+            }
+
+            if (isCasesAutoSellEnabled() && casesAutoOpenSellCfg.timing === 'each') {
+                const soldNow = await tryAutoSellSessionDrop(drop);
+                if (soldNow) {
+                    appendCasesOpenLog(`<span style="color:#86efac">Auto-sold</span> · <span style="color:#e5e7eb">${safeName}</span>`);
+                }
             }
         } catch (e) {
             lastErr = e?.message || 'Unknown error';
@@ -5338,7 +5693,17 @@ async function runCasesAutoOpen() {
     scrapeCoinsFromPage();
     updateCasesAutoOpenSummary();
     updateCasesCostSummary();
-    renderCasesOpenResults(sessionDrops);
+
+    await resolveSessionDropWeaponIds(sessionDrops);
+    casesSessionDrops = sessionDrops.filter(d => !d.sold);
+    if (isCasesAutoSellEnabled() && casesAutoOpenSellCfg.timing === 'end') {
+        await runCasesSessionQuickSell(
+            d => casesDropMatchesAutoSellRules(d),
+            describeAutoSellRules(),
+            { silent: true }
+        );
+    }
+    renderCasesOpenResults(casesSessionDrops);
 
     if (lastErr) toast(lastErr, 'error');
     else toast(`Auto-open finished — opened ${casesOpenStats.opened}${casesOpenStats.gold ? ` · ${casesOpenStats.gold} gold` : ''}`, 'success');
@@ -5390,7 +5755,7 @@ function setupCasesBulkBuy() {
         <div style="display:flex;gap:10px;">
             <div style="flex:1;">
                 <label for="csrx-cases-open-delay">Delay (ms)</label>
-                <input type="text" id="csrx-cases-open-delay" inputmode="numeric" autocomplete="off" spellcheck="false" value="250" style="margin-top:6px;">
+                <input type="text" id="csrx-cases-open-delay" inputmode="numeric" autocomplete="off" spellcheck="false" value="1000" style="margin-top:6px;">
             </div>
             <div style="flex:1;">
                 <label for="csrx-cases-open-mins">Minutes</label>
@@ -5408,6 +5773,21 @@ function setupCasesBulkBuy() {
             <div id="csrx-cases-open-results-label">Results — best float first</div>
             <div id="csrx-cases-open-results-body"></div>
         </div>
+        <div id="csrx-cases-open-sell-wrap">
+            <button type="button" id="csrx-cases-open-sell-nongold" class="csrx-cases-sell-btn">Quick sell all non-gold</button>
+            <div id="csrx-cases-open-sell-manual">
+                <div id="csrx-cases-open-sell-label">Sell session drops</div>
+                <div id="csrx-cases-open-sell-hint">Only items from this auto-open run</div>
+                <select id="csrx-cases-open-sell-rar" class="csrx-sel" style="width:100%;">
+                    ${rarityEntries().map(([k, v]) => `<option value="${k}">${v.name}</option>`).join('')}
+                </select>
+                <button type="button" id="csrx-cases-open-sell-rarity" class="csrx-cases-sell-btn">Quick sell this rarity</button>
+                <div id="csrx-cases-open-sell-batch">
+                    <span>Batch size (1–20)</span>
+                    <input type="text" id="csrx-cases-open-sell-spd" inputmode="numeric" autocomplete="off" spellcheck="false" value="5">
+                </div>
+            </div>
+        </div>
         <button type="button" id="csrx-cases-open-start">Start auto open</button>
         <button type="button" id="csrx-cases-open-stop">Stop</button>
     </div>
@@ -5421,6 +5801,7 @@ function setupCasesBulkBuy() {
         if (!isCasesListPage()) return;
         if (!csrIsFeatureEnabled('caseBulkBuy') && !csrIsFeatureEnabled('caseAutoOpen')) return;
         casesWinOpen = true;
+        resetCasesWinPosition(win);
         syncCasesPanelVisibility();
         syncCasesModeUi();
         fetchCasesCatalog();
@@ -5476,6 +5857,26 @@ function setupCasesBulkBuy() {
         toast('Stopping after current open…', 'info');
     });
 
+    document.getElementById('csrx-cases-open-sell-rar')?.addEventListener('change', updateCasesOpenSellUi);
+    document.getElementById('csrx-cases-open-sell-spd')?.addEventListener('blur', (e) => {
+        const inp = e.target;
+        inp.value = String(getCasesSessionSellBatchSize());
+    });
+    document.getElementById('csrx-cases-open-sell-rarity')?.addEventListener('click', () => {
+        const rarVal = parseInt(document.getElementById('csrx-cases-open-sell-rar')?.value, 10);
+        const rarName = RARITY[rarVal]?.name || `Rarity ${rarVal}`;
+        runCasesSessionQuickSell(
+            d => parseInt(d.rarity, 10) === rarVal,
+            `Rarity: ${rarName}`
+        );
+    });
+    document.getElementById('csrx-cases-open-sell-nongold')?.addEventListener('click', () => {
+        runCasesSessionQuickSell(
+            d => !isCasesDropGold(d.name),
+            'All non-gold drops (★ knives/gloves kept)'
+        );
+    });
+
     {
         let drag = false;
         let ox = 0;
@@ -5501,11 +5902,24 @@ function setupCasesBulkBuy() {
     }
 
     loadCasesAutoOpenConfig().then((cfg) => {
-        if (delayInp) delayInp.value = String(cfg.delayMs ?? 250);
+        if (delayInp) delayInp.value = String(cfg.delayMs ?? 1000);
         if (minsInp) minsInp.value = String(cfg.minutes ?? 10);
         if (spendInp) spendInp.value = String(cfg.spendLimit ?? 150000);
         updateCasesAutoOpenSummary();
     }).catch(() => {});
+
+    loadCasesAutoOpenSellConfig().catch(() => {});
+
+    const storageApi = typeof browser !== 'undefined' ? browser : (typeof chrome !== 'undefined' ? chrome : null);
+    storageApi?.storage?.onChanged?.addListener((changes, area) => {
+        if (area !== 'local') return;
+        if (changes[CASES_AUTO_OPEN_SELL_CFG_KEY]) {
+            casesAutoOpenSellCfg = normalizeCasesAutoSellCfg(changes[CASES_AUTO_OPEN_SELL_CFG_KEY].newValue);
+            syncCasesAutoSellBatchInput();
+            updateCasesAutoOpenSummary();
+            updateCasesOpenSellUi();
+        }
+    });
 }
 
 setupCasesBulkBuy();
@@ -5517,6 +5931,7 @@ function applyCsrFeatureVisibility() {
 
 async function bootstrapCsrExtension() {
     await csrLoadSettings();
+    await loadCasesAutoOpenSellConfig();
     bindSidebarLockClipWatch();
     csrWatchStorageChanges();
     csrOnSettingsChanged(() => {

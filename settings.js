@@ -13,7 +13,7 @@
         browseFilters: true,
         quickSellPanel: true,
         caseBulkBuy: true,
-        caseAutoOpen: false,
+        caseAutoOpen: true,
         tradeSearch: true,
         skinLock: true,
     };
@@ -23,7 +23,7 @@
         { key: 'browseFilters', label: 'Search & filters', desc: 'Inventory, marketplace, and create offer' },
         { key: 'quickSellPanel', label: 'Quick Sell & Market', desc: 'Floating panel and confirm sale' },
         { key: 'caseBulkBuy', label: 'Case bulk buy', desc: 'Buy weapon cases in bulk on the Cases tab (goes to in-game inventory)' },
-        { key: 'caseAutoOpen', label: 'Auto case opening', desc: 'Auto-open cases on the Cases tab (spend/time limits + stop button)' },
+        { key: 'caseAutoOpen', label: 'Auto case opening', desc: 'Auto-open cases on /app/inventory/cases (configure sell rules below)' },
         { key: 'tradeSearch', label: 'Trade offer search', desc: 'Search bar in Send Trade Offer modal' },
         { key: 'skinLock', label: 'Skin lock', desc: 'Padlock on inventory cards — blocks extension Quick Sell only (not the site Weapon Details button)' },
     ];

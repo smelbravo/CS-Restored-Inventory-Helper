@@ -43,13 +43,61 @@
                 <div class="feature-desc">Buy cases in bulk on /app/inventory/cases</div>
             </div>
         </label>
-        <label class="feature-row" data-key="caseAutoOpen">
-            <input type="checkbox" data-key="caseAutoOpen">
-            <div class="feature-text">
-                <div class="feature-label">Auto case opening</div>
-                <div class="feature-desc">Auto-open cases on /app/inventory/cases</div>
+
+        <section class="feature-section" id="section-case-auto-open">
+            <label class="feature-row feature-row-section" data-key="caseAutoOpen">
+                <input type="checkbox" data-key="caseAutoOpen" checked>
+                <div class="feature-text">
+                    <div class="feature-label">Auto case opening</div>
+                    <div class="feature-desc">Auto-open on /app/inventory/cases</div>
+                </div>
+            </label>
+            <div id="case-auto-open-sub" class="feature-sub">
+                <div class="sub-title">Auto-sell session drops</div>
+                <p class="sub-hint">Only items from the current auto-open run — never your full inventory. Default is manual.</p>
+
+                <label class="sub-row">
+                    <input type="radio" name="sellMode" value="manual" checked>
+                    <span>Manual only — buttons when finished</span>
+                </label>
+                <label class="sub-row">
+                    <input type="radio" name="sellMode" value="nonGold">
+                    <span>Auto: all non-gold (★ kept)</span>
+                </label>
+                <label class="sub-row">
+                    <input type="radio" name="sellMode" value="rarities">
+                    <span>Auto: selected rarities only</span>
+                </label>
+
+                <div id="sell-rarities" class="rarity-grid" hidden>
+                    <label class="rar-row"><input type="checkbox" data-rarity="1"><span>Consumer</span></label>
+                    <label class="rar-row"><input type="checkbox" data-rarity="2"><span>Industrial</span></label>
+                    <label class="rar-row"><input type="checkbox" data-rarity="3"><span>Mil-Spec</span></label>
+                    <label class="rar-row"><input type="checkbox" data-rarity="4"><span>Restricted</span></label>
+                    <label class="rar-row"><input type="checkbox" data-rarity="5"><span>Classified</span></label>
+                    <label class="rar-row"><input type="checkbox" data-rarity="6"><span>Covert</span></label>
+                    <label class="rar-row"><input type="checkbox" data-rarity="7"><span>Contraband</span></label>
+                </div>
+
+                <div id="sell-timing-wrap" class="sub-block" hidden>
+                    <div class="sub-title sub-title-sm">When to auto-sell</div>
+                    <label class="sub-row">
+                        <input type="radio" name="sellTiming" value="end" checked>
+                        <span>When session ends (less server load)</span>
+                    </label>
+                    <label class="sub-row">
+                        <input type="radio" name="sellTiming" value="each">
+                        <span>After each case opens (faster coin recycle)</span>
+                    </label>
+                </div>
+
+                <div id="sell-batch-wrap" class="sub-block batch-row" hidden>
+                    <label for="sell-batch">Auto-sell batch size (1–20)</label>
+                    <input type="text" id="sell-batch" inputmode="numeric" autocomplete="off" spellcheck="false" value="5">
+                </div>
             </div>
-        </label>
+        </section>
+
         <label class="feature-row" data-key="tradeSearch">
             <input type="checkbox" data-key="tradeSearch" checked>
             <div class="feature-text">

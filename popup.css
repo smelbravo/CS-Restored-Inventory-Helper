@@ -36,7 +36,7 @@ body {
 
 .feature-list {
     padding: 8px 0;
-    max-height: 360px;
+    max-height: 480px;
     overflow-y: auto;
 }
 
@@ -53,7 +53,7 @@ body {
     background: #111;
 }
 
-.feature-row input {
+.feature-row input[type="checkbox"] {
     margin-top: 2px;
     accent-color: #ef4444;
     width: 15px;
@@ -78,6 +78,112 @@ body {
     color: #666;
     margin-top: 3px;
     line-height: 1.35;
+}
+
+.feature-section {
+    border-top: 1px solid #1a1a1a;
+    border-bottom: 1px solid #1a1a1a;
+    margin: 4px 0;
+    background: #0d0d0d;
+}
+
+.feature-row-section {
+    border-bottom: 1px solid #151515;
+}
+
+.feature-sub {
+    padding: 8px 14px 12px 38px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.feature-sub.is-off {
+    opacity: 0.45;
+    pointer-events: none;
+}
+
+.sub-title {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #888;
+}
+
+.sub-title-sm {
+    margin-top: 4px;
+}
+
+.sub-hint {
+    font-size: 10px;
+    color: #555;
+    line-height: 1.4;
+    margin-bottom: 2px;
+}
+
+.sub-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 11px;
+    color: #bbb;
+    line-height: 1.35;
+    cursor: pointer;
+}
+
+.sub-row input {
+    margin-top: 2px;
+    accent-color: #eab308;
+    flex-shrink: 0;
+    cursor: pointer;
+}
+
+.sub-block {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-top: 4px;
+    border-top: 1px solid #1a1a1a;
+    margin-top: 2px;
+}
+
+.rarity-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 8px;
+    padding: 4px 0 2px 4px;
+}
+
+.rar-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    color: #999;
+    cursor: pointer;
+}
+
+.rar-row input {
+    accent-color: #eab308;
+    cursor: pointer;
+}
+
+.batch-row label {
+    font-size: 10px;
+    color: #888;
+}
+
+.batch-row input {
+    width: 56px;
+    margin-top: 4px;
+    padding: 5px 8px;
+    border-radius: 6px;
+    border: 1px solid #2a2a2a;
+    background: #111;
+    color: #fff;
+    font-size: 12px;
+    text-align: center;
 }
 
 .ftr {
