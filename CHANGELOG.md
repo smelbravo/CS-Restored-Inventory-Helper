@@ -7,6 +7,7 @@
 - **GitHub update checker** for Chromium — optional auto-check + manual button; Firefox shows AMO note instead
 - Improved popup layout for long translations (pt-PT, de, ru)
 - Storage key `csrAutoUpdateCheck`; permission `api.github.com` for release checks
+- Fix: Chromium update UI on Brave/Edge (Firefox detection uses `getBrowserInfo`, not `typeof browser`)
 
 ## 3.5.0
 

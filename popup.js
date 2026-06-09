@@ -28,7 +28,19 @@ const SELL_DEFAULTS = {
 };
 
 const runtime = typeof browser !== 'undefined' ? browser : chrome;
-const IS_FIREFOX = typeof browser !== 'undefined';
+
+/** Firefox exposes runtime.getBrowserInfo; Chromium (Chrome, Brave, Edge…) does not. */
+function isFirefoxBrowser() {
+    try {
+        if (typeof browser !== 'undefined' && typeof browser.runtime?.getBrowserInfo === 'function') {
+            return true;
+        }
+    } catch (_) { /* ignore */ }
+    const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+    return /Firefox\//i.test(ua) && !/Seamonkey/i.test(ua);
+}
+
+const IS_FIREFOX = isFirefoxBrowser();
 
 function storageLocal() {
     if (typeof browser !== 'undefined' && browser.storage?.local) return browser.storage.local;

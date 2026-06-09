@@ -402,6 +402,7 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 - **Note:** Firefox AMO installs still update through Mozilla's store; About tab shows AMO guidance instead of the GitHub checker
 - **Storage:** `csrAutoUpdateCheck` in `storage.local` (default on for Chromium)
 - **Permission:** `https://api.github.com/*` for release checks only
+- **Fix:** About tab update checker on **Brave / Edge / Chrome** — no longer mistaken for Firefox (uses `runtime.getBrowserInfo`)
 - **Build:** `CHANGELOG.md`, `PRIVACY.md`, and `LICENSE` included in release `.zip` / `.xpi`
 
 ### v3.5.0
