@@ -4991,10 +4991,13 @@ function rarityStyle(r) {
     return hex ? `color:${hex};font-weight:700` : 'color:#e5e7eb';
 }
 
-function csrStorageLocal() {
-    if (typeof browser !== 'undefined' && browser.storage?.local) return browser.storage.local;
-    if (typeof chrome !== 'undefined' && chrome.storage?.local) return chrome.storage.local;
-    return null;
+async function csrPrefsRead(keys) {
+    if (typeof csrPrefsGet === 'function') return csrPrefsGet(keys);
+    return {};
+}
+
+async function csrPrefsWrite(obj) {
+    if (typeof csrPrefsSet === 'function') return csrPrefsSet(obj);
 }
 
 function normalizeCasesAutoCfg(raw) {
@@ -5031,28 +5034,15 @@ function normalizeCasesAutoSellCfg(raw) {
 }
 
 async function loadCasesAutoOpenSellConfig() {
-    const st = csrStorageLocal();
-    if (!st) return casesAutoOpenSellCfg;
-
-    const finish = (data) => {
+    try {
+        const data = await csrPrefsRead([CASES_AUTO_OPEN_SELL_CFG_KEY]);
         const cfg = normalizeCasesAutoSellCfg(data?.[CASES_AUTO_OPEN_SELL_CFG_KEY]);
         casesAutoOpenSellCfg = cfg;
         syncCasesAutoSellBatchInput();
         updateCasesAutoOpenSummary();
         return cfg;
-    };
-
-    try {
-        return await new Promise((resolve) => {
-            st.get([CASES_AUTO_OPEN_SELL_CFG_KEY], (data) => resolve(finish(data || null)));
-        });
     } catch (_) {
-        try {
-            const data = await st.get([CASES_AUTO_OPEN_SELL_CFG_KEY]);
-            return finish(data || null);
-        } catch (_) {
-            return casesAutoOpenSellCfg;
-        }
+        return casesAutoOpenSellCfg;
     }
 }
 
@@ -5169,26 +5159,13 @@ async function tryAutoSellSessionDrop(drop) {
 }
 
 async function loadCasesAutoOpenConfig() {
-    const st = csrStorageLocal();
-    if (!st) return casesAutoOpenCfg;
-
-    const finish = (data) => {
+    try {
+        const data = await csrPrefsRead([CASES_AUTO_OPEN_CFG_KEY]);
         const cfg = normalizeCasesAutoCfg(data?.[CASES_AUTO_OPEN_CFG_KEY]);
         casesAutoOpenCfg = cfg;
         return cfg;
-    };
-
-    try {
-        return await new Promise((resolve) => {
-            st.get([CASES_AUTO_OPEN_CFG_KEY], (data) => resolve(finish(data || null)));
-        });
     } catch (_) {
-        try {
-            const data = await st.get([CASES_AUTO_OPEN_CFG_KEY]);
-            return finish(data || null);
-        } catch (_) {
-            return casesAutoOpenCfg;
-        }
+        return casesAutoOpenCfg;
     }
 }
 
@@ -5196,14 +5173,7 @@ function scheduleSaveCasesAutoOpenConfig(cfg) {
     casesAutoOpenCfg = normalizeCasesAutoCfg(cfg);
     clearTimeout(_casesCfgSaveTimer);
     _casesCfgSaveTimer = setTimeout(async () => {
-        const st = csrStorageLocal();
-        if (!st) return;
-        const payload = { [CASES_AUTO_OPEN_CFG_KEY]: casesAutoOpenCfg };
-        try {
-            st.set(payload, () => {});
-        } catch (_) {
-            try { await st.set(payload); } catch (_) { /* ignore */ }
-        }
+        await csrPrefsWrite({ [CASES_AUTO_OPEN_CFG_KEY]: casesAutoOpenCfg });
     }, 250);
 }
 
@@ -6016,16 +5986,23 @@ function setupCasesBulkBuy() {
 
     loadCasesAutoOpenSellConfig().catch(() => {});
 
-    const storageApi = typeof browser !== 'undefined' ? browser : (typeof chrome !== 'undefined' ? chrome : null);
-    storageApi?.storage?.onChanged?.addListener((changes, area) => {
-        if (area !== 'local') return;
-        if (changes[CASES_AUTO_OPEN_SELL_CFG_KEY]) {
-            casesAutoOpenSellCfg = normalizeCasesAutoSellCfg(changes[CASES_AUTO_OPEN_SELL_CFG_KEY].newValue);
-            syncCasesAutoSellBatchInput();
-            updateCasesAutoOpenSummary();
-            updateCasesOpenSellUi();
-        }
-    });
+    if (typeof csrWatchPrefsChanges === 'function') {
+        csrWatchPrefsChanges((changes) => {
+            if (Object.prototype.hasOwnProperty.call(changes, CASES_AUTO_OPEN_SELL_CFG_KEY)) {
+                casesAutoOpenSellCfg = normalizeCasesAutoSellCfg(changes[CASES_AUTO_OPEN_SELL_CFG_KEY]);
+                syncCasesAutoSellBatchInput();
+                updateCasesAutoOpenSummary();
+                updateCasesOpenSellUi();
+            }
+            if (Object.prototype.hasOwnProperty.call(changes, CASES_AUTO_OPEN_CFG_KEY)) {
+                casesAutoOpenCfg = normalizeCasesAutoCfg(changes[CASES_AUTO_OPEN_CFG_KEY]);
+                if (delayInp) delayInp.value = String(casesAutoOpenCfg.delayMs ?? 1000);
+                if (minsInp) minsInp.value = String(casesAutoOpenCfg.minutes ?? 10);
+                if (spendInp) spendInp.value = String(casesAutoOpenCfg.spendLimit ?? 150000);
+                updateCasesAutoOpenSummary();
+            }
+        });
+    }
 }
 
 setupCasesBulkBuy();

@@ -40,12 +40,45 @@ function isFirefoxBrowser() {
     return /Firefox\//i.test(ua) && !/Seamonkey/i.test(ua);
 }
 
-const IS_FIREFOX = isFirefoxBrowser();
+const IS_FIREFOX = typeof csrIsFirefoxBrowser === 'function' ? csrIsFirefoxBrowser() : isFirefoxBrowser();
 
-function storageLocal() {
-    if (typeof browser !== 'undefined' && browser.storage?.local) return browser.storage.local;
-    if (typeof chrome !== 'undefined' && chrome.storage?.local) return chrome.storage.local;
-    return null;
+function readStorage(done) {
+    const keys = [FEATURES_KEY, LOCKS_KEY, SELL_CFG_KEY, CSR_LANG_KEY, AUTO_UPDATE_KEY];
+    const finish = (data) => {
+        csrLoadLanguage().then(() => {
+            const autoUpdate = typeof data?.[AUTO_UPDATE_KEY] === 'boolean' ? data[AUTO_UPDATE_KEY] : true;
+            done(
+                normalizeFeatures(data?.[FEATURES_KEY]),
+                normalizeLocks(data?.[LOCKS_KEY]),
+                normalizeSellConfig(data?.[SELL_CFG_KEY]),
+                autoUpdate
+            );
+        });
+    };
+    if (typeof csrPrefsGet !== 'function') {
+        csrLoadLanguage().then(() => {
+            done(normalizeFeatures(null), normalizeLocks(null), normalizeSellConfig(null), true);
+        });
+        return;
+    }
+    csrPrefsGet(keys).then((data) => finish(data || null)).catch(() => finish(null));
+}
+
+function writeFeatures(features, sellCfg, done) {
+    const payload = {
+        [FEATURES_KEY]: normalizeFeatures(features),
+        [SELL_CFG_KEY]: normalizeSellConfig(sellCfg),
+    };
+    if (typeof csrPrefsSet !== 'function') {
+        if (done) done();
+        return;
+    }
+    csrPrefsSet(payload).then(() => { if (done) done(); }).catch(() => { if (done) done(); });
+}
+
+function writeAutoUpdate(enabled) {
+    if (typeof csrPrefsSet !== 'function') return;
+    csrPrefsSet({ [AUTO_UPDATE_KEY]: !!enabled }).catch(() => {});
 }
 
 function normalizeFeatures(raw) {
@@ -88,64 +121,6 @@ function normalizeLocks(raw) {
     return ids;
 }
 
-function readStorage(done) {
-    const st = storageLocal();
-    if (!st) {
-        csrLoadLanguage().then(() => {
-            done(normalizeFeatures(null), normalizeLocks(null), normalizeSellConfig(null), true);
-        });
-        return;
-    }
-    const finish = (data) => {
-        csrLoadLanguage().then(() => {
-            const autoUpdate = typeof data?.[AUTO_UPDATE_KEY] === 'boolean' ? data[AUTO_UPDATE_KEY] : true;
-            done(
-                normalizeFeatures(data?.[FEATURES_KEY]),
-                normalizeLocks(data?.[LOCKS_KEY]),
-                normalizeSellConfig(data?.[SELL_CFG_KEY]),
-                autoUpdate
-            );
-        });
-    };
-    try {
-        st.get([FEATURES_KEY, LOCKS_KEY, SELL_CFG_KEY, CSR_LANG_KEY, AUTO_UPDATE_KEY], (data) => {
-            const err = typeof chrome !== 'undefined' && chrome.runtime?.lastError;
-            if (err) finish(null);
-            else finish(data || null);
-        });
-    } catch (_) {
-        st.get([FEATURES_KEY, LOCKS_KEY, SELL_CFG_KEY, CSR_LANG_KEY, AUTO_UPDATE_KEY]).then(finish).catch(() => finish(null));
-    }
-}
-
-function writeFeatures(features, sellCfg, done) {
-    const st = storageLocal();
-    if (!st) {
-        if (done) done();
-        return;
-    }
-    const payload = {
-        [FEATURES_KEY]: normalizeFeatures(features),
-        [SELL_CFG_KEY]: normalizeSellConfig(sellCfg),
-    };
-    try {
-        st.set(payload, () => { if (done) done(); });
-    } catch (_) {
-        st.set(payload).then(() => { if (done) done(); }).catch(() => { if (done) done(); });
-    }
-}
-
-function writeAutoUpdate(enabled) {
-    const st = storageLocal();
-    if (!st) return;
-    const payload = { [AUTO_UPDATE_KEY]: !!enabled };
-    try {
-        st.set(payload, () => {});
-    } catch (_) {
-        st.set(payload).catch(() => {});
-    }
-}
-
 let featureState = { ...DEFAULTS };
 let sellState = normalizeSellConfig(null);
 let lockIds = [];
@@ -173,9 +148,18 @@ function applyPopupI18n() {
         const key = el.dataset.i18n;
         if (key) el.textContent = csrT(key);
     });
+    updateBrowserSyncDesc();
     const lang = csrGetLanguage();
     document.documentElement.lang = lang.slice(0, 2);
     document.documentElement.dataset.locale = lang;
+}
+
+function updateBrowserSyncDesc() {
+    const el = document.getElementById('browser-sync-desc');
+    if (!el) return;
+    el.textContent = csrT(IS_FIREFOX
+        ? 'popup.settings.browserSyncDescFirefox'
+        : 'popup.settings.browserSyncDescChromium');
 }
 
 function populateLanguageSelect() {
@@ -469,6 +453,87 @@ function bootAbout() {
     if (!IS_FIREFOX && autoUpdateEnabled) checkForUpdate(false);
 }
 
+async function bindSettingsAccountUi() {
+    const syncToggle = document.getElementById('browser-sync-toggle');
+    if (syncToggle && typeof csrIsBrowserSyncEnabled === 'function') {
+        syncToggle.checked = await csrIsBrowserSyncEnabled();
+        syncToggle.addEventListener('change', async () => {
+            const on = syncToggle.checked;
+            try {
+                await csrSetBrowserSyncEnabled(on);
+                toast(csrT(on ? 'popup.settings.browserSyncEnabled' : 'popup.settings.browserSyncDisabled'));
+            } catch (_) {
+                syncToggle.checked = !on;
+            }
+        });
+    }
+
+    document.getElementById('btn-export-settings')?.addEventListener('click', async () => {
+        try {
+            const blob = await csrExportSettings();
+            const json = JSON.stringify(blob, null, 2);
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+            a.download = `csr-inventory-helper-settings-${new Date().toISOString().slice(0, 10)}.json`;
+            a.click();
+            URL.revokeObjectURL(a.href);
+            toast(csrT('popup.settings.exportDone'));
+        } catch (_) { /* ignore */ }
+    });
+
+    const fileInput = document.getElementById('import-file-input');
+    document.getElementById('btn-import-settings')?.addEventListener('click', () => fileInput?.click());
+    fileInput?.addEventListener('change', async () => {
+        const file = fileInput.files?.[0];
+        fileInput.value = '';
+        if (!file) return;
+        try {
+            const text = await file.text();
+            const imported = await csrImportSettings(text);
+            if (imported[FEATURES_KEY]) featureState = normalizeFeatures(imported[FEATURES_KEY]);
+            if (imported[SELL_CFG_KEY]) sellState = normalizeSellConfig(imported[SELL_CFG_KEY]);
+            if (imported[LOCKS_KEY]) lockIds = normalizeLocks(imported[LOCKS_KEY]);
+            if (imported[AUTO_UPDATE_KEY] !== undefined) {
+                autoUpdateEnabled = !!imported[AUTO_UPDATE_KEY];
+                const toggle = document.getElementById('auto-update-toggle');
+                if (toggle) toggle.checked = autoUpdateEnabled;
+            }
+            if (imported[CSR_LANG_KEY]) await csrLoadLanguage();
+            syncCheckboxes();
+            applyPopupI18n();
+            populateLanguageSelect();
+            toast(csrT('popup.settings.importDone'));
+        } catch (_) {
+            toast(csrT('popup.settings.importError'));
+        }
+    });
+
+    if (typeof csrWatchPrefsChanges === 'function') {
+        csrWatchPrefsChanges((changes) => {
+            if (Object.prototype.hasOwnProperty.call(changes, FEATURES_KEY)) {
+                featureState = normalizeFeatures(changes[FEATURES_KEY]);
+                syncCheckboxes();
+            }
+            if (Object.prototype.hasOwnProperty.call(changes, SELL_CFG_KEY)) {
+                sellState = normalizeSellConfig(changes[SELL_CFG_KEY]);
+                syncCheckboxes();
+            }
+            if (Object.prototype.hasOwnProperty.call(changes, LOCKS_KEY)) {
+                lockIds = normalizeLocks(changes[LOCKS_KEY]);
+                updateLockCount();
+            }
+            if (Object.prototype.hasOwnProperty.call(changes, CSR_LANG_KEY)) {
+                csrLoadLanguage().then(() => {
+                    applyPopupI18n();
+                    populateLanguageSelect();
+                    updateLockCount();
+                    renderChangelog();
+                });
+            }
+        });
+    }
+}
+
 setTimeout(() => {
     readStorage((features, locks, sellCfg, autoUpdate) => {
         featureState = features;
@@ -479,5 +544,6 @@ setTimeout(() => {
         populateLanguageSelect();
         syncCheckboxes();
         bootAbout();
+        bindSettingsAccountUi();
     });
 }, 0);

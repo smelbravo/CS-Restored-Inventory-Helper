@@ -13,7 +13,7 @@
             <div class="top-hdr-title" data-i18n="popup.title">Inventory Helper</div>
             <div class="top-hdr-sub" data-i18n="popup.subtitle">Toggle features on csrestored.fun</div>
         </div>
-        <span class="ver-badge" id="side-ver">v3.6.0</span>
+        <span class="ver-badge" id="side-ver">v3.7.0</span>
     </header>
 
     <nav class="tab-bar" role="tablist">
@@ -161,6 +161,31 @@
                 <select id="lang-select" class="settings-select"></select>
                 <p class="settings-hint" data-i18n="popup.settings.languageHint">Applies to extension UI on csrestored.fun.</p>
             </div>
+
+            <div class="settings-block">
+                <div class="settings-section-label" data-i18n="popup.settings.syncSection">Sync across devices</div>
+                <label class="set-row settings-sync-row">
+                    <div class="set-txt">
+                        <div class="set-t" data-i18n="popup.settings.browserSync">Browser sync</div>
+                        <div class="set-d" id="browser-sync-desc"></div>
+                    </div>
+                    <input type="checkbox" id="browser-sync-toggle">
+                </label>
+            </div>
+
+            <div class="settings-block">
+                <div class="settings-section-label" data-i18n="popup.settings.backupSection">Backup</div>
+                <div class="settings-btn-row">
+                    <button type="button" id="btn-export-settings" class="btn btn-sm">
+                        <span class="btn-tx" data-i18n="popup.settings.export">Export settings</span>
+                    </button>
+                    <button type="button" id="btn-import-settings" class="btn btn-sm btn-ghost">
+                        <span class="btn-tx" data-i18n="popup.settings.import">Import settings</span>
+                    </button>
+                    <input type="file" id="import-file-input" accept=".json,application/json" hidden>
+                </div>
+                <p class="settings-hint" data-i18n="popup.settings.backupHint">Download or restore a JSON backup.</p>
+            </div>
         </section>
 
         <section id="panel-about" class="popup-panel" data-tab="about">
@@ -169,7 +194,7 @@
                     <img src="icons/icon-128.png" alt="" width="52" height="52">
                 </div>
                 <div class="about-name" data-i18n="popup.aboutName">CS:R Inventory Helper</div>
-                <div class="about-ver" id="about-ver">v3.6.0</div>
+                <div class="about-ver" id="about-ver">v3.7.0</div>
                 <p class="about-p" data-i18n="popup.aboutDesc">Float, seed, quick sell, case tools, and skin lock for csrestored.fun — all in your browser session.</p>
                 <div class="about-links">
                     <a class="btn btn-sm" id="gh-link" href="https://github.com/smelbravo/CS-Restored-Inventory-Helper" target="_blank" rel="noopener">
@@ -239,6 +264,7 @@
 
     <script src="i18n-packs.js"></script>
     <script src="i18n-packs-generated.js"></script>
+    <script src="csr-storage.js"></script>
     <script src="i18n.js"></script>
     <script src="popup.js"></script>
 </body>

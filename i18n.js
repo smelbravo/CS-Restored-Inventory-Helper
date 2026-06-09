@@ -60,6 +60,19 @@
         'popup.update.firefoxHint': 'Firefox updates through addons.mozilla.org automatically.',
         'popup.settings.language': 'Language',
         'popup.settings.languageHint': 'Applies to extension UI on csrestored.fun. Reload the tab if some labels do not update.',
+        'popup.settings.syncSection': 'Sync across devices',
+        'popup.settings.browserSync': 'Browser sync',
+        'popup.settings.browserSyncDescFirefox': 'When enabled, settings sync through Firefox Sync (sign in to your Mozilla account on each device).',
+        'popup.settings.browserSyncDescChromium': 'When enabled, settings sync through Chrome sync (sign in to your Google account on each browser).',
+        'popup.settings.browserSyncEnabled': 'Browser sync enabled',
+        'popup.settings.browserSyncDisabled': 'Browser sync disabled',
+        'popup.settings.backupSection': 'Backup',
+        'popup.settings.export': 'Export settings',
+        'popup.settings.import': 'Import settings',
+        'popup.settings.backupHint': 'Download or restore a JSON backup — useful when switching browsers or sharing settings manually.',
+        'popup.settings.exportDone': 'Settings exported.',
+        'popup.settings.importDone': 'Settings imported — reload csrestored.fun tabs to apply.',
+        'popup.settings.importError': 'Could not import — invalid or empty file.',
         'popup.reset': 'Reset defaults',
         'popup.lockCount.none': 'No locked skins',
         'popup.lockCount.one': '{n} skin locked',
@@ -299,12 +312,6 @@
     let currentLang = DEFAULT_LANG;
     const langListeners = new Set();
 
-    function storageApi() {
-        if (typeof browser !== 'undefined' && browser.storage?.local) return browser.storage.local;
-        if (typeof chrome !== 'undefined' && chrome.storage?.local) return chrome.storage.local;
-        return null;
-    }
-
     function normalizeLang(raw) {
         if (typeof raw !== 'string' || !raw.trim()) return DEFAULT_LANG;
         const s = raw.trim();
@@ -353,13 +360,12 @@
     }
 
     async function csrLoadLanguage() {
-        const st = storageApi();
-        if (!st) {
+        if (typeof csrPrefsGet !== 'function') {
             currentLang = detectBrowserLang();
             return currentLang;
         }
         try {
-            const data = await st.get([LANG_KEY]);
+            const data = await csrPrefsGet([LANG_KEY]);
             const saved = data?.[LANG_KEY];
             currentLang = saved ? normalizeLang(saved) : detectBrowserLang();
         } catch (_) {
@@ -370,9 +376,8 @@
 
     async function csrSaveLanguage(lang) {
         currentLang = normalizeLang(lang);
-        const st = storageApi();
-        if (st) {
-            try { await st.set({ [LANG_KEY]: currentLang }); } catch (_) { /* ignore */ }
+        if (typeof csrPrefsSet === 'function') {
+            try { await csrPrefsSet({ [LANG_KEY]: currentLang }); } catch (_) { /* ignore */ }
         }
         notifyLangChange();
         return currentLang;
@@ -383,11 +388,10 @@
     }
 
     function csrWatchLanguageStorage() {
-        const api = typeof browser !== 'undefined' ? browser : (typeof chrome !== 'undefined' ? chrome : null);
-        if (!api?.storage?.onChanged) return;
-        api.storage.onChanged.addListener((changes, area) => {
-            if (area !== 'local' || !changes[LANG_KEY]) return;
-            currentLang = normalizeLang(changes[LANG_KEY].newValue);
+        if (typeof csrWatchPrefsChanges !== 'function') return;
+        csrWatchPrefsChanges((changes) => {
+            if (!Object.prototype.hasOwnProperty.call(changes, LANG_KEY)) return;
+            currentLang = normalizeLang(changes[LANG_KEY]);
             notifyLangChange();
         });
     }

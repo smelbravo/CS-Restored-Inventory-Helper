@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.7.0
+
+- **Browser sync** — optional `storage.sync` for settings across devices (Firefox Sync / Chrome sync) in Settings tab
+- **Export / import** — JSON backup of all extension preferences (features, locks, case config, language)
+- New module `csr-storage.js` — unified prefs API for local and sync storage
+
 ## 3.6.0
 
 - New **About** tab — version, links (GitHub, AMO, Privacy, License), bundled **What's new** from this file

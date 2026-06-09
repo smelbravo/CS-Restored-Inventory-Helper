@@ -402,6 +402,26 @@ body {
     line-height: 1.45;
 }
 
+.settings-section-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+.settings-sync-row {
+    margin: 0 -8px;
+    padding: 10px 8px;
+    border-radius: var(--radius-sm);
+}
+
+.settings-btn-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
 /* ── about ── */
 .about {
     text-align: center;

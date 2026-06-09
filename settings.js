@@ -1,5 +1,5 @@
 /**
- * Shared feature toggles & skin locks (browser.storage.local).
+ * Shared feature toggles & skin locks (storage.local or storage.sync).
  * Loaded before content.js and by popup.html.
  */
 (function (global) {
@@ -32,12 +32,6 @@
     let lockedWeaponIds = new Set();
     const changeListeners = new Set();
 
-    function storageApi() {
-        if (typeof browser !== 'undefined' && browser.storage?.local) return browser.storage.local;
-        if (typeof chrome !== 'undefined' && chrome.storage?.local) return chrome.storage.local;
-        return null;
-    }
-
     function notifyChange() {
         for (const fn of changeListeners) {
             try { fn(featureSettings, lockedWeaponIds); } catch (_) { /* ignore */ }
@@ -64,13 +58,12 @@
     }
 
     async function csrLoadSettings() {
-        const st = storageApi();
-        if (!st) {
+        if (typeof csrPrefsGet !== 'function') {
             featureSettings = { ...CSR_SETTINGS_DEFAULTS };
             lockedWeaponIds = new Set();
             return { featureSettings, lockedWeaponIds };
         }
-        const data = await st.get([FEATURES_KEY, LOCKS_KEY]);
+        const data = await csrPrefsGet([FEATURES_KEY, LOCKS_KEY]);
         featureSettings = normalizeFeatures(data[FEATURES_KEY]);
         lockedWeaponIds = normalizeLocks(data[LOCKS_KEY]);
         return { featureSettings, lockedWeaponIds };
@@ -78,16 +71,18 @@
 
     async function csrSaveFeatureSettings(partial) {
         featureSettings = normalizeFeatures({ ...featureSettings, ...partial });
-        const st = storageApi();
-        if (st) await st.set({ [FEATURES_KEY]: featureSettings });
+        if (typeof csrPrefsSet === 'function') {
+            await csrPrefsSet({ [FEATURES_KEY]: featureSettings });
+        }
         notifyChange();
         return featureSettings;
     }
 
     async function csrSaveLockedIds(ids) {
         lockedWeaponIds = normalizeLocks(ids);
-        const st = storageApi();
-        if (st) await st.set({ [LOCKS_KEY]: [...lockedWeaponIds] });
+        if (typeof csrPrefsSet === 'function') {
+            await csrPrefsSet({ [LOCKS_KEY]: [...lockedWeaponIds] });
+        }
         notifyChange();
         return lockedWeaponIds;
     }
@@ -115,17 +110,15 @@
     }
 
     function csrWatchStorageChanges() {
-        const api = typeof browser !== 'undefined' ? browser : (typeof chrome !== 'undefined' ? chrome : null);
-        if (!api?.storage?.onChanged) return;
-        api.storage.onChanged.addListener((changes, area) => {
-            if (area !== 'local') return;
+        if (typeof csrWatchPrefsChanges !== 'function') return;
+        csrWatchPrefsChanges((changes) => {
             let dirty = false;
-            if (changes[FEATURES_KEY]) {
-                featureSettings = normalizeFeatures(changes[FEATURES_KEY].newValue);
+            if (Object.prototype.hasOwnProperty.call(changes, FEATURES_KEY)) {
+                featureSettings = normalizeFeatures(changes[FEATURES_KEY]);
                 dirty = true;
             }
-            if (changes[LOCKS_KEY]) {
-                lockedWeaponIds = normalizeLocks(changes[LOCKS_KEY].newValue);
+            if (Object.prototype.hasOwnProperty.call(changes, LOCKS_KEY)) {
+                lockedWeaponIds = normalizeLocks(changes[LOCKS_KEY]);
                 dirty = true;
             }
             if (dirty) notifyChange();

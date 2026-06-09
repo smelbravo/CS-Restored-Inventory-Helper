@@ -10,6 +10,7 @@ RELEASES = ROOT / "releases"
 
 FILES = [
     "manifest.json",
+    "csr-storage.js",
     "content.js",
     "settings.js",
     "i18n-packs.js",
