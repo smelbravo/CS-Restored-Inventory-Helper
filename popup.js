@@ -9,6 +9,8 @@ const AUTO_UPDATE_KEY = 'csrAutoUpdateCheck';
 
 const REPO = 'smelbravo/CS-Restored-Inventory-Helper';
 const GITHUB_RELEASES = `https://github.com/${REPO}/releases/latest`;
+const LIVE_USERS_COUNTER = 'https://api.counterapi.dev/v1/csr-inv-helper/online';
+const LIVE_USERS_COUNTED_KEY = 'csr:liveUsersCounted';
 
 const DEFAULTS = {
     floatOverlays: true,
@@ -148,6 +150,15 @@ function applyPopupI18n() {
         const key = el.dataset.i18n;
         if (key) el.textContent = csrT(key);
     });
+    document.querySelectorAll('[data-i18n-title]').forEach(el => {
+        const key = el.dataset.i18nTitle;
+        if (key) el.title = csrT(key);
+    });
+    const luNum = document.getElementById('lu-num');
+    if (luNum) {
+        const n = Number(String(luNum.textContent).replace(/[^\d]/g, ''));
+        if (Number.isFinite(n) && luNum.textContent !== '—') updateLiveUsersLabel(n);
+    }
     updateBrowserSyncDesc();
     const lang = csrGetLanguage();
     document.documentElement.lang = lang.slice(0, 2);
@@ -450,7 +461,46 @@ function bootAbout() {
     showVersion();
     renderChangelog();
     bindUpdateUi();
+    loadLiveUsers();
     if (!IS_FIREFOX && autoUpdateEnabled) checkForUpdate(false);
+}
+
+/** Community counter — one increment per install per hour; fails silent. */
+function updateLiveUsersLabel(count) {
+    const lbl = document.getElementById('lu-lbl');
+    if (!lbl) return;
+    const n = Number(count);
+    const key = Number.isFinite(n) && n === 1 ? 'popup.liveUsers.user' : 'popup.liveUsers.users';
+    lbl.textContent = csrT(key);
+}
+
+async function loadLiveUsers() {
+    const numEl = document.getElementById('lu-num');
+    if (!numEl) return;
+    numEl.classList.add('loading');
+    try {
+        const last = Number(localStorage.getItem(LIVE_USERS_COUNTED_KEY) || 0);
+        const fresh = Date.now() - last > 3600e3;
+        const url = fresh ? `${LIVE_USERS_COUNTER}/up` : LIVE_USERS_COUNTER;
+        const r = await fetch(url);
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const data = await r.json();
+        if (fresh) localStorage.setItem(LIVE_USERS_COUNTED_KEY, String(Date.now()));
+        const n = Number(data.count || 0);
+        numEl.textContent = n.toLocaleString();
+        updateLiveUsersLabel(n);
+        const aside = document.querySelector('.top-hdr-aside');
+        if (aside) aside.title = csrT('popup.liveUsers.title');
+    } catch (_) {
+        const dot = document.getElementById('live-users-dot');
+        const row = document.getElementById('live-users');
+        if (dot) dot.hidden = true;
+        if (row) row.hidden = true;
+        const badge = document.getElementById('side-ver');
+        if (badge) badge.classList.add('compact');
+    } finally {
+        numEl.classList.remove('loading');
+    }
 }
 
 async function bindSettingsAccountUi() {

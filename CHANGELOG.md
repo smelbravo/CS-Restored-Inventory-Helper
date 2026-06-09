@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.7.1
+
+- **Live user counter** in popup header (next to version) — community total via CounterAPI; one anonymous ping per install per hour
+
 ## 3.7.0
 
 - **Browser sync** — optional `storage.sync` for settings across devices (Firefox Sync / Chrome sync) in Settings tab

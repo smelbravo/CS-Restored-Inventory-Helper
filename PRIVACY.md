@@ -34,6 +34,7 @@ The extension does **not**:
 | `https://api.csrestored.fun/*` | Read inventory/marketplace/trade API responses to match float/seed to cards |
 | `https://cdn.csrestored.fun/*` | Load skin images in the sell confirmation modal |
 | `https://api.github.com/*` | Optional update check on Chromium browsers (About tab) |
+| `https://api.counterapi.dev/*` | Optional anonymous community user counter in the popup header (one request per hour when you open the popup) |
 
 ## Browser sync (optional)
 
@@ -57,7 +58,11 @@ On Firefox, the extension declares `data_collection_permissions: required ["none
 
 ## Third-party services
 
-The extension interacts with **csrestored.fun** and its API when you are logged in on that site. Your use of CS:Restored is subject to that site's own terms and privacy practices. This extension is not affiliated with Valve Corporation or the CS:Restored team.
+The extension interacts with **csrestored.fun** and its API when you are logged in on that site. Your use of CS:Restored is subject to that site's own terms and privacy practices.
+
+When you open the extension popup, it may contact **CounterAPI** (`api.counterapi.dev`) to display an approximate count of active users and to register one anonymous visit per install per hour. No account or personal data is sent.
+
+This extension is not affiliated with Valve Corporation or the CS:Restored team.
 
 ## Open source
 
