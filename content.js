@@ -20,8 +20,13 @@ const RARITY = {
     7: { name:'Contraband',       hex:'#facc15' },
 };
 
+function rarityDisplayName(k) {
+    return typeof csrT === 'function' ? csrT(`rarity.${k}`) : (RARITY[k]?.name || '');
+}
+
 function rarityEntries() {
-    return Object.entries(RARITY).sort((a, b) => parseInt(a[0], 10) - parseInt(b[0], 10));
+    return Object.entries(RARITY).sort((a, b) => parseInt(a[0], 10) - parseInt(b[0], 10))
+        .map(([k, v]) => [k, { ...v, name: rarityDisplayName(k) }]);
 }
 
 function getCondition(f) {
@@ -535,9 +540,10 @@ S.textContent = `
 }
 #csrx-cases-win {
     position: fixed;
-    bottom: 84px;
+    bottom: 24px;
     right: 24px;
     width: 320px;
+    max-height: calc(100vh - 48px);
     background: #0a0a0a;
     border: 1px solid #2a2a2a;
     border-radius: 14px;
@@ -557,6 +563,7 @@ S.textContent = `
     border-bottom: 1px solid #1e1e1e;
     cursor: move;
     user-select: none;
+    flex-shrink: 0;
 }
 #csrx-cases-winx {
     margin-left: auto;
@@ -575,6 +582,9 @@ S.textContent = `
     display: flex;
     flex-direction: column;
     gap: 10px;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
 }
 #csrx-cases-tabs {
     display: flex;
@@ -759,6 +769,65 @@ S.textContent = `
     font-size: 0.8125rem;
     cursor: pointer;
     display: none;
+}
+#csrx-cases-open-sell-wrap {
+    display: none;
+    flex-direction: column;
+    gap: 8px;
+    padding-top: 4px;
+    border-top: 1px solid #1f1f1f;
+}
+#csrx-cases-open-sell-manual {
+    display: none;
+    flex-direction: column;
+    gap: 8px;
+}
+#csrx-cases-open-sell-label {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #71717a;
+}
+#csrx-cases-open-sell-hint {
+    font-size: 0.6875rem;
+    color: #737373;
+    line-height: 1.4;
+}
+#csrx-cases-open-sell-batch {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 0.75rem;
+    color: #b1a7a6;
+}
+#csrx-cases-open-sell-spd {
+    width: 56px;
+    padding: 6px 8px;
+    border-radius: 8px;
+    border: 1px solid #2a2a2a;
+    background: #111;
+    color: #fff;
+    font-size: 0.8125rem;
+    text-align: center;
+}
+.csrx-cases-sell-btn {
+    width: 100%;
+    padding: 9px 12px;
+    border-radius: 10px;
+    border: 1px solid #2a2a2a;
+    background: #141414;
+    color: #e5e7eb;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+.csrx-cases-sell-btn:hover:not(:disabled) { filter: brightness(1.08); }
+.csrx-cases-sell-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+#csrx-cases-open-sell-nongold {
+    border-color: #3f3f46;
+    color: #fca5a5;
 }
 #csrx-fab {
     position: fixed;
@@ -1811,8 +1880,10 @@ function maybeWarnLargeInventory() {
     if (count < LARGE_INV_WARN) return;
     if (!isInventoryPage() && !isMarketplacePage() && !isItemPickerModal()) return;
     _largeInvWarned = true;
-    const label = isMarketplacePage() ? 'marketplace' : 'inventory';
-    toast(`Large ${label} (${count}+ items): float/seed load in batches as you scroll.`, 'info');
+    toast(csrT('toast.largeInventory', {
+        label: csrT(isMarketplacePage() ? 'toast.largeInventory.marketplace' : 'toast.largeInventory.inventory'),
+        count,
+    }), 'info');
 }
 
 function scheduleOverlayBootstrap() {
@@ -2948,8 +3019,8 @@ function injectCardOverlay(cardEl, item) {
         btn.type = 'button';
         btn.className = 'csrx-lock-btn' + (locked ? ' csrx-locked' : '');
         btn.title = locked
-            ? 'Unlock — blocked from extension Quick Sell'
-            : 'Lock — blocks extension Quick Sell (panel + confirm modal)';
+            ? csrT('lock.unlock')
+            : csrT('lock.lock');
         btn.innerHTML = locked
             ? '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>'
             : '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 019.9-1"/></svg>';
@@ -3539,8 +3610,8 @@ function applyBrowseFilters() {
     const countEl = bar.querySelector('#csrx-browse-count');
     if (countEl) {
         countEl.textContent = visible.length === cards.length
-            ? `${cards.length} items`
-            : `Showing ${visible.length} of ${cards.length} items`;
+            ? csrT('browse.itemsCount', { n: cards.length })
+            : csrT('browse.showing', { visible: visible.length, total: cards.length });
     }
 }
 
@@ -3574,8 +3645,8 @@ function buildBrowseBar() {
     if (tradeCompact) {
         wrap.innerHTML = `
 <div class="csrx-browse-row">
-    <input id="csrx-browse-search" type="search" placeholder="Search weapon or skin…" autocomplete="off" spellcheck="false">
-    <button type="button" id="csrx-browse-clear">Clear</button>
+    <input id="csrx-browse-search" type="search" placeholder="${csrT('browse.searchPlaceholder')}" autocomplete="off" spellcheck="false">
+    <button type="button" id="csrx-browse-clear" data-i18n="browse.clear">${csrT('browse.clear')}</button>
 </div>
 <div id="csrx-browse-count"></div>`;
         wrap.querySelector('#csrx-browse-search').addEventListener('input', scheduleBrowseFilters);
@@ -3583,41 +3654,41 @@ function buildBrowseBar() {
         return wrap;
     }
 
-    const rarityOpts = ['<option value="">All rarities</option>']
+    const rarityOpts = [`<option value="">${csrT('browse.allRarities')}</option>`]
         .concat(rarityEntries().map(([k, v]) =>
             `<option value="${k}">${v.name}</option>`
         )).join('');
 
-    const wearOpts = ['<option value="">All wear</option>',
-        '<option value="FN">Factory New</option>',
-        '<option value="MW">Minimal Wear</option>',
-        '<option value="FT">Field-Tested</option>',
-        '<option value="WW">Well-Worn</option>',
-        '<option value="BS">Battle-Scarred</option>',
+    const wearOpts = [`<option value="">${csrT('browse.allWear')}</option>`,
+        `<option value="FN">${csrT('wear.FN')}</option>`,
+        `<option value="MW">${csrT('wear.MW')}</option>`,
+        `<option value="FT">${csrT('wear.FT')}</option>`,
+        `<option value="WW">${csrT('wear.WW')}</option>`,
+        `<option value="BS">${csrT('wear.BS')}</option>`,
     ].join('');
 
-    const floatOpts = ['<option value="">Float order</option>',
-        '<option value="asc">Float: Low → High</option>',
-        '<option value="desc">Float: High → Low</option>',
+    const floatOpts = [`<option value="">${csrT('browse.floatOrder')}</option>`,
+        `<option value="asc">${csrT('browse.floatAsc')}</option>`,
+        `<option value="desc">${csrT('browse.floatDesc')}</option>`,
     ].join('');
 
     const priceOpts = mp ? [
-        '<select id="csrx-browse-price" title="Sort by price">',
-        '<option value="">Price order</option>',
-        '<option value="asc">Cheapest first</option>',
-        '<option value="desc">Most expensive first</option>',
+        `<select id="csrx-browse-price" title="${csrT('browse.sortPrice')}">`,
+        `<option value="">${csrT('browse.priceOrder')}</option>`,
+        `<option value="asc">${csrT('browse.cheapest')}</option>`,
+        `<option value="desc">${csrT('browse.expensive')}</option>`,
         '</select>',
     ].join('') : '';
 
     wrap.innerHTML = `
 <div class="csrx-browse-row">
-    <input id="csrx-browse-search" type="search" placeholder="Search weapon or skin…" autocomplete="off" spellcheck="false">
+    <input id="csrx-browse-search" type="search" placeholder="${csrT('browse.searchPlaceholder')}" autocomplete="off" spellcheck="false">
     <div class="csrx-browse-filters">
-        <select id="csrx-browse-rarity" title="Filter by rarity">${rarityOpts}</select>
-        <select id="csrx-browse-wear" title="Filter by wear">${wearOpts}</select>
-        <select id="csrx-browse-float" title="Sort by float">${floatOpts}</select>
+        <select id="csrx-browse-rarity" title="${csrT('browse.filterRarity')}">${rarityOpts}</select>
+        <select id="csrx-browse-wear" title="${csrT('browse.filterWear')}">${wearOpts}</select>
+        <select id="csrx-browse-float" title="${csrT('browse.sortFloat')}">${floatOpts}</select>
         ${priceOpts}
-        <button type="button" id="csrx-browse-clear">Clear</button>
+        <button type="button" id="csrx-browse-clear" data-i18n="browse.clear">${csrT('browse.clear')}</button>
     </div>
 </div>
 <div id="csrx-browse-count"></div>`;
@@ -3963,7 +4034,7 @@ function extUrl(p) {
 
 const fab = document.createElement('div');
 fab.id = 'csrx-fab';
-fab.title = 'CS:R Quick Sell & Market — pick skins, list or instant sell';
+fab.title = csrT('qs.fabTitle');
 fab.innerHTML = `<img alt="CS:R Inventory Helper" src="${extUrl('icons/icon-128.png')}">`;
 document.body.appendChild(fab);
 fab.classList.add('csrx-feature-off');
@@ -3977,8 +4048,8 @@ win.innerHTML = `
         <img alt="CS:R Inventory Helper" src="${extUrl('icons/icon-128.png')}">
     </div>
     <div class="csrx-hdr-text">
-        <div class="csrx-hdr-title">Quick Sell &amp; Market</div>
-        <div class="csrx-hdr-sub">Pick skins · list on market or instant sell</div>
+        <div class="csrx-hdr-title" data-i18n="qs.title">${csrT('qs.title')}</div>
+        <div class="csrx-hdr-sub" data-i18n="qs.subtitle">${csrT('qs.subtitle')}</div>
     </div>
     <div id="csrx-winx">
         <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2.5" stroke-linecap="round">
@@ -3988,11 +4059,11 @@ win.innerHTML = `
 </div>
 <div id="csrx-statusbar">
     <div class="csrx-dot" id="csrx-dot"></div>
-    <span id="csrx-stat">Ready</span>
+    <span id="csrx-stat" data-i18n="qs.status.ready">${csrT('qs.status.ready')}</span>
 </div>
 <div id="csrx-body">
     <div>
-        <div class="csrx-section">Picker</div>
+        <div class="csrx-section" data-i18n="qs.section.picker">${csrT('qs.section.picker')}</div>
         <div style="display:flex;flex-direction:column;gap:7px;">
             <button id="csrx-modbtn" class="csrx-btn csrx-btn-primary">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
@@ -4006,7 +4077,7 @@ win.innerHTML = `
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
                     <polyline points="20 6 9 17 4 12"/>
                 </svg>
-                <span id="csrx-picked-count">0 items selected</span>
+                <span id="csrx-picked-count">${csrT('qs.itemsSelected', { n: 0 })}</span>
             </div>
             <button id="csrx-selbtn" class="csrx-btn csrx-btn-success" style="display:none;" disabled>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
@@ -4017,7 +4088,7 @@ win.innerHTML = `
         </div>
     </div>
     <div>
-        <div class="csrx-section">Global</div>
+        <div class="csrx-section" data-i18n="qs.section.global">${csrT('qs.section.global')}</div>
         <div style="display:flex;flex-direction:column;gap:7px;">
             <select id="csrx-rar" class="csrx-sel">
                 ${rarityEntries().map(([k, v]) => `<option value="${k}">${v.name}</option>`).join('')}
@@ -4033,10 +4104,10 @@ win.innerHTML = `
         </div>
     </div>
     <div>
-        <div class="csrx-section">Speed</div>
+        <div class="csrx-section" data-i18n="qs.section.speed">${csrT('qs.section.speed')}</div>
         <div class="csrx-slider-wrap">
             <div class="csrx-slider-row">
-                <span class="csrx-slider-lbl">Batch size</span>
+                <span class="csrx-slider-lbl" data-i18n="qs.batchSize">${csrT('qs.batchSize')}</span>
                 <span class="csrx-slider-val" id="csrx-spdval">5</span>
             </div>
             <input type="range" id="csrx-spd" class="csrx-range" min="1" max="20" value="5">
@@ -4053,8 +4124,8 @@ overlay.innerHTML = `
     <div id="csrx-modal-top"></div>
     <div id="csrx-mhdr">
         <div class="csrx-mhdr-left">
-            <div class="csrx-mhdr-title">Confirm <span>Sale</span></div>
-            <div class="csrx-mhdr-sub" id="csrx-mhdr-sub">Quick sell or list on marketplace</div>
+            <div class="csrx-mhdr-title">${csrT('qs.confirm.title')}</div>
+            <div class="csrx-mhdr-sub" id="csrx-mhdr-sub" data-i18n="qs.confirm.subtitle">${csrT('qs.confirm.subtitle')}</div>
         </div>
         <div id="csrx-mxbtn">
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2.5" stroke-linecap="round">
@@ -4068,10 +4139,10 @@ overlay.innerHTML = `
             <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
             <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
         </svg>
-        Some items could not be verified and will be skipped.
+        <span data-i18n="qs.confirm.warn">${csrT('qs.confirm.warn')}</span>
     </div>
     <div id="csrx-validator">
-        <div class="csrx-val-title">Validation Report</div>
+        <div class="csrx-val-title" data-i18n="qs.validation.title">${csrT('qs.validation.title')}</div>
         <div class="csrx-val-grid" id="csrx-val-grid"></div>
     </div>
     <div id="csrx-mgrid"></div>
@@ -4080,7 +4151,7 @@ overlay.innerHTML = `
             <div class="csrx-summ-count" id="csrx-summ-count">0 items</div>
             <div class="csrx-summ-sub"   id="csrx-summ-sub">ready to sell</div>
         </div>
-        <button id="csrx-mcancel" class="m-btn">Cancel</button>
+        <button id="csrx-mcancel" class="m-btn" data-i18n="qs.cancelSale">${csrT('qs.cancelSale')}</button>
         <div id="csrx-mfoot-actions">
             <button id="csrx-mlist" class="m-btn" type="button">
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
@@ -4304,16 +4375,16 @@ document.getElementById('csrx-spd').addEventListener('input',e=>{
 function enterSel() {
     selMode=true;
     serverInv=inventoryCache;
-    setStatus('Click to pick','active');
-    btnMode.innerHTML=`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Cancel`;
+    setStatus(csrT('qs.status.picking'),'active');
+    btnMode.innerHTML=`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> ${csrT('qs.cancel')}`;
     btnMode.className='csrx-btn csrx-btn-cancel';
     btnSell.style.display='block';
     document.getElementById('csrx-picked-info').classList.add('show');
     updateSelBtn();
 }
 function exitSel() {
-    selMode=false; setStatus('Ready','ready');
-    btnMode.innerHTML=`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg> Start Picking`;
+    selMode=false; setStatus(csrT('qs.status.ready'),'ready');
+    btnMode.innerHTML=`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg> ${csrT('qs.startPicking')}`;
     btnMode.className='csrx-btn csrx-btn-primary';
     btnSell.style.display='none';
     document.getElementById('csrx-picked-info').classList.remove('show');
@@ -4328,8 +4399,10 @@ btnMode.addEventListener('click',()=>selMode?exitSel():enterSel());
 
 function updateSelBtn() {
     const n=picked.size;
-    document.getElementById('csrx-picked-count').textContent=`${n} item${n!==1?'s':''} selected`;
-    btnSell.innerHTML=`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Review &amp; Sell (${n})`;
+    document.getElementById('csrx-picked-count').textContent = n === 1
+        ? csrT('qs.itemsSelectedOne')
+        : csrT('qs.itemsSelected', { n });
+    btnSell.innerHTML=`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> ${csrT('qs.reviewSellN', { n })}`;
     btnSell.disabled=n===0;
 }
 
@@ -4346,16 +4419,16 @@ document.addEventListener('click',e=>{
         const usedIds=new Set([...picked.values()].filter(v=>v!=null));
         const result=matchCard(card,serverInv,usedIds);
         if(result&&csrIsItemSellBlocked(result.item)){
-            toast('This skin is locked — unlock it on the card first','warn');
+            toast(csrT('toast.skinLocked'),'warn');
             return;
         }
         if(result){
             card._csrxWid=result.item.weapon_id; card._csrxConf=result.confidence;
             picked.set(card,result.item.weapon_id);
-            if(result.confidence==='low')toast('Ambiguous match — verify in modal','warn');
+            if(result.confidence==='low')toast(csrT('toast.ambiguousMatch'),'warn');
         } else {
             card._csrxWid=null; card._csrxConf='none';
-            picked.set(card,null); toast('Item not found in inventory','error');
+            picked.set(card,null); toast(csrT('toast.itemNotFound'),'error');
         }
         card.classList.add('csrx-picked');
         const chk=document.createElement('div'); chk.className='csrx-check-badge';
@@ -4419,11 +4492,11 @@ function buildMC(entry) {
     const body=document.createElement('div'); body.className='mc-body';
     let rm;
     if(!item){
-        body.innerHTML=`<div class="mc-weapon">Unknown</div><div class="mc-skin" style="color:#ef4444;">Not Found</div><div style="margin-top:4px;font-size:9px;font-weight:500;padding:2px 6px;border-radius:4px;background:rgba(239,68,68,0.08);color:#ef4444;border:1px solid rgba(239,68,68,0.15);display:inline-block;">${entry.msg||'Error'}</div>`;
+        body.innerHTML=`<div class="mc-weapon">${csrT('qs.unknown')}</div><div class="mc-skin" style="color:#ef4444;">${csrT('qs.notFound')}</div><div style="margin-top:4px;font-size:9px;font-weight:500;padding:2px 6px;border-radius:4px;background:rgba(239,68,68,0.08);color:#ef4444;border:1px solid rgba(239,68,68,0.15);display:inline-block;">${entry.msg||csrT('val.err')}</div>`;
         rm=document.createElement('button');
         rm.type='button';
         rm.className='mc-rm mc-rm-float';
-        rm.title='Remove';
+        rm.title=csrT('qs.remove');
         rm.innerHTML=`<svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
         wrap.appendChild(rm);
     } else {
@@ -4439,7 +4512,7 @@ function buildMC(entry) {
         }
         if(item.seed!=null){
             const pr=document.createElement('div');pr.className='mc-pattern-row';
-            const pl=document.createElement('span');pl.className='mc-pattern-lbl';pl.textContent='Pattern';
+            const pl=document.createElement('span');pl.className='mc-pattern-lbl';pl.textContent=csrT('qs.pattern');
             const pn=document.createElement('span');pn.className='mc-pattern-num';pn.textContent=`#${item.seed}`;
             pr.appendChild(pl);pr.appendChild(pn);body.appendChild(pr);
         }
@@ -4451,16 +4524,16 @@ function buildMC(entry) {
         const qsPrice=getQuickSellPrice(item);
         const qsEl=document.createElement('div');
         qsEl.className='mc-qs-price'+(qsPrice==null?' unknown':'');
-        qsEl.textContent=qsPrice!=null?`Quick sell: ${formatCoins(qsPrice)}`:'Quick sell: —';
+        qsEl.textContent=qsPrice!=null?csrT('qs.quickSellLabel', { price: formatCoins(qsPrice) }):csrT('qs.quickSellEmpty');
         priceBlock.appendChild(qsEl);
 
         rm=document.createElement('button');
         rm.type='button';
         rm.className='mc-rm';
-        rm.title='Remove from sale list';
+        rm.title=csrT('qs.removeFromList');
         rm.innerHTML=`<svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
 
-        const mLbl=document.createElement('div');mLbl.className='mc-market-lbl';mLbl.textContent='Market price (coins)';
+        const mLbl=document.createElement('div');mLbl.className='mc-market-lbl';mLbl.textContent=csrT('qs.marketPrice');
         priceBlock.appendChild(mLbl);
         const mRow=document.createElement('div');mRow.className='mc-market-row';
         const mInp=document.createElement('input');
@@ -4468,10 +4541,10 @@ function buildMC(entry) {
         mInp.inputMode='numeric';
         mInp.pattern='[0-9,]*';
         mInp.className='mc-market-price';
-        mInp.placeholder='Enter price…';
+        mInp.placeholder=csrT('qs.enterPrice');
         mInp.value='';
         mInp.setAttribute('maxlength', '9');
-        mInp.title=`Max ${MAX_MARKET_PRICE_COINS.toLocaleString('en-US')} coins`;
+        mInp.title=csrT('qs.marketPriceMaxTitle', { max: MAX_MARKET_PRICE_COINS.toLocaleString('en-US') });
         mInp.addEventListener('input', () => clampMarketPriceInput(mInp));
         mInp.addEventListener('blur', () => clampMarketPriceInput(mInp));
         mRow.appendChild(mInp);
@@ -4506,7 +4579,9 @@ function refreshFooter(){
     const all=[...document.querySelectorAll('#csrx-mgrid .mc')];
     const good=all.filter(c=>c.classList.contains('mc-confirmed')).length;
     const bad=all.filter(c=>c.classList.contains('mc-bad')).length;
-    document.getElementById('csrx-summ-count').textContent=`${good} item${good!==1?'s':''}`;
+    document.getElementById('csrx-summ-count').textContent = good === 1
+        ? csrT('qs.itemsSelectedOne')
+        : csrT('qs.itemsCount', { n: good });
 
     let qsTotal = 0;
     let qsKnown = 0;
@@ -4516,21 +4591,21 @@ function refreshFooter(){
     });
     const sub = document.getElementById('csrx-summ-sub');
     if (good > 0 && qsKnown > 0) {
-        sub.textContent = `Quick sell total: ${formatCoins(qsTotal)}`;
+        sub.textContent = csrT('qs.footerQuickTotal', { total: formatCoins(qsTotal) });
     } else if (good > 0) {
-        sub.textContent = 'Set market price · quick sell shown per item';
+        sub.textContent = csrT('qs.footerMarketHint');
     } else {
-        sub.textContent = 'nothing to sell';
+        sub.textContent = csrT('qs.footerNothing');
     }
 
     const listB = document.getElementById('csrx-mlist');
     const quickB = document.getElementById('csrx-mquick');
-    listB.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg> List ${good} on Market`;
-    quickB.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg> Quick Sell ${good}`;
+    listB.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg> ${csrT('qs.listMarket', { n: good })}`;
+    quickB.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg> ${csrT('qs.quickSell', { n: good })}`;
     listB.disabled = good === 0;
     quickB.disabled = good === 0;
     document.getElementById('csrx-mwarn').classList.toggle('show',bad>0);
-    document.getElementById('csrx-mhdr-sub').textContent=`${good} verified · ${bad} skipped · ${all.length} total`;
+    document.getElementById('csrx-mhdr-sub').textContent = csrT('qs.verifiedSummary', { good, bad, total: all.length });
 }
 
 function buildValidatorPanel(entries){
@@ -4543,7 +4618,7 @@ function buildValidatorPanel(entries){
     issues.forEach(e=>{
         const row=document.createElement('div');row.className='csrx-val-row';
         const sc={ok:'vsok',mismatch:'vswarn',not_found:'vserr',sold_or_missing:'vserr'}[e.status]||'vserr';
-        const sl={ok:'OK',mismatch:'Warn',not_found:'Error',sold_or_missing:'Gone'}[e.status]||'?';
+        const sl={ok:csrT('val.ok'),mismatch:csrT('val.warn'),not_found:csrT('val.err'),sold_or_missing:csrT('val.gone')}[e.status]||'?';
         const sc2=e.status==='mismatch'?'#f59e0b':'#ef4444';
         row.innerHTML=`<svg class="csrx-val-icon" viewBox="0 0 24 24" fill="none" stroke="${sc2}" stroke-width="2" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span class="csrx-val-name">${e.item?.name||`ID: ${e.weaponId}`}</span><span class="csrx-val-status ${sc}">${sl}</span>`;
         grid.appendChild(row);
@@ -4553,11 +4628,11 @@ function buildValidatorPanel(entries){
 async function openModal(entries){
     const allowed = entries.filter(e => e.weaponId == null || !csrIsWeaponLocked(e.weaponId));
     const blocked = entries.length - allowed.length;
-    if (blocked) toast(`${blocked} locked item${blocked !== 1 ? 's' : ''} skipped`, 'warn');
+    if (blocked) toast(blocked === 1 ? csrT('toast.lockedSkipped', { n: blocked }) : csrT('toast.lockedSkippedMany', { n: blocked }), 'warn');
     if (!allowed.length) return;
-    setStatus('Validating…','syncing');
+    setStatus(csrT('qs.status.validating'),'syncing');
     const fresh=await apiInv();
-    setStatus('Review','active');
+    setStatus(csrT('qs.status.review'),'active');
     const validated=validateItems(allowed,fresh);
     enrichQuickSellPrices(validated);
     modalEntries=validated;
@@ -4573,7 +4648,7 @@ async function openModal(entries){
 }
 
 function closeModal(){
-    if(selling)return; overlay.classList.remove('open'); setStatus('Ready','ready');
+    if(selling)return; overlay.classList.remove('open'); setStatus(csrT('qs.status.ready'),'ready');
 }
 document.getElementById('csrx-mxbtn').addEventListener('click',closeModal);
 document.getElementById('csrx-mcancel').addEventListener('click',closeModal);
@@ -4614,7 +4689,7 @@ async function runQuickSell(toSell) {
             } else failed++;
         }));
         bar.style.width = Math.round(Math.min(i + spd, toSell.length) / toSell.length * 100) + '%';
-        setStatus(`Quick selling ${sold}/${toSell.length}…`, 'syncing');
+        setStatus(csrT('toast.quickSelling', { sold, total: toSell.length }), 'syncing');
     }
     return { sold, failed };
 }
@@ -4635,7 +4710,7 @@ async function runListOnMarket(toList) {
             } else failed++;
         }));
         bar.style.width = Math.round(Math.min(i + spd, toList.length) / toList.length * 100) + '%';
-        setStatus(`Listing ${listed}/${toList.length}…`, 'syncing');
+        setStatus(csrT('toast.listing', { listed, total: toList.length }), 'syncing');
     }
     return { listed, failed };
 }
@@ -4670,11 +4745,11 @@ document.getElementById('csrx-mquick').addEventListener('click', async () => {
     const toSell = getConfirmedModalItems();
     if (!toSell.length) return;
     selling = true;
-    setModalBusy(true, 'Selling…');
+    setModalBusy(true, csrT('toast.modalSelling'));
     const { sold, failed } = await runQuickSell(toSell);
     selling = false;
     closeModal();
-    toast(`Quick sold ${sold} item${sold !== 1 ? 's' : ''}${failed ? ` · ${failed} failed` : ''}`, sold > 0 ? 'success' : 'error');
+    toast(`${csrT(sold === 1 ? 'toast.quickSold' : 'toast.quickSoldMany', { n: sold })}${failed ? ` · ${csrT('toast.quickSoldFailed', { n: failed })}` : ''}`, sold > 0 ? 'success' : 'error');
     if (selMode) exitSel();
     setTimeout(() => location.reload(), 1800);
 });
@@ -4683,23 +4758,23 @@ document.getElementById('csrx-mlist').addEventListener('click', async () => {
     if (selling) return;
     const { toList, missing, overMax } = collectMarketListItems();
     if (overMax > 0) {
-        toast(`Market price cannot exceed ${MAX_MARKET_PRICE_COINS.toLocaleString('en-US')} coins`, 'warn');
+        toast(csrT('toast.marketPriceMax', { max: MAX_MARKET_PRICE_COINS.toLocaleString('en-US') }), 'warn');
         return;
     }
     if (missing > 0) {
-        toast('Enter a market price (coins) for each item', 'warn');
+        toast(csrT('toast.enterMarketPrice'), 'warn');
         return;
     }
     if (!toList.length) return;
     selling = true;
-    setModalBusy(true, 'Listing…');
+    setModalBusy(true, csrT('toast.modalListing'));
     const { listed, failed } = await runListOnMarket(toList);
     selling = false;
     closeModal();
     if (listed > 0) {
-        toast(`Listed ${listed} on marketplace${failed ? ` · ${failed} failed` : ''}`, 'success');
+        toast(`${csrT('toast.listed', { n: listed })}${failed ? ` · ${csrT('toast.listedFailed', { n: failed })}` : ''}`, 'success');
     } else {
-        toast('Could not list on marketplace — open Marketplace, create one offer on the site, then retry', 'error');
+        toast(csrT('toast.listFailed'), 'error');
     }
     if (selMode) exitSel();
     if (listed > 0) setTimeout(() => location.reload(), 1800);
@@ -4715,7 +4790,7 @@ btnSell.addEventListener('click',async()=>{
         })
         .map(([cardEl,weaponId])=>({cardEl,weaponId}));
     const skipped=picked.size-entries.length;
-    if(skipped)toast(`${skipped} locked item${skipped!==1?'s':''} skipped`,'warn');
+    if(skipped) toast(skipped === 1 ? csrT('toast.lockedSkipped', { n: skipped }) : csrT('toast.lockedSkippedMany', { n: skipped }), 'warn');
     if(!entries.length)return;
     await openModal(entries);
 });
@@ -4723,13 +4798,13 @@ btnSell.addEventListener('click',async()=>{
 document.getElementById('csrx-massbtn').addEventListener('click',async()=>{
     if(selling)return;
     const val=parseInt(document.getElementById('csrx-rar').value);
-    setStatus('Fetching…','syncing');
+    setStatus(csrT('toast.fetching'),'syncing');
     const inv=await apiInv();
-    setStatus('Ready','ready');
+    setStatus(csrT('qs.status.ready'),'ready');
     const items=inv.filter(i=>parseInt(i.rarity)===val&&!csrIsItemSellBlocked(i));
     const lockedSkip=inv.filter(i=>parseInt(i.rarity)===val&&csrIsItemSellBlocked(i)).length;
-    if(lockedSkip)toast(`${lockedSkip} locked item${lockedSkip!==1?'s':''} skipped`,'info');
-    if(!items.length){toast('No items for selected rarity','warn');return;}
+    if(lockedSkip) toast(lockedSkip === 1 ? csrT('toast.lockedSkipped', { n: lockedSkip }) : csrT('toast.lockedSkippedMany', { n: lockedSkip }), 'info');
+    if(!items.length){toast(csrT('toast.noRarityItems'),'warn');return;}
     modalEntries=items.map(item=>({cardEl:null,weaponId:item.weapon_id,item,status:'ok',msg:'From API'}));
     enrichQuickSellPrices(modalEntries);
     const grid=document.getElementById('csrx-mgrid'); grid.innerHTML=''; document.getElementById('csrx-mbar').style.width='0';
@@ -4749,10 +4824,19 @@ let cachedUserCoins = null;
 let casesBuyAbort = false;
 let casesOpenAbort = false;
 let casesOpenRunning = false;
+let casesOpenSelling = false;
+let casesSessionDrops = [];
 let casesOpenStats = { opened: 0, gold: 0, lastName: '', lastRarity: null };
 let casesMode = 'bulk';
 const CASES_AUTO_OPEN_CFG_KEY = 'csrCasesAutoOpenConfig';
-let casesAutoOpenCfg = { delayMs: 250, spendLimit: 150000, minutes: 10 };
+const CASES_AUTO_OPEN_SELL_CFG_KEY = 'csrCasesAutoOpenSellConfig';
+let casesAutoOpenCfg = { delayMs: 1000, spendLimit: 150000, minutes: 10 };
+let casesAutoOpenSellCfg = {
+    mode: 'manual',
+    timing: 'end',
+    rarities: { 1: false, 2: false, 3: false, 4: false, 5: false, 6: false, 7: false },
+    batchSize: 5,
+};
 let _casesCfgSaveTimer = null;
 
 function normalizeCaseEntry(c) {
@@ -4811,30 +4895,30 @@ function updateCasesCostSummary() {
     const q = readCasesQtyInput(qtyInp);
     const picked = getSelectedCase();
     if (!picked) {
-        summary.innerHTML = 'Select a case to see total cost.';
+        summary.innerHTML = csrT('cases.selectCaseCost');
         if (btn) btn.disabled = true;
         return;
     }
     const coinsLine = cachedUserCoins != null
-        ? `Your coins: <strong>${formatCoins(cachedUserCoins)}</strong><br>`
+        ? `${csrT('cases.yourCoins', { coins: `<strong>${formatCoins(cachedUserCoins)}</strong>` })}<br>`
         : '';
 
     if (q.empty) {
-        summary.innerHTML = `${coinsLine}Enter quantity (1–99) to see total.`;
+        summary.innerHTML = `${coinsLine}${csrT('cases.enterQty')}`;
         if (btn) btn.disabled = true;
         return;
     }
     if (!q.valid) {
-        summary.innerHTML = `${coinsLine}<span style="color:#ef4444">Quantity must be between 1 and 99.</span>`;
+        summary.innerHTML = `${coinsLine}<span style="color:#ef4444">${csrT('cases.qtyInvalid')}</span>`;
         if (btn) btn.disabled = true;
         return;
     }
 
     const total = picked.price * q.qty;
     const afford = cachedUserCoins != null && cachedUserCoins < total
-        ? '<br><span style="color:#ef4444">Not enough coins for this purchase.</span>'
+        ? `<br><span style="color:#ef4444">${csrT('cases.notEnoughCoins')}</span>`
         : '';
-    summary.innerHTML = `${coinsLine}Total: <strong>${formatCoins(total)}</strong> (${q.qty}× ${formatCoins(picked.price)})${afford}`;
+    summary.innerHTML = `${coinsLine}${csrT('cases.total', { total: `<strong>${formatCoins(total)}</strong>`, qty: q.qty, unit: formatCoins(picked.price) })}${afford}`;
     if (btn) btn.disabled = cachedUserCoins != null && cachedUserCoins < total;
 }
 
@@ -4849,7 +4933,7 @@ async function fetchCasesCatalog() {
         updateCasesCostSummary();
         return casesCatalogCache;
     } catch (e) {
-        toast(e.message || 'Failed to load cases', 'error');
+        toast(e.message || csrT('toast.casesLoadFailed'), 'error');
         return casesCatalogCache;
     }
 }
@@ -4914,7 +4998,7 @@ function csrStorageLocal() {
 }
 
 function normalizeCasesAutoCfg(raw) {
-    const out = { delayMs: 250, spendLimit: 150000, minutes: 10 };
+    const out = { delayMs: 1000, spendLimit: 150000, minutes: 10 };
     if (!raw || typeof raw !== 'object') return out;
     const d = parseInt(raw.delayMs, 10);
     const s = parseInt(raw.spendLimit, 10);
@@ -4923,6 +5007,165 @@ function normalizeCasesAutoCfg(raw) {
     if (Number.isFinite(s)) out.spendLimit = Math.max(0, Math.min(999999999, s));
     if (Number.isFinite(m)) out.minutes = Math.max(1, Math.min(120, m));
     return out;
+}
+
+function normalizeCasesAutoSellCfg(raw) {
+    const out = {
+        mode: 'manual',
+        timing: 'end',
+        rarities: { 1: false, 2: false, 3: false, 4: false, 5: false, 6: false, 7: false },
+        batchSize: 5,
+    };
+    if (!raw || typeof raw !== 'object') return out;
+    if (raw.mode === 'manual' || raw.mode === 'nonGold' || raw.mode === 'rarities') out.mode = raw.mode;
+    if (raw.timing === 'each' || raw.timing === 'end') out.timing = raw.timing;
+    const bs = parseInt(raw.batchSize, 10);
+    if (Number.isFinite(bs)) out.batchSize = Math.max(1, Math.min(20, bs));
+    if (raw.rarities && typeof raw.rarities === 'object') {
+        for (let i = 1; i <= 7; i++) {
+            if (typeof raw.rarities[i] === 'boolean') out.rarities[i] = raw.rarities[i];
+            if (typeof raw.rarities[String(i)] === 'boolean') out.rarities[i] = raw.rarities[String(i)];
+        }
+    }
+    return out;
+}
+
+async function loadCasesAutoOpenSellConfig() {
+    const st = csrStorageLocal();
+    if (!st) return casesAutoOpenSellCfg;
+
+    const finish = (data) => {
+        const cfg = normalizeCasesAutoSellCfg(data?.[CASES_AUTO_OPEN_SELL_CFG_KEY]);
+        casesAutoOpenSellCfg = cfg;
+        syncCasesAutoSellBatchInput();
+        updateCasesAutoOpenSummary();
+        return cfg;
+    };
+
+    try {
+        return await new Promise((resolve) => {
+            st.get([CASES_AUTO_OPEN_SELL_CFG_KEY], (data) => resolve(finish(data || null)));
+        });
+    } catch (_) {
+        try {
+            const data = await st.get([CASES_AUTO_OPEN_SELL_CFG_KEY]);
+            return finish(data || null);
+        } catch (_) {
+            return casesAutoOpenSellCfg;
+        }
+    }
+}
+
+function syncCasesAutoSellBatchInput() {
+    const inp = document.getElementById('csrx-cases-open-sell-spd');
+    if (inp && casesAutoOpenSellCfg.batchSize) inp.value = String(casesAutoOpenSellCfg.batchSize);
+}
+
+function isCasesAutoSellEnabled() {
+    return casesAutoOpenSellCfg.mode !== 'manual';
+}
+
+function casesDropMatchesAutoSellRules(d) {
+    if (!isCasesAutoSellEnabled()) return false;
+    if (isCasesDropGold(d.name)) return false;
+    if (casesAutoOpenSellCfg.mode === 'nonGold') return true;
+    if (casesAutoOpenSellCfg.mode === 'rarities') {
+        const r = parseInt(d.rarity, 10);
+        return casesAutoOpenSellCfg.rarities[r] === true;
+    }
+    return false;
+}
+
+function describeAutoSellRules() {
+    if (!isCasesAutoSellEnabled()) return csrT('cases.autoSell.manual');
+    let rule = csrT('cases.autoSell.rarities');
+    if (casesAutoOpenSellCfg.mode === 'nonGold') rule = csrT('cases.autoSell.nonGold');
+    const when = casesAutoOpenSellCfg.timing === 'each'
+        ? csrT('cases.autoSell.whenEach')
+        : csrT('cases.autoSell.whenEnd');
+    return `${rule} · ${when}`;
+}
+
+function csrApplyContentI18n() {
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.dataset.i18n;
+        if (key) el.textContent = csrT(key);
+    });
+
+    const fab = document.getElementById('csrx-fab');
+    if (fab) fab.title = csrT('qs.fabTitle');
+    const casesFab = document.getElementById('csrx-cases-fab');
+    if (casesFab) casesFab.title = csrT('cases.fabTitle');
+
+    const stat = document.getElementById('csrx-stat');
+    if (stat && !selMode && !selling) stat.textContent = csrT('qs.status.ready');
+
+    const browseSearch = document.getElementById('csrx-browse-search');
+    if (browseSearch) browseSearch.placeholder = csrT('browse.searchPlaceholder');
+    const browseClear = document.getElementById('csrx-browse-clear');
+    if (browseClear) browseClear.textContent = csrT('browse.clear');
+
+    const rarSel = document.getElementById('csrx-cases-open-sell-rar');
+    if (rarSel) {
+        const val = rarSel.value;
+        rarSel.innerHTML = rarityEntries().map(([k, v]) =>
+            `<option value="${k}">${v.name}</option>`
+        ).join('');
+        if (val) rarSel.value = val;
+    }
+
+    const qsRar = document.getElementById('csrx-rar');
+    if (qsRar) {
+        const val = qsRar.value;
+        qsRar.innerHTML = rarityEntries().map(([k, v]) =>
+            `<option value="${k}">${v.name}</option>`
+        ).join('');
+        if (val) qsRar.value = val;
+    }
+
+    updateCasesOpenSellUi();
+    updateCasesCostSummary();
+    updateCasesAutoOpenSummary();
+    applyBrowseFilters();
+    if (browseToolsActive) initBrowseTools();
+    refreshCasesOpenStatsUi();
+
+    if (overlay?.classList.contains('open')) refreshFooter();
+    if (selMode) updateSelBtn();
+
+    const modBtn = document.getElementById('csrx-modbtn');
+    if (modBtn && !selMode) {
+        modBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                    <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
+                    <polyline points="10 17 15 12 10 7"/>
+                    <line x1="15" y1="12" x2="3" y2="12"/>
+                </svg> ${csrT('qs.startPicking')}`;
+    }
+    const massBtn = document.getElementById('csrx-massbtn');
+    if (massBtn) {
+        massBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                    <polyline points="3 6 5 6 21 6"/>
+                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                    <path d="M10 11v6"/><path d="M14 11v6"/>
+                </svg> ${csrT('qs.sellByRarity')}`;
+    }
+}
+
+async function tryAutoSellSessionDrop(drop) {
+    if (!casesDropMatchesAutoSellRules(drop)) return false;
+    if (!drop.weaponId) await resolveSessionDropWeaponIds([drop]);
+    if (!drop.weaponId || drop.sold) return false;
+    if (csrIsItemSellBlocked({ weapon_id: drop.weaponId })) return false;
+    const ok = await apiSell(drop.weaponId);
+    if (ok) {
+        drop.sold = true;
+        await fetchUserCoins();
+        scrapeCoinsFromPage();
+        updateCasesAutoOpenSummary();
+        updateCasesCostSummary();
+        return true;
+    }
+    return false;
 }
 
 async function loadCasesAutoOpenConfig() {
@@ -4969,15 +5212,19 @@ async function runCasesBulkBuy() {
     const qtyInp = document.getElementById('csrx-cases-qty');
     const qty = normalizeCasesQtyInput(qtyInp);
     if (!picked) {
-        toast('Select a case first', 'warn');
+        toast(csrT('toast.selectCase'), 'warn');
         return;
     }
     const total = picked.price * qty;
     if (cachedUserCoins != null && cachedUserCoins < total) {
-        toast('Not enough coins', 'error');
+        toast(csrT('toast.notEnoughCoins'), 'error');
         return;
     }
-    if (!confirm(`Buy ${qty}× ${picked.name} for ${formatCoins(total)}?\n\nCases go to your in-game inventory (open them in CS:R, not on the website).`)) {
+    if (!confirm(csrT('cases.confirmBuy', {
+        qty,
+        name: picked.name,
+        total: formatCoins(total),
+    }))) {
         return;
     }
 
@@ -5004,7 +5251,7 @@ async function runCasesBulkBuy() {
             updateCasesCostSummary();
         } catch (e) {
             fail++;
-            lastErr = e.message || 'Unknown error';
+            lastErr = e.message || csrT('toast.unknownError');
             break;
         }
         if (i < qty - 1) await sleep(400);
@@ -5019,15 +5266,23 @@ async function runCasesBulkBuy() {
     scrapeCoinsFromPage();
 
     if (casesBuyAbort) {
-        toast(`Stopped — ${ok} bought, ${qty - ok - fail} skipped`, 'warn');
+        toast(csrT('toast.stoppedBuy', { ok, skipped: qty - ok - fail }), 'warn');
     } else if (fail) {
-        toast(lastErr || `Bought ${ok}, then failed`, 'error');
+        toast(lastErr || csrT('toast.buyFailed', { ok }), 'error');
     } else {
-        toast(`Bought ${ok}× ${picked.name} — check in-game inventory`, 'success');
+        toast(csrT('toast.bought', { n: ok, name: picked.name }), 'success');
     }
 }
 
 let casesWinOpen = false;
+
+function resetCasesWinPosition(win) {
+    if (!win) return;
+    win.style.left = '';
+    win.style.top = '';
+    win.style.right = '24px';
+    win.style.bottom = '24px';
+}
 
 function syncCasesPanelVisibility() {
     const on = isCasesListPage() && (csrIsFeatureEnabled('caseBulkBuy') || csrIsFeatureEnabled('caseAutoOpen'));
@@ -5098,7 +5353,7 @@ function updateCasesAutoOpenSummary() {
 
     const picked = getSelectedCase();
     if (!picked) {
-        sum.innerHTML = 'Select a case to configure auto opening.';
+        sum.innerHTML = csrT('cases.selectCaseOpen');
         if (btnStart) btnStart.disabled = true;
         return;
     }
@@ -5112,14 +5367,26 @@ function updateCasesAutoOpenSummary() {
     const maxCases = maxByCoins == null ? maxBySpend : Math.min(maxBySpend, maxByCoins);
 
     const coinsLine = cachedUserCoins != null
-        ? `Your coins: <strong>${formatCoins(cachedUserCoins)}</strong><br>`
+        ? `${csrT('cases.yourCoins', { coins: `<strong>${formatCoins(cachedUserCoins)}</strong>` })}<br>`
         : '';
 
     const warn = maxCases <= 0
-        ? '<br><span style="color:#ef4444">Spend limit too low (or not enough coins) for this case.</span>'
+        ? `<br><span style="color:#ef4444">${csrT('cases.spendTooLow')}</span>`
         : '';
 
-    sum.innerHTML = `${coinsLine}Will open up to <strong>${maxCases}</strong> case${maxCases !== 1 ? 's' : ''} · Delay: <strong>${delayMs}ms</strong> · Time limit: <strong>${minutes} min</strong>${warn}`;
+    const openLine = maxCases === 1
+        ? csrT('cases.willOpen', {
+            n: `<strong>${maxCases}</strong>`,
+            delay: `<strong>${delayMs}ms</strong>`,
+            minutes: `<strong>${minutes}</strong>`,
+        })
+        : csrT('cases.willOpenMany', {
+            n: `<strong>${maxCases}</strong>`,
+            delay: `<strong>${delayMs}ms</strong>`,
+            minutes: `<strong>${minutes}</strong>`,
+        });
+
+    sum.innerHTML = `${coinsLine}${openLine}${warn}<br><span style="color:#737373">${csrT('cases.autoSell', { rules: describeAutoSellRules() })}</span>`;
     if (btnStart) btnStart.disabled = casesOpenRunning || maxCases <= 0;
     void runMs;
 }
@@ -5182,11 +5449,120 @@ function extractFloatFromOpenData(data) {
     return null;
 }
 
+function extractWeaponIdFromOpenData(data) {
+    if (!data || typeof data !== 'object') return null;
+    const tryVal = (v) => {
+        if (v == null || v === '') return null;
+        const n = parseInt(v, 10);
+        return Number.isFinite(n) && n > 0 ? n : null;
+    };
+    for (const k of ['weapon_id', 'weaponId', 'skin_id', 'skinId']) {
+        const w = tryVal(data[k]);
+        if (w != null) return w;
+    }
+    for (const k of ['item', 'weapon', 'skin', 'data']) {
+        if (data[k] && typeof data[k] === 'object') {
+            const nested = extractWeaponIdFromOpenData(data[k]);
+            if (nested != null) return nested;
+        }
+    }
+    return null;
+}
+
+function isCasesDropGold(name) {
+    return String(name || '').includes('★');
+}
+
+async function resolveSessionDropWeaponIds(drops) {
+    const need = drops.filter(d => !d.weaponId);
+    if (!need.length) return drops;
+    const inv = await apiInv();
+    const used = new Set(drops.filter(d => d.weaponId).map(d => d.weaponId));
+    for (const d of need) {
+        const match = inv.find(i => {
+            if (used.has(i.weapon_id)) return false;
+            if (String(i.name || '') !== String(d.name || '')) return false;
+            if (d.rarity != null && parseInt(i.rarity, 10) !== parseInt(d.rarity, 10)) return false;
+            if (d.float != null && i.float != null) {
+                return Math.abs(parseFloat(i.float) - d.float) < 0.00001;
+            }
+            return d.float == null;
+        });
+        if (match?.weapon_id != null) {
+            d.weaponId = parseInt(match.weapon_id, 10);
+            used.add(d.weaponId);
+        }
+    }
+    return drops;
+}
+
+function getCasesSessionSellBatchSize() {
+    const inp = document.getElementById('csrx-cases-open-sell-spd');
+    const n = parseInt(String(inp?.value ?? '').trim(), 10);
+    if (Number.isFinite(n)) return Math.max(1, Math.min(20, n));
+    return casesAutoOpenSellCfg.batchSize || 5;
+}
+
+function getSellableSessionDrops(filterFn) {
+    return casesSessionDrops.filter(d => {
+        if (!d.weaponId || d.sold) return false;
+        if (csrIsItemSellBlocked({ weapon_id: d.weaponId })) return false;
+        return filterFn(d);
+    });
+}
+
+function updateCasesOpenSellUi() {
+    const wrap = document.getElementById('csrx-cases-open-sell-wrap');
+    const manualBox = document.getElementById('csrx-cases-open-sell-manual');
+    const hint = document.getElementById('csrx-cases-open-sell-hint');
+    const btnRarity = document.getElementById('csrx-cases-open-sell-rarity');
+    const btnNonGold = document.getElementById('csrx-cases-open-sell-nongold');
+    const sel = document.getElementById('csrx-cases-open-sell-rar');
+    if (!wrap) return;
+
+    const remaining = casesSessionDrops.filter(d => !d.sold);
+    if (!remaining.length) {
+        wrap.style.display = 'none';
+        return;
+    }
+
+    wrap.style.display = 'flex';
+    if (manualBox) manualBox.style.display = isCasesAutoSellEnabled() ? 'none' : 'flex';
+
+    const nonGold = getSellableSessionDrops(d => !isCasesDropGold(d.name));
+    const rarVal = sel ? parseInt(sel.value, 10) : 1;
+    const byRarity = getSellableSessionDrops(d => parseInt(d.rarity, 10) === rarVal);
+    const unresolved = remaining.filter(d => !d.weaponId).length;
+
+    if (hint) {
+        const parts = [csrT('cases.sellHintSession', { n: remaining.length })];
+        if (unresolved) parts.push(csrT('cases.sellHintNoId', { n: unresolved }));
+        hint.textContent = parts.join(' · ');
+    }
+    if (btnRarity) {
+        btnRarity.disabled = casesOpenSelling || casesOpenRunning || !byRarity.length;
+        const rarEntry = rarityEntries().find(([k]) => parseInt(k, 10) === rarVal);
+        const rarName = rarEntry ? rarEntry[1].name : `Rarity ${rarVal}`;
+        btnRarity.textContent = byRarity.length
+            ? csrT('cases.quickSellRarityN', { n: byRarity.length, rarity: rarName })
+            : csrT('cases.quickSellRarity');
+    }
+    if (btnNonGold) {
+        btnNonGold.disabled = casesOpenSelling || casesOpenRunning || !nonGold.length;
+        btnNonGold.textContent = nonGold.length
+            ? csrT('cases.quickSellNonGoldN', { n: nonGold.length })
+            : csrT('cases.quickSellNonGold');
+    }
+}
+
 function clearCasesOpenResults() {
     const box = document.getElementById('csrx-cases-open-results');
     const body = document.getElementById('csrx-cases-open-results-body');
+    const sellWrap = document.getElementById('csrx-cases-open-sell-wrap');
     if (body) body.innerHTML = '';
     if (box) box.style.display = 'none';
+    if (sellWrap) sellWrap.style.display = 'none';
+    casesSessionDrops = [];
 }
 
 function renderCasesOpenResults(drops) {
@@ -5210,7 +5586,7 @@ function renderCasesOpenResults(drops) {
 
     body.innerHTML = sorted.map((d) => {
         const safeName = escapeCasesHtml(d.name || 'Unknown');
-        const isGold = String(d.name || '').includes('★');
+        const isGold = isCasesDropGold(d.name);
         const nameStyle = isGold
             ? 'color:#facc15;font-weight:800'
             : rarityStyle(d.rarity);
@@ -5229,21 +5605,88 @@ function renderCasesOpenResults(drops) {
     }).join('');
 
     box.style.display = 'flex';
+    updateCasesOpenSellUi();
+}
+
+async function runCasesSessionQuickSell(filterFn, label, options = {}) {
+    const silent = options.silent === true;
+    if (casesOpenSelling) return { sold: 0, failed: 0 };
+    const toSell = getSellableSessionDrops(filterFn);
+    if (!toSell.length) {
+        if (!silent) toast(csrT('toast.nothingToSell'), 'warn');
+        return { sold: 0, failed: 0 };
+    }
+    const spd = getCasesSessionSellBatchSize();
+    if (!silent && !confirm(toSell.length === 1
+        ? csrT('cases.confirmQuickSellOne', { label, batch: spd })
+        : csrT('cases.confirmQuickSell', { n: toSell.length, label, batch: spd }))) {
+        return { sold: 0, failed: 0 };
+    }
+
+    casesOpenSelling = true;
+    updateCasesOpenSellUi();
+    const btnStart = document.getElementById('csrx-cases-open-start');
+    if (btnStart) btnStart.disabled = true;
+
+    let sold = 0;
+    let failed = 0;
+    const prog = document.getElementById('csrx-cases-progress');
+    const bar = document.getElementById('csrx-cases-progress-bar');
+    if (prog && !casesOpenRunning) prog.style.display = 'block';
+
+    for (let i = 0; i < toSell.length; i += spd) {
+        const chunk = toSell.slice(i, i + spd);
+        await Promise.all(chunk.map(async (d) => {
+            const ok = await apiSell(d.weaponId);
+            if (ok) {
+                sold++;
+                d.sold = true;
+            } else {
+                failed++;
+            }
+        }));
+        if (bar) bar.style.width = `${Math.round(Math.min(i + spd, toSell.length) / toSell.length * 100)}%`;
+        appendCasesOpenLog(`<span style="color:#a3a3a3">${csrT('cases.log.selling', { mode: silent ? csrT('cases.log.modeAuto') : csrT('cases.log.modeManual'), sold, total: toSell.length })}</span>`);
+    }
+
+    casesOpenSelling = false;
+    if (bar && !casesOpenRunning) bar.style.width = '100%';
+    if (!casesOpenRunning) {
+        setTimeout(() => { if (prog) prog.style.display = 'none'; if (bar) bar.style.width = '0%'; }, 800);
+    }
+    if (btnStart) btnStart.disabled = casesOpenRunning;
+
+    casesSessionDrops = casesSessionDrops.filter(d => !d.sold);
+    renderCasesOpenResults(casesSessionDrops);
+    updateCasesOpenSellUi();
+    await fetchUserCoins();
+    scrapeCoinsFromPage();
+    updateCasesAutoOpenSummary();
+
+    if (!silent) {
+        toast(
+            `${csrT('toast.sessionQuickSold', { n: sold })}${failed ? csrT('toast.sessionQuickSoldFailed', { n: failed }) : ''}`,
+            sold > 0 ? 'success' : 'error'
+        );
+    } else if (sold > 0 || failed > 0) {
+        appendCasesOpenLog(`<span style="color:${sold > 0 ? '#86efac' : '#ef4444'}">${csrT('cases.log.autoSellDone', { sold })}${failed ? csrT('cases.log.autoSellFailed', { failed }) : ''}</span>`);
+    }
+    return { sold, failed };
 }
 
 function refreshCasesOpenStatsUi() {
     const el = document.getElementById('csrx-cases-open-stats');
     if (!el) return;
     const last = casesOpenStats.lastName
-        ? ` · Last: <span style="${rarityStyle(casesOpenStats.lastRarity)}">${casesOpenStats.lastName}</span>`
+        ? csrT('cases.openedLast', { name: `<span style="${rarityStyle(casesOpenStats.lastRarity)}">${casesOpenStats.lastName}</span>` })
         : '';
-    el.innerHTML = `Opened: <strong>${casesOpenStats.opened}</strong> · Gold: <strong style="color:#facc15">${casesOpenStats.gold}</strong>${last}`;
+    el.innerHTML = `${csrT('cases.openedStats', { opened: `<strong>${casesOpenStats.opened}</strong>`, gold: `<strong style="color:#facc15">${casesOpenStats.gold}</strong>` })}${last}`;
 }
 
 async function runCasesAutoOpen() {
     const picked = getSelectedCase();
     if (!picked) {
-        toast('Select a case first', 'warn');
+        toast(csrT('toast.selectCase'), 'warn');
         return;
     }
     const delayMs = Math.max(100, Math.min(5000, readInt(document.getElementById('csrx-cases-open-delay'), casesAutoOpenCfg.delayMs)));
@@ -5254,11 +5697,19 @@ async function runCasesAutoOpen() {
     const coinsLimit = (cachedUserCoins != null && picked.price > 0) ? Math.floor(cachedUserCoins / picked.price) : null;
     const hardMax = coinsLimit == null ? maxCases : Math.min(maxCases, coinsLimit);
     if (hardMax <= 0) {
-        toast('Spend limit too low (or not enough coins)', 'error');
+        toast(csrT('toast.spendTooLow'), 'error');
         return;
     }
 
-    if (!confirm(`Auto-open up to ${hardMax}× ${picked.name}?\n\nLimits:\n- Spend: ${formatCoins(spendLimit)} (case price ${formatCoins(picked.price)})\n- Time: ${minutes} min\n- Delay: ${delayMs} ms\n\nUse Stop to cancel after current open.`)) {
+    if (!confirm(csrT('cases.confirmOpen', {
+        max: hardMax,
+        name: picked.name,
+        spend: formatCoins(spendLimit),
+        price: formatCoins(picked.price),
+        minutes,
+        delay: delayMs,
+        rules: describeAutoSellRules(),
+    }))) {
         return;
     }
 
@@ -5284,7 +5735,7 @@ async function runCasesAutoOpen() {
     const end = start + runDurationMs;
     let lastErr = '';
 
-    appendCasesOpenLog(`<span style="color:#a3a3a3">Starting auto open: ${picked.name} · max ${hardMax} · ${minutes} min</span>`);
+    appendCasesOpenLog(`<span style="color:#a3a3a3">${csrT('cases.log.starting', { name: picked.name, max: hardMax, minutes })}</span>`);
 
     for (let i = 0; i < hardMax; i++) {
         if (casesOpenAbort) break;
@@ -5294,17 +5745,19 @@ async function runCasesAutoOpen() {
 
         try {
             const data = await openCaseOnce(picked.id);
-            const name = data?.name ? String(data.name) : 'Unknown item';
+            const name = data?.name ? String(data.name) : csrT('cases.unknownItem');
             const rarity = data?.rarity != null ? parseInt(data.rarity, 10) : null;
             const floatVal = extractFloatFromOpenData(data);
+            const weaponId = extractWeaponIdFromOpenData(data);
 
-            sessionDrops.push({ name, rarity, float: floatVal });
+            sessionDrops.push({ name, rarity, float: floatVal, weaponId, sold: false });
+            const drop = sessionDrops[sessionDrops.length - 1];
 
             casesOpenStats.opened++;
             casesOpenStats.lastName = name;
             casesOpenStats.lastRarity = rarity;
 
-            const isGold = name.includes('★');
+            const isGold = isCasesDropGold(name);
             if (isGold) casesOpenStats.gold++;
 
             if (cachedUserCoins != null) cachedUserCoins = Math.max(0, cachedUserCoins - picked.price);
@@ -5314,13 +5767,20 @@ async function runCasesAutoOpen() {
 
             const safeName = String(name).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
             if (isGold) {
-                appendCasesOpenLog(`<span style="color:#facc15;font-weight:800">GOLD</span> · <span style="color:#e5e7eb">${safeName}</span>`);
+                appendCasesOpenLog(`<span style="color:#facc15;font-weight:800">${csrT('cases.log.gold')}</span> · <span style="color:#e5e7eb">${safeName}</span>`);
             } else {
                 appendCasesOpenLog(`<span style="${rarityStyle(rarity)}">${safeName}</span> <span style="color:#737373">(${rarity ?? '?'})</span>`);
             }
+
+            if (isCasesAutoSellEnabled() && casesAutoOpenSellCfg.timing === 'each') {
+                const soldNow = await tryAutoSellSessionDrop(drop);
+                if (soldNow) {
+                    appendCasesOpenLog(`<span style="color:#86efac">${csrT('cases.log.autoSold')}</span> · <span style="color:#e5e7eb">${safeName}</span>`);
+                }
+            }
         } catch (e) {
             lastErr = e?.message || 'Unknown error';
-            appendCasesOpenLog(`<span style="color:#ef4444">Error: ${String(lastErr).replace(/</g, '&lt;')}</span>`);
+            appendCasesOpenLog(`<span style="color:#ef4444">${csrT('cases.log.error', { msg: String(lastErr).replace(/</g, '&lt;') })}</span>`);
             break;
         }
 
@@ -5338,16 +5798,26 @@ async function runCasesAutoOpen() {
     scrapeCoinsFromPage();
     updateCasesAutoOpenSummary();
     updateCasesCostSummary();
-    renderCasesOpenResults(sessionDrops);
+
+    await resolveSessionDropWeaponIds(sessionDrops);
+    casesSessionDrops = sessionDrops.filter(d => !d.sold);
+    if (isCasesAutoSellEnabled() && casesAutoOpenSellCfg.timing === 'end') {
+        await runCasesSessionQuickSell(
+            d => casesDropMatchesAutoSellRules(d),
+            describeAutoSellRules(),
+            { silent: true }
+        );
+    }
+    renderCasesOpenResults(casesSessionDrops);
 
     if (lastErr) toast(lastErr, 'error');
-    else toast(`Auto-open finished — opened ${casesOpenStats.opened}${casesOpenStats.gold ? ` · ${casesOpenStats.gold} gold` : ''}`, 'success');
+    else toast(`${csrT('toast.autoOpenDone', { n: casesOpenStats.opened })}${casesOpenStats.gold ? csrT('toast.autoOpenGold', { n: casesOpenStats.gold }) : ''}`, 'success');
 }
 
 function setupCasesBulkBuy() {
     const fab = document.createElement('div');
     fab.id = 'csrx-cases-fab';
-    fab.title = 'CS:R Cases tools — bulk buy / auto open';
+    fab.title = csrT('cases.fabTitle');
     fab.innerHTML = `<img alt="Case bulk buy" src="${extUrl('icons/icon-128.png')}">`;
     document.body.appendChild(fab);
 
@@ -5359,8 +5829,8 @@ function setupCasesBulkBuy() {
         <img alt="" src="${extUrl('icons/icon-128.png')}" style="width:100%;height:100%;object-fit:cover;">
     </div>
     <div class="csrx-hdr-text">
-        <div class="csrx-hdr-title" style="font-size:0.9375rem;">Case Bulk Buy</div>
-        <div class="csrx-hdr-sub" style="font-size:0.6875rem;">Cases go to in-game inventory</div>
+        <div class="csrx-hdr-title" style="font-size:0.9375rem;" data-i18n="cases.title">${csrT('cases.title')}</div>
+        <div class="csrx-hdr-sub" style="font-size:0.6875rem;" data-i18n="cases.subtitle">${csrT('cases.subtitle')}</div>
     </div>
     <div id="csrx-cases-winx">
         <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2.5" stroke-linecap="round">
@@ -5370,46 +5840,61 @@ function setupCasesBulkBuy() {
 </div>
 <div id="csrx-cases-body">
     <div id="csrx-cases-tabs">
-        <button type="button" id="csrx-cases-tab-bulk" class="csrx-cases-tab active">Bulk buy</button>
-        <button type="button" id="csrx-cases-tab-open" class="csrx-cases-tab">Auto open</button>
+        <button type="button" id="csrx-cases-tab-bulk" class="csrx-cases-tab active" data-i18n="cases.tab.bulk">${csrT('cases.tab.bulk')}</button>
+        <button type="button" id="csrx-cases-tab-open" class="csrx-cases-tab" data-i18n="cases.tab.open">${csrT('cases.tab.open')}</button>
     </div>
     <div>
-        <label for="csrx-cases-select">Weapon case</label>
+        <label for="csrx-cases-select" data-i18n="cases.weaponCase">${csrT('cases.weaponCase')}</label>
         <select id="csrx-cases-select" class="csrx-sel" style="margin-top:6px;width:100%;"></select>
     </div>
     <div id="csrx-cases-bulk" class="csrx-cases-mode">
         <div>
-            <label for="csrx-cases-qty">Quantity (1–99)</label>
+            <label for="csrx-cases-qty" data-i18n="cases.quantity">${csrT('cases.quantity')}</label>
             <input type="text" id="csrx-cases-qty" inputmode="numeric" autocomplete="off" spellcheck="false" value="1" style="margin-top:6px;">
         </div>
         <div id="csrx-cases-summary">Loading cases…</div>
-        <button type="button" id="csrx-cases-buy">Buy containers</button>
-        <button type="button" id="csrx-cases-cancel">Cancel</button>
+        <button type="button" id="csrx-cases-buy" data-i18n="cases.buy">${csrT('cases.buy')}</button>
+        <button type="button" id="csrx-cases-cancel" data-i18n="cases.cancel">${csrT('cases.cancel')}</button>
     </div>
     <div id="csrx-cases-open" class="csrx-cases-mode" style="display:none;">
         <div style="display:flex;gap:10px;">
             <div style="flex:1;">
-                <label for="csrx-cases-open-delay">Delay (ms)</label>
-                <input type="text" id="csrx-cases-open-delay" inputmode="numeric" autocomplete="off" spellcheck="false" value="250" style="margin-top:6px;">
+                <label for="csrx-cases-open-delay" data-i18n="cases.delay">${csrT('cases.delay')}</label>
+                <input type="text" id="csrx-cases-open-delay" inputmode="numeric" autocomplete="off" spellcheck="false" value="1000" style="margin-top:6px;">
             </div>
             <div style="flex:1;">
-                <label for="csrx-cases-open-mins">Minutes</label>
+                <label for="csrx-cases-open-mins" data-i18n="cases.minutes">${csrT('cases.minutes')}</label>
                 <input type="text" id="csrx-cases-open-mins" inputmode="numeric" autocomplete="off" spellcheck="false" value="10" style="margin-top:6px;">
             </div>
         </div>
         <div>
-            <label for="csrx-cases-open-spend">Spend limit (coins)</label>
+            <label for="csrx-cases-open-spend" data-i18n="cases.spendLimit">${csrT('cases.spendLimit')}</label>
             <input type="text" id="csrx-cases-open-spend" inputmode="numeric" autocomplete="off" spellcheck="false" value="150000" style="margin-top:6px;">
         </div>
         <div id="csrx-cases-open-summary">Configure limits…</div>
         <div id="csrx-cases-open-stats" style="font-size:0.8125rem;color:#b1a7a6;"></div>
         <div id="csrx-cases-open-log"></div>
         <div id="csrx-cases-open-results">
-            <div id="csrx-cases-open-results-label">Results — best float first</div>
+            <div id="csrx-cases-open-results-label" data-i18n="cases.resultsLabel">${csrT('cases.resultsLabel')}</div>
             <div id="csrx-cases-open-results-body"></div>
         </div>
-        <button type="button" id="csrx-cases-open-start">Start auto open</button>
-        <button type="button" id="csrx-cases-open-stop">Stop</button>
+        <div id="csrx-cases-open-sell-wrap">
+            <button type="button" id="csrx-cases-open-sell-nongold" class="csrx-cases-sell-btn">${csrT('cases.quickSellNonGold')}</button>
+            <div id="csrx-cases-open-sell-manual">
+                <div id="csrx-cases-open-sell-label" data-i18n="cases.sellSession">${csrT('cases.sellSession')}</div>
+                <div id="csrx-cases-open-sell-hint" data-i18n="cases.sellHint">${csrT('cases.sellHint')}</div>
+                <select id="csrx-cases-open-sell-rar" class="csrx-sel" style="width:100%;">
+                    ${rarityEntries().map(([k, v]) => `<option value="${k}">${v.name}</option>`).join('')}
+                </select>
+                <button type="button" id="csrx-cases-open-sell-rarity" class="csrx-cases-sell-btn">Quick sell this rarity</button>
+                <div id="csrx-cases-open-sell-batch">
+                    <span data-i18n="cases.batchSize">${csrT('cases.batchSize')}</span>
+                    <input type="text" id="csrx-cases-open-sell-spd" inputmode="numeric" autocomplete="off" spellcheck="false" value="5">
+                </div>
+            </div>
+        </div>
+        <button type="button" id="csrx-cases-open-start" data-i18n="cases.startOpen">${csrT('cases.startOpen')}</button>
+        <button type="button" id="csrx-cases-open-stop" data-i18n="cases.stop">${csrT('cases.stop')}</button>
     </div>
     <div id="csrx-cases-progress"><div id="csrx-cases-progress-bar"></div></div>
 </div>`;
@@ -5421,6 +5906,7 @@ function setupCasesBulkBuy() {
         if (!isCasesListPage()) return;
         if (!csrIsFeatureEnabled('caseBulkBuy') && !csrIsFeatureEnabled('caseAutoOpen')) return;
         casesWinOpen = true;
+        resetCasesWinPosition(win);
         syncCasesPanelVisibility();
         syncCasesModeUi();
         fetchCasesCatalog();
@@ -5450,7 +5936,7 @@ function setupCasesBulkBuy() {
     document.getElementById('csrx-cases-buy')?.addEventListener('click', () => runCasesBulkBuy());
     document.getElementById('csrx-cases-cancel')?.addEventListener('click', () => {
         casesBuyAbort = true;
-        toast('Cancelling after current purchase…', 'info');
+        toast(csrT('toast.cancellingBuy'), 'info');
     });
 
     const delayInp = document.getElementById('csrx-cases-open-delay');
@@ -5473,7 +5959,28 @@ function setupCasesBulkBuy() {
     document.getElementById('csrx-cases-open-start')?.addEventListener('click', () => runCasesAutoOpen());
     document.getElementById('csrx-cases-open-stop')?.addEventListener('click', () => {
         casesOpenAbort = true;
-        toast('Stopping after current open…', 'info');
+        toast(csrT('toast.stoppingOpen'), 'info');
+    });
+
+    document.getElementById('csrx-cases-open-sell-rar')?.addEventListener('change', updateCasesOpenSellUi);
+    document.getElementById('csrx-cases-open-sell-spd')?.addEventListener('blur', (e) => {
+        const inp = e.target;
+        inp.value = String(getCasesSessionSellBatchSize());
+    });
+    document.getElementById('csrx-cases-open-sell-rarity')?.addEventListener('click', () => {
+        const rarVal = parseInt(document.getElementById('csrx-cases-open-sell-rar')?.value, 10);
+        const rarEntry = rarityEntries().find(([k]) => parseInt(k, 10) === rarVal);
+        const rarName = rarEntry ? rarEntry[1].name : `Rarity ${rarVal}`;
+        runCasesSessionQuickSell(
+            d => parseInt(d.rarity, 10) === rarVal,
+            csrT('cases.sellRarityLabel', { rarity: rarName })
+        );
+    });
+    document.getElementById('csrx-cases-open-sell-nongold')?.addEventListener('click', () => {
+        runCasesSessionQuickSell(
+            d => !isCasesDropGold(d.name),
+            csrT('cases.confirmSellNonGold')
+        );
     });
 
     {
@@ -5501,11 +6008,24 @@ function setupCasesBulkBuy() {
     }
 
     loadCasesAutoOpenConfig().then((cfg) => {
-        if (delayInp) delayInp.value = String(cfg.delayMs ?? 250);
+        if (delayInp) delayInp.value = String(cfg.delayMs ?? 1000);
         if (minsInp) minsInp.value = String(cfg.minutes ?? 10);
         if (spendInp) spendInp.value = String(cfg.spendLimit ?? 150000);
         updateCasesAutoOpenSummary();
     }).catch(() => {});
+
+    loadCasesAutoOpenSellConfig().catch(() => {});
+
+    const storageApi = typeof browser !== 'undefined' ? browser : (typeof chrome !== 'undefined' ? chrome : null);
+    storageApi?.storage?.onChanged?.addListener((changes, area) => {
+        if (area !== 'local') return;
+        if (changes[CASES_AUTO_OPEN_SELL_CFG_KEY]) {
+            casesAutoOpenSellCfg = normalizeCasesAutoSellCfg(changes[CASES_AUTO_OPEN_SELL_CFG_KEY].newValue);
+            syncCasesAutoSellBatchInput();
+            updateCasesAutoOpenSummary();
+            updateCasesOpenSellUi();
+        }
+    });
 }
 
 setupCasesBulkBuy();
@@ -5516,7 +6036,14 @@ function applyCsrFeatureVisibility() {
 }
 
 async function bootstrapCsrExtension() {
+    await csrLoadLanguage();
     await csrLoadSettings();
+    await loadCasesAutoOpenSellConfig();
+    csrWatchLanguageStorage();
+    csrOnLanguageChanged(() => {
+        csrApplyContentI18n();
+    });
+    csrApplyContentI18n();
     bindSidebarLockClipWatch();
     csrWatchStorageChanges();
     csrOnSettingsChanged(() => {

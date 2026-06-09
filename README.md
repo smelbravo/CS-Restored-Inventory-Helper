@@ -1,6 +1,6 @@
 # CS:Restored Inventory Helper
 
-Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.fun) — float and paint seed overlays, search and filters on inventory/marketplace, a quick-sell panel, **case bulk buy** and **auto case opening** on the Cases tab, optional **toolbar settings** to turn each feature on or off, and **skin lock** to avoid accidental sells.
+Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.fun) — float and paint seed overlays, search and filters on inventory/marketplace, a quick-sell panel, **case bulk buy** and **auto case opening** (with optional **session auto-sell**) on the Cases tab, optional **toolbar settings** to turn each feature on or off, **skin lock** to avoid accidental sells, and **multi-language UI** (popup + on-site panels).
 
 Works in **Firefox**, **Microsoft Edge**, and **Chromium** browsers (Manifest V3).
 
@@ -70,9 +70,35 @@ Horizontal bar above the item grid (same layout on both pages):
 - Shows `Showing X of Y items` when filters hide cards
 - Sorting reorders the visible grid without reloading the page
 
-### Extension popup — feature toggles (v3.2+)
+### Extension popup — Features & Settings (v3.2+)
 
-Click the **extension icon** in the browser toolbar (Firefox / Chrome / Edge) to open **Settings**. Each feature can be turned on or off; preferences are saved in **`storage.local`** (extension storage — not site cookies).
+Click the **extension icon** in the browser toolbar (Firefox / Chrome / Edge). The popup has two tabs:
+
+| Tab | What it contains |
+|-----|------------------|
+| **Features** | Toggles for each extension feature (same as before) |
+| **Settings** | **Language** picker for extension UI on csrestored.fun |
+
+Each feature can be turned on or off; preferences are saved in **`storage.local`** (extension storage — not site cookies).
+
+#### Language (v3.4+ develop)
+
+Choose a language under **Settings → Language**. Applies to the **toolbar popup** and **injected UI** on csrestored.fun (browse bar, Quick Sell panel, Cases panel, toasts, confirm dialogs). Reload the tab if some labels do not update immediately.
+
+| Code | Language |
+|------|----------|
+| `en-US` | English (US) |
+| `en-GB` | English (UK) |
+| `pt-PT` | Português (Portugal) |
+| `pt-BR` | Português (Brasil) |
+| `de` | Deutsch |
+| `ru` | Русский |
+| `es` | Español |
+
+- First install: language is guessed from the browser locale (`navigator.language`).
+- Saved under `csrLanguage` in `storage.local`.
+- **Rarity names** stay in **English** (Consumer Grade, Mil-Spec, Covert / Knives / Gloves, etc.) in all locales — same as the CS community convention.
+- Wear abbreviations in overlays (FN, MW, FT, WW, BS) are unchanged.
 
 | Toggle | What it controls |
 |--------|------------------|
@@ -80,13 +106,30 @@ Click the **extension icon** in the browser toolbar (Firefox / Chrome / Edge) to
 | **Search & filters** | Browse bar on inventory, marketplace, and Create Offer |
 | **Quick Sell & Market** | Bottom-right CS:R button, helper panel, and Confirm Sale flow |
 | **Case bulk buy** | Floating panel on [Cases](https://csrestored.fun/app/inventory/cases) — pick case + quantity, buy to in-game inventory |
-| **Auto case opening** | Auto-open cases on [Cases](https://csrestored.fun/app/inventory/cases) — spend/time limits, results sorted by float |
+| **Auto case opening** | Auto-open cases on [Cases](https://csrestored.fun/app/inventory/cases) — spend/time limits, session auto-sell rules, results sorted by float (**on by default** since develop) |
 | **Trade offer search** | Compact search bar in Send Trade Offer (My Items / Their Items) |
 | **Skin lock** | Padlock on inventory cards (see table below) |
 
+#### Auto case opening — popup section (develop)
+
+When **Auto case opening** is enabled, the toolbar popup shows a **dedicated subsection** (not just a single checkbox):
+
+| Setting | Options | Default |
+|---------|---------|---------|
+| **Auto-sell session drops** | Manual only / Auto: all non-gold (★ kept) / Auto: selected rarities | **Manual only** |
+| **Rarity checkboxes** | Consumer → Contraband (when “selected rarities” is on) | All off |
+| **When to auto-sell** | When session ends / After each case opens | When session ends |
+| **Auto-sell batch size** | 1–20 | 5 |
+
+- Auto-sell applies **only to skins dropped in the current auto-open run** — never your full inventory.
+- **Manual only** is the default so existing users are not surprised by automatic sells after an update.
+- **Reset defaults** turns **Auto case opening** on and keeps auto-sell on **Manual only**.
+
+Saved in `storage.local` under `csrCasesAutoOpenSellConfig` (popup) plus `csrCasesAutoOpenConfig` (delay, minutes, spend limit on the Cases panel).
+
 - Disabled features stop injecting UI and skip related work on the page (useful on large inventories or if you only want overlays).
 - Changes apply within about **0.4 seconds** on the open tab, or immediately when you change a toggle in the popup.
-- **Reset defaults** restores all toggles to on.
+- **Reset defaults** restores toggles (including **Auto case opening** on) and auto-sell to **Manual only**.
 
 ### Skin lock (v3.2+)
 
@@ -146,16 +189,35 @@ Use this for the “buy X cases in one click” workflow without clicking each c
 
 ### Auto case opening (Cases tab only, v3.4+)
 
-When **Auto case opening** is enabled, the same gold **Cases** panel shows an **Auto open** tab on [`/app/inventory/cases`](https://csrestored.fun/app/inventory/cases) (toggle in the extension popup; off by default).
+When **Auto case opening** is enabled, the gold **Cases** panel on [`/app/inventory/cases`](https://csrestored.fun/app/inventory/cases) shows an **Auto open** tab (toggle in the extension popup; **on by default** for new installs / Reset defaults).
 
 - Choose **weapon case** from the shop list
-- Configure **delay (ms)**, **minutes** (time limit), and **spend limit (coins)** — saved in `storage.local`
+- Configure **delay (ms)** (default **1000** — safer for site rate limits), **minutes** (time limit), and **spend limit (coins)** — saved in `storage.local` (`csrCasesAutoOpenConfig`)
 - **Start auto open** loops `POST /inventory/cases/open/{caseId}` until limits, stop, or an error
 - **Live log** during the run (rarity-colored drops, gold ★ highlighted)
 - **Results** table when the session ends: every skin with **float + wear**, sorted **best float first** (lowest → highest)
 - **Stop** cancels after the current open finishes
+- Panel opens **anchored bottom-right** with **max height** and **internal scroll** so long sessions (log + results + sell controls) are not cut off at the top of the screen
 
 If the API omits float on a drop, that row shows `—` and sorts after items with a known float.
+
+If you see **Too Many Requests**, the CS:R server rate-limited the open request — increase **delay** (try **1000–2000 ms**), wait a minute, and retry. This is unrelated to inventory size.
+
+#### Session auto-sell (develop)
+
+Configure in the **toolbar popup** under **Auto case opening** (see table above). Optional **manual sell buttons** on the Cases panel after a session:
+
+| Popup auto-sell mode | Cases panel after session |
+|----------------------|---------------------------|
+| **Manual only** | Full **Sell session drops** block: rarity dropdown, **Quick sell this rarity**, batch size, plus **Quick sell all non-gold** |
+| **Auto** (non-gold or selected rarities) | Only **Quick sell all non-gold (N)** for leftovers that did not match auto-sell rules |
+
+- **Quick sell all non-gold** — instant sell every ★-less drop from **this session only** (knives/gloves kept)
+- **Quick sell this rarity** — sell one rarity tier from session drops (manual mode only)
+- Auto-sell at **session end** runs in batch without a second confirm; **manual** buttons still ask for confirmation
+- **After each case opens** recycles coins faster but sends more sell requests — use batch size **1–2** if the site is slow
+
+Uses the same `POST /inventory/sell/{weapon_id}` endpoint as Quick Sell. Locked skins (`weapon_id` in lock list) are skipped.
 
 ### Confirm Sale — marketplace list + quick sell (v3.1+)
 
@@ -246,18 +308,18 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 ## Usage
 
 1. Go to [csrestored.fun](https://csrestored.fun) and log in with Discord
-2. (Optional) Click the **extension icon** in the toolbar → enable only the features you want
+2. (Optional) Click the **extension icon** in the toolbar → **Features** tab: enable only what you want; **Settings** tab: pick your language
 3. Open **Inventory** or **Marketplace** — float/seed badges and the search/filter bar appear after items load (usually a few seconds)
 4. On inventory: use the **padlock** (top-left of a card) to lock skins you must not sell by accident
 5. If **Quick Sell & Market** is on: click the **CS:R logo button** (bottom-right) → **Start Picking** → **Review & Sell** → **List on Market** or **Quick Sell**
-6. On **Cases** ([`/app/inventory/cases`](https://csrestored.fun/app/inventory/cases)), open the gold **Cases** button → **Bulk buy** and/or **Auto open** (enable toggles in the popup)
+6. On **Cases** ([`/app/inventory/cases`](https://csrestored.fun/app/inventory/cases)), open the gold **Cases** button → **Bulk buy** and/or **Auto open**; configure auto-sell rules in the extension popup first if you want automatic selling
 7. On **Play → Trades** / **Send Trade Offer**, overlays and trade search work when those toggles are enabled
 
 ## Permissions
 
 | Permission | Why |
 |------------|-----|
-| `storage` | Save feature toggles and locked skin IDs (`storage.local`) |
+| `storage` | Save feature toggles, locked skin IDs, case auto-open config, auto-sell rules, and language (`csrLanguage`) in `storage.local` |
 | `*://*.csrestored.fun/*` | Inject UI on the site |
 | `https://api.csrestored.fun/*` | Read inventory, marketplace, and trade data |
 | `https://cdn.csrestored.fun/*` | Skin images in the sell modal |
@@ -281,15 +343,19 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 ## Project structure
 
 ```
-├── manifest.json   # Extension manifest (MV3)
-├── settings.js     # Feature toggles & skin locks (shared with popup)
-├── popup.html      # Toolbar popup UI
+├── manifest.json          # Extension manifest (MV3)
+├── settings.js            # Feature toggles & skin locks (shared with popup)
+├── i18n-packs.js          # Locale packs (pt-PT, pt-BR)
+├── i18n-packs-generated.js # Full locale packs (de, ru, es) — run scripts/build-locale-packs.js to regenerate
+├── i18n.js                # Translation API (csrT, csrLoadLanguage, …)
+├── popup.html             # Toolbar popup UI (Features + Settings tabs)
 ├── popup.js
 ├── popup.css
-├── content.js      # Content script (overlays, filters, quick-sell UI)
-├── icons/          # Extension icons (16, 48, 128, 300 px)
-├── PRIVACY.md      # Privacy policy (store listings)
-├── LICENSE         # MIT
+├── content.js             # Content script (overlays, filters, quick-sell UI)
+├── scripts/               # i18n scan/build helpers
+├── icons/                 # Extension icons (16, 48, 128, 300 px)
+├── PRIVACY.md             # Privacy policy (store listings)
+├── LICENSE                # MIT
 └── README.md
 ```
 
@@ -298,9 +364,20 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 | Branch | Description |
 |--------|-------------|
 | `main` | Stable releases (v3.4.0) |
-| `develop` | Integration branch for next release |
+| `develop` | Integration branch for next release (session auto-sell, i18n) |
 
 ## Changelog
+
+### Unreleased (develop)
+
+- **New:** **Multi-language UI** — popup **Settings** tab with language picker (en-US, en-GB, pt-PT, pt-BR, de, ru, es); browse bar, Quick Sell, Cases panel, toasts, and confirms use `csrT()`; rarity tier names stay English in all locales
+- **New:** **Session auto-sell** for auto case opening — popup rules: manual (default), all non-gold, or selected rarities; sell when session ends or after each open; batch size 1–20
+- **New:** **Quick sell session drops** on Cases panel — **Quick sell all non-gold** always available after a run; full manual block (rarity dropdown + sell-by-rarity + batch size) only when popup auto-sell is **Manual only**
+- **New:** Toolbar popup **Auto case opening** subsection — master toggle + auto-sell options (collapsible when feature off)
+- **Change:** **Auto case opening** toggle **on by default** (new installs / Reset defaults); auto-sell stays **Manual only** by default
+- **Change:** Auto-open **delay default 1000 ms** (was 250) — reduces `Too Many Requests` from the case open API
+- **UI:** Cases panel **bottom-right** anchor, **max-height**, scrollable body — panel no longer clips at the top when log/results grow
+- **Storage:** `csrCasesAutoOpenSellConfig` in `storage.local` for popup auto-sell settings
 
 ### v3.4.0
 
@@ -531,6 +608,7 @@ With **80+** visible item cards, float/seed badges load in **batches** (visible 
 ## Known limitations
 
 - **Other player's items** in trades / Their Items: CS:R API does not expose `float`, `seed`, and `weapon_id` for the other player's items. Third-party tools cannot show accurate values until the site adds these fields to `/api/trades` and `/users/{id}/inventory`.
+- **Case open / bulk sell rate limits:** CS:R may return **Too Many Requests** when many players open cases or quick-sell at once, or when delay/batch size is too aggressive. Lower delay between opens, use auto-sell batch size 1–2, or wait and retry — not caused by large inventory overlays.
 - **Pin images** missing on the site are a **CS:R website** issue (assets not uploaded yet), not the extension.
 
 ## Disclaimer
@@ -568,7 +646,7 @@ WHAT IT DOES
 • Batch size control — choose how many items are sold or listed in parallel (1–20) for faster or safer bulk operations
 • Confirm Sale modal — per-item quick sell price, market price input, List on Market and Quick Sell buttons with validation
 • Case bulk buy — on the Cases tab (/app/inventory/cases), buy multiple weapon cases at once (quantity 1–99) using your coin balance; purchased cases go to your in-game inventory (toggle in extension settings)
-• Auto case opening — Auto open tab on Cases: set delay, time limit, and spend limit; live log; results sorted by float when finished; Stop button (toggle in extension settings, default off)
+• Auto case opening — Auto open tab on Cases: delay (default 1000 ms), time limit, spend limit; live log; results sorted by float; optional session auto-sell (manual default, non-gold, or by rarity) configured in toolbar popup; Quick sell session drops after a run
 • Lazy overlays on large inventories — float/seed badges load in batches on big grids (80+ cards) to reduce lag; scroll to load more
 • Trade offer search — compact search bar in Send Trade Offer (My Items / Their Items)
 • Toolbar settings popup — turn each feature on or off; preferences saved in extension storage
@@ -641,7 +719,9 @@ How to test:
    - Hover-expand the site left sidebar — search bar should not jump or disappear
 5. Cases (/app/inventory/cases):
    - Gold floating button → **Bulk buy** tab (case dropdown, quantity 1–99, Buy containers) when Case bulk buy toggle is on
-   - Same panel → **Auto open** tab: delay, minutes, spend limit, Start/Stop, results table sorted by float when Case auto opening toggle is on
+   - Same panel → **Auto open** tab: delay (default 1000 ms), minutes, spend limit, Start/Stop, results table sorted by float
+   - Extension popup → **Auto case opening** section: auto-sell manual / non-gold / rarities; when manual, full sell-session controls after a run; **Quick sell all non-gold** always shown for leftovers
+   - Panel should sit bottom-right and scroll internally when log/results are long
 6. Send Trade Offer (site modal):
    - Open Send Trade Offer → pick a friend → modal opens normally
    - My Items / Their Items: compact search under “Select … Items”; Clear resets; tab switch clears search
