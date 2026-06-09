@@ -5,7 +5,7 @@
     'use strict';
     global.CSR_LOCALE_PACKS = global.CSR_LOCALE_PACKS || {};
     global.CSR_LOCALE_PACKS.de = {
-        'popup.title': 'CS:R Helper',
+        'popup.title': 'Inventory Helper',
         'popup.subtitle': 'Toggle features on csrestored.fun',
         'popup.tab.features': 'Features',
         'popup.tab.settings': 'Settings',
@@ -222,7 +222,7 @@
         'val.warn': 'Warnung',
     };
     global.CSR_LOCALE_PACKS.ru = {
-        'popup.title': 'CS:R Helper',
+        'popup.title': 'Inventory Helper',
         'popup.subtitle': 'Toggle features on csrestored.fun',
         'popup.tab.features': 'Features',
         'popup.tab.settings': 'Settings',
@@ -439,7 +439,7 @@
         'val.warn': 'Предупреждение',
     };
     global.CSR_LOCALE_PACKS.es = {
-        'popup.title': 'CS:R Helper',
+        'popup.title': 'Inventory Helper',
         'popup.subtitle': 'Toggle features on csrestored.fun',
         'popup.tab.features': 'Features',
         'popup.tab.settings': 'Settings',

@@ -4,7 +4,7 @@
 
   "name": "CS:Restored Inventory Helper",
 
-  "version": "3.5.0",
+  "version": "3.6.0",
 
   "description": "Float, seed, quick sell, case bulk buy, auto case opening, session auto-sell, multi-language UI, and skin lock for CS:Restored (csrestored.fun). Unofficial extension.",
 
@@ -38,7 +38,9 @@
 
     "https://api.csrestored.fun/*",
 
-    "https://cdn.csrestored.fun/*"
+    "https://cdn.csrestored.fun/*",
+
+    "https://api.github.com/*"
 
   ],
 
@@ -60,7 +62,7 @@
 
     {
 
-      "resources": ["icons/*.png"],
+      "resources": ["icons/*.png", "CHANGELOG.md"],
 
       "matches": ["*://*.csrestored.fun/*"]
 

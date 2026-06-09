@@ -24,7 +24,7 @@ const partial = {
 
 // Machine-assisted bulk translations for remaining en-US strings
 const DE = {
-    'popup.title': 'CS:R Helper',
+    'popup.title': 'Inventory Helper',
     'rarity.1': 'Verbraucherqualität', 'rarity.2': 'Industriequalität', 'rarity.3': 'Mil-Spec',
     'rarity.4': 'Limitiert', 'rarity.5': 'Klassifiziert', 'rarity.6': 'Covert / Messer / Handschuhe', 'rarity.7': 'Kontrabande',
     'rarityShort.1': 'Verbraucher', 'rarityShort.2': 'Industrie', 'rarityShort.3': 'Mil-Spec',
@@ -113,7 +113,7 @@ const DE = {
 };
 
 const RU = {
-    'popup.title': 'CS:R Helper',
+    'popup.title': 'Inventory Helper',
     'feature.floatOverlays.desc': 'Износ, float и pattern на карточках',
     'feature.browseFilters.desc': 'Инвентарь, маркетплейс и создание оффера',
     'feature.quickSellPanel.desc': 'Плавающая панель и подтверждение продажи',
@@ -223,7 +223,7 @@ const RU = {
 };
 
 const ES = {
-    'popup.title': 'CS:R Helper',
+    'popup.title': 'Inventory Helper',
     'feature.floatOverlays.desc': 'Desgaste, float y pattern en las tarjetas',
     'feature.browseFilters.desc': 'Inventario, marketplace y crear oferta',
     'feature.quickSellPanel.desc': 'Panel flotante y confirmar venta',

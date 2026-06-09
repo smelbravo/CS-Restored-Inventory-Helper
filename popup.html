@@ -7,132 +7,236 @@
     <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-    <header class="hdr">
-        <img src="icons/icon-48.png" alt="" width="28" height="28">
-        <div>
-            <div class="hdr-title" data-i18n="popup.title">CS:R Helper</div>
-            <div class="hdr-sub" data-i18n="popup.subtitle">Toggle features on csrestored.fun</div>
+    <header class="top-hdr">
+        <img src="icons/icon-48.png" alt="" width="36" height="36" class="top-hdr-icon">
+        <div class="top-hdr-txt">
+            <div class="top-hdr-title" data-i18n="popup.title">Inventory Helper</div>
+            <div class="top-hdr-sub" data-i18n="popup.subtitle">Toggle features on csrestored.fun</div>
         </div>
+        <span class="ver-badge" id="side-ver">v3.6.0</span>
     </header>
-    <nav class="popup-tabs">
-        <button type="button" class="popup-tab active" data-tab="features" data-i18n="popup.tab.features">Features</button>
-        <button type="button" class="popup-tab" data-tab="settings" data-i18n="popup.tab.settings">Settings</button>
+
+    <nav class="tab-bar" role="tablist">
+        <button type="button" class="tab-btn active" data-tab="features" role="tab">
+            <span data-i18n="popup.tab.features">Features</span>
+        </button>
+        <button type="button" class="tab-btn" data-tab="settings" role="tab">
+            <span data-i18n="popup.tab.settings">Settings</span>
+        </button>
+        <button type="button" class="tab-btn" data-tab="about" role="tab">
+            <span data-i18n="popup.tab.about">About</span>
+        </button>
     </nav>
 
-    <main id="panel-features" class="popup-panel active">
-        <div id="feature-list" class="feature-list">
-            <label class="feature-row" data-key="floatOverlays">
-                <input type="checkbox" data-key="floatOverlays" checked>
-                <div class="feature-text">
-                    <div class="feature-label" data-i18n="feature.floatOverlays.label">Float &amp; seed overlays</div>
-                    <div class="feature-desc" data-i18n="feature.floatOverlays.desc">Wear, float, and pattern on item cards</div>
-                </div>
-            </label>
-            <label class="feature-row" data-key="browseFilters">
-                <input type="checkbox" data-key="browseFilters" checked>
-                <div class="feature-text">
-                    <div class="feature-label" data-i18n="feature.browseFilters.label">Search &amp; filters</div>
-                    <div class="feature-desc" data-i18n="feature.browseFilters.desc">Inventory, marketplace, and create offer</div>
-                </div>
-            </label>
-            <label class="feature-row" data-key="quickSellPanel">
-                <input type="checkbox" data-key="quickSellPanel" checked>
-                <div class="feature-text">
-                    <div class="feature-label" data-i18n="feature.quickSellPanel.label">Quick Sell &amp; Market</div>
-                    <div class="feature-desc" data-i18n="feature.quickSellPanel.desc">Floating panel and confirm sale</div>
-                </div>
-            </label>
-            <label class="feature-row" data-key="caseBulkBuy">
-                <input type="checkbox" data-key="caseBulkBuy" checked>
-                <div class="feature-text">
-                    <div class="feature-label" data-i18n="feature.caseBulkBuy.label">Case bulk buy</div>
-                    <div class="feature-desc" data-i18n="feature.caseBulkBuy.desc">Buy cases in bulk on /app/inventory/cases</div>
-                </div>
-            </label>
+    <main class="main-scroll">
+        <section id="panel-features" class="popup-panel active" data-tab="features">
+            <p class="panel-lead" data-i18n="popup.featuresLead">Toggle each tool injected on csrestored.fun.</p>
 
-            <section class="feature-section" id="section-case-auto-open">
-                <label class="feature-row feature-row-section" data-key="caseAutoOpen">
-                    <input type="checkbox" data-key="caseAutoOpen" checked>
-                    <div class="feature-text">
-                        <div class="feature-label" data-i18n="feature.caseAutoOpen.label">Auto case opening</div>
-                        <div class="feature-desc" data-i18n="feature.caseAutoOpen.desc">Auto-open on /app/inventory/cases</div>
+            <div id="feature-list" class="feature-list">
+
+                <div class="feature-group">
+                    <div class="feature-group-label" data-i18n="popup.group.inventory">Inventory &amp; browse</div>
+                    <label class="feature-row" data-key="floatOverlays">
+                        <input type="checkbox" data-key="floatOverlays" checked>
+                        <div class="feature-text">
+                            <div class="feature-label" data-i18n="feature.floatOverlays.label">Float &amp; seed overlays</div>
+                            <div class="feature-desc" data-i18n="feature.floatOverlays.desc">Wear, float, and pattern on item cards</div>
+                        </div>
+                    </label>
+                    <label class="feature-row" data-key="browseFilters">
+                        <input type="checkbox" data-key="browseFilters" checked>
+                        <div class="feature-text">
+                            <div class="feature-label" data-i18n="feature.browseFilters.label">Search &amp; filters</div>
+                            <div class="feature-desc" data-i18n="feature.browseFilters.desc">Inventory, marketplace, and create offer</div>
+                        </div>
+                    </label>
+                </div>
+
+                <div class="feature-group">
+                    <div class="feature-group-label" data-i18n="popup.group.selling">Sell &amp; protect</div>
+                    <label class="feature-row" data-key="skinLock">
+                        <input type="checkbox" data-key="skinLock" checked>
+                        <div class="feature-text">
+                            <div class="feature-label" data-i18n="feature.skinLock.label">Skin lock</div>
+                            <div class="feature-desc" data-i18n="feature.skinLock.desc">Padlock on inventory cards — blocks extension Quick Sell only</div>
+                        </div>
+                    </label>
+                    <label class="feature-row" data-key="quickSellPanel">
+                        <input type="checkbox" data-key="quickSellPanel" checked>
+                        <div class="feature-text">
+                            <div class="feature-label" data-i18n="feature.quickSellPanel.label">Quick Sell &amp; Market</div>
+                            <div class="feature-desc" data-i18n="feature.quickSellPanel.desc">Floating panel and confirm sale</div>
+                        </div>
+                    </label>
+                </div>
+
+                <div class="feature-group">
+                    <div class="feature-group-label" data-i18n="popup.group.trades">Trades</div>
+                    <label class="feature-row" data-key="tradeSearch">
+                        <input type="checkbox" data-key="tradeSearch" checked>
+                        <div class="feature-text">
+                            <div class="feature-label" data-i18n="feature.tradeSearch.label">Trade offer search</div>
+                            <div class="feature-desc" data-i18n="feature.tradeSearch.desc">Search bar in Send Trade Offer modal</div>
+                        </div>
+                    </label>
+                </div>
+
+                <div class="feature-group">
+                    <div class="feature-group-label" data-i18n="popup.group.cases">Cases</div>
+                    <label class="feature-row" data-key="caseBulkBuy">
+                        <input type="checkbox" data-key="caseBulkBuy" checked>
+                        <div class="feature-text">
+                            <div class="feature-label" data-i18n="feature.caseBulkBuy.label">Case bulk buy</div>
+                            <div class="feature-desc" data-i18n="feature.caseBulkBuy.desc">Buy cases in bulk on /app/inventory/cases</div>
+                        </div>
+                    </label>
+
+                    <section class="feature-section" id="section-case-auto-open">
+                        <label class="feature-row feature-row-section" data-key="caseAutoOpen">
+                            <input type="checkbox" data-key="caseAutoOpen" checked>
+                            <div class="feature-text">
+                                <div class="feature-label" data-i18n="feature.caseAutoOpen.label">Auto case opening</div>
+                                <div class="feature-desc" data-i18n="feature.caseAutoOpen.desc">Auto-open on /app/inventory/cases</div>
+                            </div>
+                        </label>
+                        <div id="case-auto-open-sub" class="feature-sub">
+                            <div class="sub-title" data-i18n="popup.caseAutoSell.title">Auto-sell session drops</div>
+                            <p class="sub-hint" data-i18n="popup.caseAutoSell.hint">Only items from the current auto-open run — never your full inventory. Default is manual.</p>
+
+                            <label class="sub-row">
+                                <input type="radio" name="sellMode" value="manual" checked>
+                                <span class="sub-row-txt" data-i18n="popup.sellMode.manual">Manual only — buttons when finished</span>
+                            </label>
+                            <label class="sub-row">
+                                <input type="radio" name="sellMode" value="nonGold">
+                                <span class="sub-row-txt" data-i18n="popup.sellMode.nonGold">Auto: all non-gold (★ kept)</span>
+                            </label>
+                            <label class="sub-row">
+                                <input type="radio" name="sellMode" value="rarities">
+                                <span class="sub-row-txt" data-i18n="popup.sellMode.rarities">Auto: selected rarities only</span>
+                            </label>
+
+                            <div id="sell-rarities" class="rarity-grid" hidden>
+                                <label class="rar-row"><input type="checkbox" data-rarity="1"><span data-i18n="rarityShort.1">Consumer</span></label>
+                                <label class="rar-row"><input type="checkbox" data-rarity="2"><span data-i18n="rarityShort.2">Industrial</span></label>
+                                <label class="rar-row"><input type="checkbox" data-rarity="3"><span data-i18n="rarityShort.3">Mil-Spec</span></label>
+                                <label class="rar-row"><input type="checkbox" data-rarity="4"><span data-i18n="rarityShort.4">Restricted</span></label>
+                                <label class="rar-row"><input type="checkbox" data-rarity="5"><span data-i18n="rarityShort.5">Classified</span></label>
+                                <label class="rar-row"><input type="checkbox" data-rarity="6"><span data-i18n="rarityShort.6">Covert</span></label>
+                                <label class="rar-row"><input type="checkbox" data-rarity="7"><span data-i18n="rarityShort.7">Contraband</span></label>
+                            </div>
+
+                            <div id="sell-timing-wrap" class="sub-block" hidden>
+                                <div class="sub-title sub-title-sm" data-i18n="popup.sellTiming.title">When to auto-sell</div>
+                                <label class="sub-row">
+                                    <input type="radio" name="sellTiming" value="end" checked>
+                                    <span class="sub-row-txt" data-i18n="popup.sellTiming.end">When session ends (less server load)</span>
+                                </label>
+                                <label class="sub-row">
+                                    <input type="radio" name="sellTiming" value="each">
+                                    <span class="sub-row-txt" data-i18n="popup.sellTiming.each">After each case opens (faster coin recycle)</span>
+                                </label>
+                            </div>
+
+                            <div id="sell-batch-wrap" class="sub-block batch-row" hidden>
+                                <label for="sell-batch" data-i18n="popup.sellBatch">Auto-sell batch size (1–20)</label>
+                                <input type="text" id="sell-batch" inputmode="numeric" autocomplete="off" spellcheck="false" value="5">
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </div>
+
+            <footer class="panel-foot">
+                <span id="lock-count" class="lock-count">No locked skins</span>
+                <button type="button" id="btn-reset" class="btn-ghost" data-i18n="popup.reset">Reset defaults</button>
+            </footer>
+        </section>
+
+        <section id="panel-settings" class="popup-panel" data-tab="settings">
+            <p class="panel-lead" data-i18n="popup.settingsLead">Language and other extension preferences.</p>
+
+            <div class="settings-block">
+                <label class="settings-label" for="lang-select" data-i18n="popup.settings.language">Language</label>
+                <select id="lang-select" class="settings-select"></select>
+                <p class="settings-hint" data-i18n="popup.settings.languageHint">Applies to extension UI on csrestored.fun.</p>
+            </div>
+        </section>
+
+        <section id="panel-about" class="popup-panel" data-tab="about">
+            <div class="about">
+                <div class="about-icon">
+                    <img src="icons/icon-128.png" alt="" width="52" height="52">
+                </div>
+                <div class="about-name" data-i18n="popup.aboutName">CS:R Inventory Helper</div>
+                <div class="about-ver" id="about-ver">v3.6.0</div>
+                <p class="about-p" data-i18n="popup.aboutDesc">Float, seed, quick sell, case tools, and skin lock for csrestored.fun — all in your browser session.</p>
+                <div class="about-links">
+                    <a class="btn btn-sm" id="gh-link" href="https://github.com/smelbravo/CS-Restored-Inventory-Helper" target="_blank" rel="noopener">
+                        <span class="btn-tx" data-i18n="popup.about.github">GitHub</span>
+                    </a>
+                    <a class="btn btn-sm" id="amo-link" href="https://addons.mozilla.org/firefox/addon/csr-inventory-helper/" target="_blank" rel="noopener">
+                        <span class="btn-tx" data-i18n="popup.about.amo">Firefox AMO</span>
+                    </a>
+                    <a class="btn btn-sm" id="privacy-link" href="https://github.com/smelbravo/CS-Restored-Inventory-Helper/blob/main/PRIVACY.md" target="_blank" rel="noopener">
+                        <span class="btn-tx" data-i18n="popup.about.privacy">Privacy</span>
+                    </a>
+                    <a class="btn btn-sm" id="license-link" href="https://github.com/smelbravo/CS-Restored-Inventory-Helper/blob/main/LICENSE" target="_blank" rel="noopener">
+                        <span class="btn-tx" data-i18n="popup.about.license">License</span>
+                    </a>
+                </div>
+            </div>
+
+            <div id="update-section">
+                <div class="section-label" data-i18n="popup.about.updates">Updates</div>
+                <label class="set-row" id="auto-update-row">
+                    <div class="set-txt">
+                        <div class="set-t" data-i18n="popup.about.autoUpdate">Auto-update check</div>
+                        <div class="set-d" data-i18n="popup.about.autoUpdateDesc">Watch GitHub for new releases and prompt you when one is out.</div>
                     </div>
+                    <input type="checkbox" id="auto-update-toggle" checked>
                 </label>
-                <div id="case-auto-open-sub" class="feature-sub">
-                    <div class="sub-title" data-i18n="popup.caseAutoSell.title">Auto-sell session drops</div>
-                    <p class="sub-hint" data-i18n="popup.caseAutoSell.hint">Only items from the current auto-open run — never your full inventory. Default is manual.</p>
+                <button type="button" class="btn btn-wide" id="check-update">
+                    <span class="btn-tx" data-i18n="popup.about.checkUpdate">Check for updates</span>
+                </button>
+            </div>
 
-                    <label class="sub-row">
-                        <input type="radio" name="sellMode" value="manual" checked>
-                        <span data-i18n="popup.sellMode.manual">Manual only — buttons when finished</span>
-                    </label>
-                    <label class="sub-row">
-                        <input type="radio" name="sellMode" value="nonGold">
-                        <span data-i18n="popup.sellMode.nonGold">Auto: all non-gold (★ kept)</span>
-                    </label>
-                    <label class="sub-row">
-                        <input type="radio" name="sellMode" value="rarities">
-                        <span data-i18n="popup.sellMode.rarities">Auto: selected rarities only</span>
-                    </label>
+            <div id="firefox-update-note" class="firefox-note" hidden>
+                <div class="section-label" data-i18n="popup.about.updates">Updates</div>
+                <p class="firefox-note-p" data-i18n="popup.about.firefoxNote">Firefox installs from AMO update automatically when Mozilla publishes a new signed version — no manual GitHub check needed.</p>
+                <a class="btn btn-wide" id="amo-update-link" href="https://addons.mozilla.org/firefox/addon/csr-inventory-helper/" target="_blank" rel="noopener">
+                    <span class="btn-tx" data-i18n="popup.about.openAmo">Open AMO page</span>
+                </a>
+            </div>
 
-                    <div id="sell-rarities" class="rarity-grid" hidden>
-                        <label class="rar-row"><input type="checkbox" data-rarity="1"><span data-i18n="rarityShort.1">Consumer</span></label>
-                        <label class="rar-row"><input type="checkbox" data-rarity="2"><span data-i18n="rarityShort.2">Industrial</span></label>
-                        <label class="rar-row"><input type="checkbox" data-rarity="3"><span data-i18n="rarityShort.3">Mil-Spec</span></label>
-                        <label class="rar-row"><input type="checkbox" data-rarity="4"><span data-i18n="rarityShort.4">Restricted</span></label>
-                        <label class="rar-row"><input type="checkbox" data-rarity="5"><span data-i18n="rarityShort.5">Classified</span></label>
-                        <label class="rar-row"><input type="checkbox" data-rarity="6"><span data-i18n="rarityShort.6">Covert</span></label>
-                        <label class="rar-row"><input type="checkbox" data-rarity="7"><span data-i18n="rarityShort.7">Contraband</span></label>
-                    </div>
+            <div class="section-label" data-i18n="popup.about.whatsNew">What's new</div>
+            <div class="changelog" id="changelog"><div class="cl-skel"></div></div>
 
-                    <div id="sell-timing-wrap" class="sub-block" hidden>
-                        <div class="sub-title sub-title-sm" data-i18n="popup.sellTiming.title">When to auto-sell</div>
-                        <label class="sub-row">
-                            <input type="radio" name="sellTiming" value="end" checked>
-                            <span data-i18n="popup.sellTiming.end">When session ends (less server load)</span>
-                        </label>
-                        <label class="sub-row">
-                            <input type="radio" name="sellTiming" value="each">
-                            <span data-i18n="popup.sellTiming.each">After each case opens (faster coin recycle)</span>
-                        </label>
-                    </div>
-
-                    <div id="sell-batch-wrap" class="sub-block batch-row" hidden>
-                        <label for="sell-batch" data-i18n="popup.sellBatch">Auto-sell batch size (1–20)</label>
-                        <input type="text" id="sell-batch" inputmode="numeric" autocomplete="off" spellcheck="false" value="5">
-                    </div>
-                </div>
-            </section>
-
-            <label class="feature-row" data-key="tradeSearch">
-                <input type="checkbox" data-key="tradeSearch" checked>
-                <div class="feature-text">
-                    <div class="feature-label" data-i18n="feature.tradeSearch.label">Trade offer search</div>
-                    <div class="feature-desc" data-i18n="feature.tradeSearch.desc">Search bar in Send Trade Offer modal</div>
-                </div>
-            </label>
-            <label class="feature-row" data-key="skinLock">
-                <input type="checkbox" data-key="skinLock" checked>
-                <div class="feature-text">
-                    <div class="feature-label" data-i18n="feature.skinLock.label">Skin lock</div>
-                    <div class="feature-desc" data-i18n="feature.skinLock.desc">Padlock on inventory cards — blocks extension Quick Sell only</div>
-                </div>
-            </label>
-        </div>
+            <p class="about-foot" data-i18n="popup.about.disclaimer">Not affiliated with Valve or Counter-Strike: Restored.</p>
+        </section>
     </main>
 
-    <main id="panel-settings" class="popup-panel">
-        <div class="settings-block">
-            <label class="settings-label" for="lang-select" data-i18n="popup.settings.language">Language</label>
-            <select id="lang-select" class="settings-select"></select>
-            <p class="settings-hint" data-i18n="popup.settings.languageHint">Applies to extension UI on csrestored.fun.</p>
+    <div class="modal" id="update-modal" hidden>
+        <div class="modal-card">
+            <div class="modal-title" data-i18n="popup.update.title">Update available</div>
+            <div class="modal-body">
+                <span data-i18n="popup.update.body">A newer build</span>
+                <b id="modal-ver"></b>
+                <span data-i18n="popup.update.bodyEnd">is ready. Open the release page to download it — your settings stay intact.</span>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-ghost" id="modal-later">
+                    <span class="btn-tx" data-i18n="popup.update.later">Later</span>
+                </button>
+                <a class="btn btn-primary" id="modal-go" target="_blank" rel="noopener">
+                    <span class="btn-tx" data-i18n="popup.update.open">Open release ↗</span>
+                </a>
+            </div>
         </div>
-    </main>
+    </div>
 
-    <footer class="ftr">
-        <span id="lock-count" class="lock-count">No locked skins</span>
-        <button type="button" id="btn-reset" class="btn-reset" data-i18n="popup.reset">Reset defaults</button>
-    </footer>
+    <div class="toasts" id="toasts"></div>
+
     <script src="i18n-packs.js"></script>
     <script src="i18n-packs-generated.js"></script>
     <script src="i18n.js"></script>

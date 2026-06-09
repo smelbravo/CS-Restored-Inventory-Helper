@@ -1,10 +1,10 @@
 # CS:Restored Inventory Helper
 
-Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.fun) — float and paint seed overlays, search and filters on inventory/marketplace, a quick-sell panel, **case bulk buy** and **auto case opening** (with optional **session auto-sell**) on the Cases tab, optional **toolbar settings** to turn each feature on or off, **skin lock** to avoid accidental sells, and **multi-language UI** (popup + on-site panels).
+Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.fun) — float and paint seed overlays, search and filters on inventory/marketplace, a quick-sell panel, **case bulk buy** and **auto case opening** (with optional **session auto-sell**) on the Cases tab, optional **toolbar settings** to turn each feature on or off, **skin lock** to avoid accidental sells, **multi-language UI** (popup + on-site panels), and an **About** tab with release info and (on Chromium) a GitHub update checker.
 
 Works in **Firefox**, **Microsoft Edge**, and **Chromium** browsers (Manifest V3).
 
-**Current version:** `3.5.0`
+**Current version:** `3.6.0`
 
 **Repository:** [github.com/smelbravo/CS-Restored-Inventory-Helper](https://github.com/smelbravo/CS-Restored-Inventory-Helper)
 
@@ -70,16 +70,39 @@ Horizontal bar above the item grid (same layout on both pages):
 - Shows `Showing X of Y items` when filters hide cards
 - Sorting reorders the visible grid without reloading the page
 
-### Extension popup — Features & Settings (v3.2+)
+### Extension popup — Features, Settings & About (v3.2+)
 
-Click the **extension icon** in the browser toolbar (Firefox / Chrome / Edge). The popup has two tabs:
+Click the **extension icon** in the browser toolbar (Firefox / Chrome / Edge). The popup header shows **Inventory Helper** (always in English) plus your version badge. Three **top tabs**:
 
 | Tab | What it contains |
 |-----|------------------|
-| **Features** | Toggles for each extension feature (same as before) |
+| **Features** | Feature toggles grouped by category (see below) + auto case opening / auto-sell subsection |
 | **Settings** | **Language** picker for extension UI on csrestored.fun |
+| **About** | Version, description, links (GitHub, AMO, Privacy, License), bundled **What's new** changelog, and update tools |
 
 Each feature can be turned on or off; preferences are saved in **`storage.local`** (extension storage — not site cookies).
+
+#### Features tab — groups & order (v3.6+)
+
+| Group | Toggles (top → bottom) |
+|-------|-------------------------|
+| **Inventory & browse** | Float & seed overlays → Search & filters |
+| **Sell & protect** | Skin lock → Quick Sell & Market |
+| **Trades** | Trade offer search |
+| **Cases** | Case bulk buy → Auto case opening (+ auto-sell rules) |
+
+Skin lock is listed before Quick Sell so you protect items before using bulk sell tools. Case tools stay together at the bottom.
+
+#### About tab & updates (v3.6+)
+
+| Browser | Updates |
+|---------|---------|
+| **Firefox (AMO)** | Mozilla installs signed updates automatically when you install from [addons.mozilla.org](https://addons.mozilla.org/firefox/addon/csr-inventory-helper/). The About tab shows an AMO note instead of the GitHub checker. |
+| **Chrome / Edge / Brave / Opera** | Optional **Auto-update check** (on by default) compares your version to the latest [GitHub release](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) when you open the popup (cached ~1 hour). **Check for updates** always hits GitHub and shows a toast or opens a modal with a link to the release `.zip`. |
+
+Manual Chromium install: download the release `.zip` from GitHub → `chrome://extensions` → Developer mode → **Load unpacked** (or replace files and **Reload**).
+
+Update checker inspired by [CSR+](https://github.com/queryery/CSR-PLUS) (used with permission) — adapted for this repo (`smelbravo/CS-Restored-Inventory-Helper`).
 
 #### Language (v3.5+)
 
@@ -104,11 +127,11 @@ Choose a language under **Settings → Language**. Applies to the **toolbar popu
 |--------|------------------|
 | **Float & seed overlays** | Wear, float, and paint seed badges on item cards |
 | **Search & filters** | Browse bar on inventory, marketplace, and Create Offer |
+| **Skin lock** | Padlock on inventory cards (see table below) |
 | **Quick Sell & Market** | Bottom-right CS:R button, helper panel, and Confirm Sale flow |
+| **Trade offer search** | Compact search bar in Send Trade Offer (My Items / Their Items) |
 | **Case bulk buy** | Floating panel on [Cases](https://csrestored.fun/app/inventory/cases) — pick case + quantity, buy to in-game inventory |
 | **Auto case opening** | Auto-open cases on [Cases](https://csrestored.fun/app/inventory/cases) — spend/time limits, session auto-sell rules, results sorted by float (**on by default**) |
-| **Trade offer search** | Compact search bar in Send Trade Offer (My Items / Their Items) |
-| **Skin lock** | Padlock on inventory cards (see table below) |
 
 #### Auto case opening — popup section (v3.5+)
 
@@ -308,7 +331,7 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 ## Usage
 
 1. Go to [csrestored.fun](https://csrestored.fun) and log in with Discord
-2. (Optional) Click the **extension icon** in the toolbar → **Features** tab: enable only what you want; **Settings** tab: pick your language
+2. (Optional) Click the **extension icon** in the toolbar → **Features**: enable what you want; **Settings**: pick language; **About**: version info and (on Chromium) check for GitHub updates
 3. Open **Inventory** or **Marketplace** — float/seed badges and the search/filter bar appear after items load (usually a few seconds)
 4. On inventory: use the **padlock** (top-left of a card) to lock skins you must not sell by accident
 5. If **Quick Sell & Market** is on: click the **CS:R logo button** (bottom-right) → **Start Picking** → **Review & Sell** → **List on Market** or **Quick Sell**
@@ -319,11 +342,12 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 
 | Permission | Why |
 |------------|-----|
-| `storage` | Save feature toggles, locked skin IDs, case auto-open config, auto-sell rules, and language (`csrLanguage`) in `storage.local` |
+| `storage` | Save feature toggles, locked skin IDs, case auto-open config, auto-sell rules, language (`csrLanguage`), and auto-update preference (`csrAutoUpdateCheck`) in `storage.local` |
 | `*://*.csrestored.fun/*` | Inject UI on the site |
 | `https://api.csrestored.fun/*` | Read inventory, marketplace, and trade data |
 | `https://cdn.csrestored.fun/*` | Skin images in the sell modal |
-| `icons/*.png` (web accessible) | Extension logo on the floating button, panel, and popup |
+| `https://api.github.com/*` | Check for new releases from the About tab (Chromium only) |
+| `icons/*.png`, `CHANGELOG.md` (web accessible) | Extension logo on the floating button, panel, popup; changelog in About tab |
 
 ## API endpoints used
 
@@ -348,9 +372,10 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 ├── i18n-packs.js          # Locale packs (pt-PT, pt-BR)
 ├── i18n-packs-generated.js # Full locale packs (de, ru, es) — run scripts/build-locale-packs.js to regenerate
 ├── i18n.js                # Translation API (csrT, csrLoadLanguage, …)
-├── popup.html             # Toolbar popup UI (Features + Settings tabs)
+├── popup.html             # Toolbar popup UI (Features + Settings + About tabs)
 ├── popup.js
 ├── popup.css
+├── CHANGELOG.md           # Bundled release notes (About → What's new)
 ├── content.js             # Content script (overlays, filters, quick-sell UI)
 ├── scripts/               # i18n scan/build helpers
 ├── icons/                 # Extension icons (16, 48, 128, 300 px)
@@ -363,10 +388,21 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 
 | Branch | Description |
 |--------|-------------|
-| `main` | Stable releases (v3.5.0) |
+| `main` | Stable releases (v3.6.0) |
 | `develop` | Integration branch for next release |
 
 ## Changelog
+
+### v3.6.0
+
+- **New:** **About** tab — version, description, GitHub / AMO / Privacy / License links, bundled **What's new** from `CHANGELOG.md`
+- **New:** **Redesigned popup UI** — compact header (**Inventory Helper** title), **horizontal top tabs** (Features / Settings / About), grouped feature list, improved scroll and long-locale layout (pt/de/ru)
+- **New:** **Feature groups** in popup — Inventory & browse → Sell & protect → Trades → Cases (logical order; skin lock before Quick Sell)
+- **New:** **GitHub update checker** for Chromium (Chrome, Edge, Brave, Opera) — optional auto-check on popup open + manual **Check for updates** with release modal (pattern adapted from [CSR+](https://github.com/queryery/CSR-PLUS) with permission)
+- **Note:** Firefox AMO installs still update through Mozilla's store; About tab shows AMO guidance instead of the GitHub checker
+- **Storage:** `csrAutoUpdateCheck` in `storage.local` (default on for Chromium)
+- **Permission:** `https://api.github.com/*` for release checks only
+- **Build:** `CHANGELOG.md`, `PRIVACY.md`, and `LICENSE` included in release `.zip` / `.xpi`
 
 ### v3.5.0
 
