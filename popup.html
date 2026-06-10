@@ -19,26 +19,26 @@
                 <span class="lu-num" id="lu-num">—</span>
                 <span class="lu-lbl" id="lu-lbl" data-i18n="popup.liveUsers.users">USERS</span>
             </div>
-            <span class="ver-badge" id="side-ver">v3.7.1</span>
+            <span class="ver-badge" id="side-ver">v—</span>
             <span class="status-dot hdr-ind" aria-hidden="true"></span>
             <span class="status-tx" data-i18n="popup.liveUsers.online">ONLINE</span>
         </div>
     </header>
 
-    <nav class="tab-bar" role="tablist">
-        <button type="button" class="tab-btn active" data-tab="features" role="tab">
+    <nav class="tab-bar" role="tablist" aria-label="Extension sections">
+        <button type="button" class="tab-btn active" data-tab="features" role="tab" aria-selected="true" aria-controls="panel-features" id="tab-features">
             <span data-i18n="popup.tab.features">Features</span>
         </button>
-        <button type="button" class="tab-btn" data-tab="settings" role="tab">
+        <button type="button" class="tab-btn" data-tab="settings" role="tab" aria-selected="false" aria-controls="panel-settings" id="tab-settings">
             <span data-i18n="popup.tab.settings">Settings</span>
         </button>
-        <button type="button" class="tab-btn" data-tab="about" role="tab">
+        <button type="button" class="tab-btn" data-tab="about" role="tab" aria-selected="false" aria-controls="panel-about" id="tab-about">
             <span data-i18n="popup.tab.about">About</span>
         </button>
     </nav>
 
     <main class="main-scroll">
-        <section id="panel-features" class="popup-panel active" data-tab="features">
+        <section id="panel-features" class="popup-panel active" data-tab="features" role="tabpanel" aria-labelledby="tab-features">
             <p class="panel-lead" data-i18n="popup.featuresLead">Toggle each tool injected on csrestored.fun.</p>
 
             <div id="feature-list" class="feature-list">
@@ -162,7 +162,7 @@
             </footer>
         </section>
 
-        <section id="panel-settings" class="popup-panel" data-tab="settings">
+        <section id="panel-settings" class="popup-panel" data-tab="settings" role="tabpanel" aria-labelledby="tab-settings">
             <p class="panel-lead" data-i18n="popup.settingsLead">Language and other extension preferences.</p>
 
             <div class="settings-block">
@@ -191,19 +191,26 @@
                     <button type="button" id="btn-import-settings" class="btn btn-sm btn-ghost">
                         <span class="btn-tx" data-i18n="popup.settings.import">Import settings</span>
                     </button>
-                    <input type="file" id="import-file-input" accept=".json,application/json" hidden>
                 </div>
                 <p class="settings-hint" data-i18n="popup.settings.backupHint">Download or restore a JSON backup.</p>
+                <p id="settings-backup-status" class="settings-backup-status" hidden></p>
+                <details class="settings-paste">
+                    <summary data-i18n="popup.settings.pasteToggle">Import from pasted JSON</summary>
+                    <textarea id="import-paste" class="settings-paste-input" rows="4" spellcheck="false" data-i18n-placeholder="popup.settings.pastePlaceholder" placeholder="Paste exported JSON here…"></textarea>
+                    <button type="button" id="btn-import-paste" class="btn btn-sm btn-ghost">
+                        <span class="btn-tx" data-i18n="popup.settings.pasteImport">Import pasted JSON</span>
+                    </button>
+                </details>
             </div>
         </section>
 
-        <section id="panel-about" class="popup-panel" data-tab="about">
+        <section id="panel-about" class="popup-panel" data-tab="about" role="tabpanel" aria-labelledby="tab-about">
             <div class="about">
                 <div class="about-icon">
                     <img src="icons/icon-128.png" alt="" width="52" height="52">
                 </div>
                 <div class="about-name" data-i18n="popup.aboutName">CS:R Inventory Helper</div>
-                <div class="about-ver" id="about-ver">v3.7.1</div>
+                <div class="about-ver" id="about-ver">v—</div>
                 <p class="about-p" data-i18n="popup.aboutDesc">Float, seed, quick sell, case tools, and skin lock for csrestored.fun — all in your browser session.</p>
                 <div class="about-links">
                     <a class="btn btn-sm" id="gh-link" href="https://github.com/smelbravo/CS-Restored-Inventory-Helper" target="_blank" rel="noopener">
@@ -250,6 +257,21 @@
         </section>
     </main>
 
+    <div class="modal" id="import-modal" hidden>
+        <div class="modal-card">
+            <div class="modal-title" data-i18n="popup.settings.import">Import settings</div>
+            <div class="modal-body" data-i18n="popup.settings.importConfirm">Replace your current settings with this backup?</div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-ghost" id="import-cancel">
+                    <span class="btn-tx" data-i18n="popup.settings.importCancel">Cancel</span>
+                </button>
+                <button type="button" class="btn btn-primary" id="import-confirm">
+                    <span class="btn-tx" data-i18n="popup.settings.importConfirmBtn">Import</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <div class="modal" id="update-modal" hidden>
         <div class="modal-card">
             <div class="modal-title" data-i18n="popup.update.title">Update available</div>
@@ -274,6 +296,7 @@
     <script src="i18n-packs.js"></script>
     <script src="i18n-packs-generated.js"></script>
     <script src="csr-storage.js"></script>
+    <script src="settings.js"></script>
     <script src="i18n.js"></script>
     <script src="popup.js"></script>
 </body>

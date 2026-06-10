@@ -7,6 +7,7 @@
 
     const SYNC_TOGGLE_KEY = 'csrBrowserSyncEnabled';
     const EXPORT_VERSION = 1;
+    const MAX_LOCKED_IDS = 5000;
 
     const SYNCABLE_KEYS = [
         'csrFeatureSettings',
@@ -47,12 +48,29 @@
 
     function storageSet(area, obj) {
         const st = areaApi(area);
+        if (!st) return Promise.reject(new Error('storage_unavailable'));
+        return new Promise((resolve, reject) => {
+            try {
+                st.set(obj, () => {
+                    const err = typeof chrome !== 'undefined' && chrome.runtime?.lastError;
+                    if (err) reject(new Error(String(err.message || err)));
+                    else resolve();
+                });
+            } catch (_) {
+                st.set(obj).then(() => resolve()).catch((e) => reject(e));
+            }
+        });
+    }
+
+    function storageRemove(area, keys) {
+        const st = areaApi(area);
         if (!st) return Promise.resolve();
+        const keyList = Array.isArray(keys) ? keys : [keys];
         return new Promise((resolve) => {
             try {
-                st.set(obj, () => resolve());
+                st.remove(keyList, () => resolve());
             } catch (_) {
-                st.set(obj).then(() => resolve()).catch(() => resolve());
+                st.remove(keyList).then(() => resolve()).catch(() => resolve());
             }
         });
     }
@@ -66,6 +84,57 @@
 
     function prefsArea(enabled) {
         return enabled ? 'sync' : 'local';
+    }
+
+    const FEATURE_DEFAULTS = global.CSR_SETTINGS_DEFAULTS || {
+        floatOverlays: true,
+        browseFilters: true,
+        quickSellPanel: true,
+        caseBulkBuy: true,
+        caseAutoOpen: true,
+        tradeSearch: true,
+        skinLock: true,
+    };
+
+    function normalizeImportPayload(raw) {
+        const payload = {};
+        if (!raw || typeof raw !== 'object') return payload;
+
+        if (raw.csrFeatureSettings && typeof raw.csrFeatureSettings === 'object') {
+            const out = { ...FEATURE_DEFAULTS };
+            for (const k of Object.keys(FEATURE_DEFAULTS)) {
+                if (typeof raw.csrFeatureSettings[k] === 'boolean') out[k] = raw.csrFeatureSettings[k];
+            }
+            payload.csrFeatureSettings = out;
+        }
+
+        if (Array.isArray(raw.csrLockedWeaponIds)) {
+            const ids = [];
+            for (const id of raw.csrLockedWeaponIds) {
+                const n = parseInt(id, 10);
+                if (Number.isFinite(n) && n > 0) ids.push(n);
+                if (ids.length >= MAX_LOCKED_IDS) break;
+            }
+            payload.csrLockedWeaponIds = ids;
+        }
+
+        if (raw.csrLanguage && typeof raw.csrLanguage === 'string') {
+            payload.csrLanguage = raw.csrLanguage.trim().slice(0, 16);
+        }
+
+        if (typeof raw.csrAutoUpdateCheck === 'boolean') {
+            payload.csrAutoUpdateCheck = raw.csrAutoUpdateCheck;
+        }
+
+        if (raw.csrCasesAutoOpenSellConfig && typeof raw.csrCasesAutoOpenSellConfig === 'object') {
+            payload.csrCasesAutoOpenSellConfig = raw.csrCasesAutoOpenSellConfig;
+        }
+
+        if (raw.csrCasesAutoOpenConfig && typeof raw.csrCasesAutoOpenConfig === 'object') {
+            payload.csrCasesAutoOpenConfig = raw.csrCasesAutoOpenConfig;
+        }
+
+        return payload;
     }
 
     async function csrPrefsGet(keys) {
@@ -103,12 +172,10 @@
         if (on) {
             const localData = await storageGet('local', SYNCABLE_KEYS);
             const syncData = await storageGet('sync', SYNCABLE_KEYS);
-            const merged = {};
-            for (const k of SYNCABLE_KEYS) {
-                if (localData[k] !== undefined) merged[k] = localData[k];
-                else if (syncData[k] !== undefined) merged[k] = syncData[k];
-            }
+            const merged = mergeForSyncEnable(localData, syncData);
+            await storageRemove('sync', SYNCABLE_KEYS);
             if (Object.keys(merged).length) await storageSet('sync', merged);
+            await storageRemove('local', SYNCABLE_KEYS);
         } else {
             const syncData = await storageGet('sync', SYNCABLE_KEYS);
             const toLocal = {};
@@ -116,6 +183,7 @@
                 if (syncData[k] !== undefined) toLocal[k] = syncData[k];
             }
             if (Object.keys(toLocal).length) await storageSet('local', toLocal);
+            await storageRemove('sync', SYNCABLE_KEYS);
         }
         syncEnabledCache = on;
         await storageSet('local', { [SYNC_TOGGLE_KEY]: on });
@@ -140,12 +208,36 @@
     }
 
     async function csrExportSettings() {
-        const data = await csrPrefsGet(SYNCABLE_KEYS);
+        const enabled = await csrIsBrowserSyncEnabled();
+        const data = enabled
+            ? await csrPrefsGet(SYNCABLE_KEYS)
+            : await storageGet('local', SYNCABLE_KEYS);
+        const settings = {};
+        for (const k of SYNCABLE_KEYS) {
+            if (data[k] !== undefined) settings[k] = data[k];
+        }
         return {
             version: EXPORT_VERSION,
             exportedAt: new Date().toISOString(),
-            settings: data,
+            settings,
         };
+    }
+
+    /** Local snapshot wins when enabling sync — avoids stale cloud/sync data overwriting a fresh import. */
+    function mergeForSyncEnable(localData, syncData) {
+        const hasLocal = SYNCABLE_KEYS.some((k) => localData[k] !== undefined);
+        if (hasLocal) {
+            const out = {};
+            for (const k of SYNCABLE_KEYS) {
+                if (localData[k] !== undefined) out[k] = localData[k];
+            }
+            return out;
+        }
+        const out = {};
+        for (const k of SYNCABLE_KEYS) {
+            if (syncData[k] !== undefined) out[k] = syncData[k];
+        }
+        return out;
     }
 
     async function csrImportSettings(raw, opts) {
@@ -160,20 +252,26 @@
         }
         if (!blob || typeof blob !== 'object') throw new Error('invalid');
         const settings = blob.settings && typeof blob.settings === 'object' ? blob.settings : blob;
-        const payload = {};
-        for (const k of SYNCABLE_KEYS) {
-            if (settings[k] !== undefined) payload[k] = settings[k];
-        }
+        let payload = normalizeImportPayload(settings);
         if (!Object.keys(payload).length) throw new Error('empty');
         if (merge) {
-            const existing = await csrPrefsGet(SYNCABLE_KEYS);
+            const existing = await csrExportSettings();
+            const existingSettings = existing.settings || {};
             for (const k of SYNCABLE_KEYS) {
-                if (payload[k] === undefined && existing[k] !== undefined) {
-                    payload[k] = existing[k];
+                if (payload[k] === undefined && existingSettings[k] !== undefined) {
+                    payload[k] = existingSettings[k];
                 }
             }
         }
-        await csrPrefsSet(payload);
+        await storageSet('local', payload);
+        try {
+            if (await csrIsBrowserSyncEnabled()) {
+                await storageRemove('sync', SYNCABLE_KEYS);
+                await storageSet('sync', payload);
+            } else {
+                await storageRemove('sync', SYNCABLE_KEYS);
+            }
+        } catch (_) { /* sync quota — local import still applied */ }
         return payload;
     }
 
@@ -189,6 +287,7 @@
 
     global.CSR_SYNCABLE_KEYS = SYNCABLE_KEYS;
     global.CSR_SYNC_TOGGLE_KEY = SYNC_TOGGLE_KEY;
+    global.CSR_MAX_LOCKED_IDS = MAX_LOCKED_IDS;
     global.csrIsBrowserSyncEnabled = csrIsBrowserSyncEnabled;
     global.csrSetBrowserSyncEnabled = csrSetBrowserSyncEnabled;
     global.csrPrefsGet = csrPrefsGet;

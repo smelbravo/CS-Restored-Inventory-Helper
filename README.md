@@ -1,10 +1,10 @@
 # CS:Restored Inventory Helper
 
-Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.fun) — float and paint seed overlays, search and filters on inventory/marketplace, a quick-sell panel, **case bulk buy** and **auto case opening** (with optional **session auto-sell**) on the Cases tab, optional **toolbar settings** to turn each feature on or off, **skin lock** to avoid accidental sells, **multi-language UI** (popup + on-site panels), and an **About** tab with release info and (on Chromium) a GitHub update checker.
+Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.fun) — float and paint seed overlays, search and filters on inventory/marketplace, a quick-sell panel, **case bulk buy** and **auto case opening** (with optional **session auto-sell**) on the Cases tab, optional **toolbar settings** to turn each feature on or off, **skin lock** to avoid accidental sells, **multi-language UI** (popup + on-site panels), optional **browser sync** and **JSON backup** for settings, a **live user counter** in the popup header, and an **About** tab with release info and (on Chromium) a GitHub update checker.
 
 Works in **Firefox**, **Microsoft Edge**, and **Chromium** browsers (Manifest V3).
 
-**Current version:** `3.6.0`
+**Current version:** `3.7.4`
 
 **Repository:** [github.com/smelbravo/CS-Restored-Inventory-Helper](https://github.com/smelbravo/CS-Restored-Inventory-Helper)
 
@@ -77,10 +77,10 @@ Click the **extension icon** in the browser toolbar (Firefox / Chrome / Edge). T
 | Tab | What it contains |
 |-----|------------------|
 | **Features** | Feature toggles grouped by category (see below) + auto case opening / auto-sell subsection |
-| **Settings** | **Language** picker for extension UI on csrestored.fun |
-| **About** | Version, description, links (GitHub, AMO, Privacy, License), bundled **What's new** changelog, and update tools |
+| **Settings** | **Language**, optional **browser sync**, **export / import** JSON backup |
+| **About** | Version, live user counter, description, links (GitHub, AMO, Privacy, License), bundled **What's new** changelog, and update tools |
 
-Each feature can be turned on or off; preferences are saved in **`storage.local`** (extension storage — not site cookies).
+Each feature can be turned on or off; preferences are saved in **`storage.local`** by default, or in **`storage.sync`** when browser sync is enabled (extension storage — not site cookies).
 
 #### Features tab — groups & order (v3.6+)
 
@@ -107,6 +107,29 @@ Update checker inspired by [CSR+](https://github.com/queryery/CSR-PLUS) (used wi
 #### Language (v3.5+)
 
 Choose a language under **Settings → Language**. Applies to the **toolbar popup** and **injected UI** on csrestored.fun (browse bar, Quick Sell panel, Cases panel, toasts, confirm dialogs). Reload the tab if some labels do not update immediately.
+
+#### Browser sync & backup (v3.7+)
+
+| Feature | What it does |
+|---------|----------------|
+| **Browser sync** | Optional toggle — when on, settings sync via **Firefox Sync** or **Chrome sync** (`storage.sync`). Off by default. |
+| **Export settings** | Downloads a JSON backup (features, locks, case config, language, auto-update pref). Uses the `downloads` permission. |
+| **Import settings** | Opens a dedicated import tab (Firefox-friendly), or paste JSON in the popup. Confirms before replacing settings. |
+| **After import** | Open csrestored.fun tabs are notified so locks apply without a full reload (`tabs` permission). |
+
+**Backup JSON includes:** `csrFeatureSettings`, `csrLockedWeaponIds`, `csrCasesAutoOpenSellConfig`, `csrCasesAutoOpenConfig`, `csrLanguage`, `csrAutoUpdateCheck`.
+
+**Not in backup:** the browser-sync toggle itself (stays per device). Manual export/import is the way to move settings between Firefox and Chromium.
+
+When you enable browser sync after importing, **local settings win** over stale cloud data (v3.7.4+).
+
+Implementation: `csr-storage.js` — unified prefs API for local and sync storage.
+
+#### Live user counter (v3.7.1+)
+
+Popup header shows an approximate **ONLINE** count (CounterAPI, namespace `csr-inv-helper/online`). One anonymous ping per install per hour when you open the popup. Fails silently if the service is unreachable.
+
+#### Language codes (v3.5+)
 
 | Code | Language |
 |------|----------|
@@ -309,7 +332,7 @@ The **`.xpi` on GitHub** is unsigned and **does not install** on Firefox Release
 
 ## Releases
 
-Stable downloads: [GitHub Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) (latest: **v3.5.0**).
+Stable downloads: [GitHub Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) (latest: **v3.7.4**).
 
 | Browser | Install |
 |---------|---------|
@@ -331,7 +354,7 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 ## Usage
 
 1. Go to [csrestored.fun](https://csrestored.fun) and log in with Discord
-2. (Optional) Click the **extension icon** in the toolbar → **Features**: enable what you want; **Settings**: pick language; **About**: version info and (on Chromium) check for GitHub updates
+2. (Optional) Click the **extension icon** in the toolbar → **Features**: enable what you want; **Settings**: language, browser sync, export/import; **About**: version info and (on Chromium) check for GitHub updates
 3. Open **Inventory** or **Marketplace** — float/seed badges and the search/filter bar appear after items load (usually a few seconds)
 4. On inventory: use the **padlock** (top-left of a card) to lock skins you must not sell by accident
 5. If **Quick Sell & Market** is on: click the **CS:R logo button** (bottom-right) → **Start Picking** → **Review & Sell** → **List on Market** or **Quick Sell**
@@ -342,11 +365,14 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 
 | Permission | Why |
 |------------|-----|
-| `storage` | Save feature toggles, locked skin IDs, case auto-open config, auto-sell rules, language (`csrLanguage`), and auto-update preference (`csrAutoUpdateCheck`) in `storage.local` |
+| `storage` | Feature toggles, locked skin IDs, case auto-open/sell config, language, auto-update preference — in `storage.local` and optionally `storage.sync` |
+| `downloads` | Save exported JSON settings backup to Downloads |
+| `tabs` | Notify open csrestored.fun tabs after import so locks and settings apply immediately |
 | `*://*.csrestored.fun/*` | Inject UI on the site |
 | `https://api.csrestored.fun/*` | Read inventory, marketplace, and trade data |
 | `https://cdn.csrestored.fun/*` | Skin images in the sell modal |
 | `https://api.github.com/*` | Check for new releases from the About tab (Chromium only) |
+| `https://api.counterapi.dev/*` | Optional live user counter in popup header (one ping per hour) |
 | `icons/*.png`, `CHANGELOG.md` (web accessible) | Extension logo on the floating button, panel, popup; changelog in About tab |
 
 ## API endpoints used
@@ -368,7 +394,10 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 
 ```
 ├── manifest.json          # Extension manifest (MV3)
+├── csr-storage.js         # Local + sync prefs, export/import (v3.7+)
 ├── settings.js            # Feature toggles & skin locks (shared with popup)
+├── import-backup.html     # Dedicated import page (Firefox-friendly file pick)
+├── import-backup.js
 ├── i18n-packs.js          # Locale packs (pt-PT, pt-BR)
 ├── i18n-packs-generated.js # Full locale packs (de, ru, es) — run scripts/build-locale-packs.js to regenerate
 ├── i18n.js                # Translation API (csrT, csrLoadLanguage, …)
@@ -377,7 +406,8 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 ├── popup.css
 ├── CHANGELOG.md           # Bundled release notes (About → What's new)
 ├── content.js             # Content script (overlays, filters, quick-sell UI)
-├── scripts/               # i18n scan/build helpers
+├── scripts/               # i18n scan/build, import/export tests
+├── release-notes/         # GitHub-style release note drafts
 ├── icons/                 # Extension icons (16, 48, 128, 300 px)
 ├── PRIVACY.md             # Privacy policy (store listings)
 ├── LICENSE                # MIT
@@ -388,10 +418,38 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 
 | Branch | Description |
 |--------|-------------|
-| `main` | Stable releases (v3.6.0) |
+| `main` | Stable releases |
 | `develop` | Integration branch for next release |
 
 ## Changelog
+
+### v3.7.4
+
+- Fix browser sync toggle restoring old settings — local/imported data wins over stale `storage.sync`; import clears leftover sync keys
+- Export reads only the active storage area (no mixing with old sync when sync is off)
+
+### v3.7.3
+
+- Fix export/import backup — `downloads` API; dedicated import tab (Firefox); paste JSON fallback; backup status in Settings
+- Import always writes to `storage.local`; open csrestored.fun tabs notified after import
+- Permissions: `downloads`, `tabs`
+
+### v3.7.2
+
+- Fix auto-open session mutex — no overlapping runs; Start disabled until end-of-session auto-sell finishes
+- Import/export hardening — confirmation modal, popup reload after import, lock cap (5000), storage error handling
+- Browser sync clears inactive storage area when toggling; safer marketplace listing; fetch/XHR JSON-only; validator XSS escape
+- Cases batch size persists from panel; GitHub API User-Agent; ARIA tab labels; README/PRIVACY updates
+
+### v3.7.1
+
+- **Live user counter** in popup header (CounterAPI; one anonymous ping per install per hour)
+
+### v3.7.0
+
+- **Browser sync** — optional `storage.sync` (Firefox Sync / Chrome sync) in Settings tab
+- **Export / import** — JSON backup of all extension preferences
+- New module **`csr-storage.js`** — unified prefs API for local and sync storage
 
 ### v3.6.0
 

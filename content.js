@@ -2471,9 +2471,12 @@ window.fetch = async function (...args) {
     try {
         if (isCsrTrackedUrl(url)) {
             if (res.ok && method === 'POST') saveMarketListFromRequest(url, method, bodyRaw);
-            const data = await res.clone().json();
-            ingestApiPayload(url, data);
-            scheduleQuickSellDomScrape();
+            const ct = (res.headers.get('content-type') || '').toLowerCase();
+            if (ct.includes('json') || ct.includes('javascript')) {
+                const data = await res.clone().json();
+                ingestApiPayload(url, data);
+                scheduleQuickSellDomScrape();
+            }
         }
     } catch (_) {}
     return res;
@@ -2495,6 +2498,8 @@ window.fetch = async function (...args) {
                 if (this.status >= 200 && this.status < 300) {
                     saveMarketListFromRequest(this._csrxUrl, this._csrxMethod, bodyRaw);
                 }
+                const ct = String(this.getResponseHeader('content-type') || '').toLowerCase();
+                if (!ct.includes('json') && !ct.includes('javascript')) return;
                 ingestApiPayload(this._csrxUrl, JSON.parse(this.responseText));
                 scheduleQuickSellDomScrape();
             } catch (_) {}
@@ -4071,7 +4076,7 @@ win.innerHTML = `
                     <polyline points="10 17 15 12 10 7"/>
                     <line x1="15" y1="12" x2="3" y2="12"/>
                 </svg>
-                Start Picking
+                ${csrT('qs.startPicking')}
             </button>
             <div id="csrx-picked-info">
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
@@ -4083,7 +4088,7 @@ win.innerHTML = `
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
                     <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
                 </svg>
-                Review &amp; Sell
+                ${csrT('qs.reviewSell')}
             </button>
         </div>
     </div>
@@ -4099,7 +4104,7 @@ win.innerHTML = `
                     <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
                     <path d="M10 11v6"/><path d="M14 11v6"/>
                 </svg>
-                Sell by Rarity
+                ${csrT('qs.sellByRarity')}
             </button>
         </div>
     </div>
@@ -4272,34 +4277,30 @@ async function apiListOnMarket(weaponId, priceCoins) {
     let storedUrl = null;
     try { storedUrl = sessionStorage.getItem('csrx_mp_list_url'); } catch (_) {}
 
-    const urls = [...new Set([
-        storedUrl,
-        MP_ADD_URL,
-        'https://api.csrestored.fun/inventory/marketplace/create',
-        'https://api.csrestored.fun/inventory/marketplace/list',
-    ].filter(Boolean))];
+    const attempts = [];
+    if (storedUrl) {
+        try {
+            const tpl = JSON.parse(sessionStorage.getItem('csrx_mp_list_body') || 'null');
+            if (tpl && typeof tpl === 'object') {
+                attempts.push({ url: storedUrl, body: { ...tpl, weapon_id: wid, price } });
+            }
+        } catch (_) {}
+    }
+    attempts.push({ url: MP_ADD_URL, body: buildMarketListPayload(wid, price) });
 
-    const payloads = [...new Set([
-        JSON.stringify({ weapon_id: wid, price }),
-        JSON.stringify(buildMarketListPayload(wid, price)),
-        JSON.stringify({ weapon_id: wid, price_coins: price }),
-    ])].map(s => JSON.parse(s));
-
-    for (const url of urls) {
-        for (const body of payloads) {
-            try {
-                const r = await fetch(url, {
-                    method: 'POST',
-                    credentials: 'include',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(body),
-                });
-                if (r.ok) {
-                    saveMarketListFromRequest(url, 'POST', JSON.stringify(body));
-                    return { ok: true };
-                }
-            } catch (_) {}
-        }
+    for (const { url, body } of attempts) {
+        try {
+            const r = await fetch(url, {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+            if (r.ok) {
+                saveMarketListFromRequest(url, 'POST', JSON.stringify(body));
+                return { ok: true };
+            }
+        } catch (_) {}
     }
     return { ok: false };
 }
@@ -4332,9 +4333,9 @@ function matchCard(cardEl, inv, usedIds) {
     if(imgId!=null){
         const cands=inv.filter(i=>i.item_id===imgId&&!usedIds.has(i.weapon_id)&&(!wear||getCondition(i.float)===wear)&&i.stattrak===hasSt);
         if(cands.length===1)return{item:cands[0],confidence:'medium'};
-        if(cands.length>1) return{item:cands[0],confidence:'low'};
+        if(cands.length>1) return null;
         const c2=inv.filter(i=>i.item_id===imgId&&!usedIds.has(i.weapon_id)&&(!wear||getCondition(i.float)===wear));
-        if(c2.length>0)return{item:c2[0],confidence:'low'};
+        if(c2.length===1)return{item:c2[0],confidence:'low'};
     }
     return null;
 }
@@ -4620,7 +4621,8 @@ function buildValidatorPanel(entries){
         const sc={ok:'vsok',mismatch:'vswarn',not_found:'vserr',sold_or_missing:'vserr'}[e.status]||'vserr';
         const sl={ok:csrT('val.ok'),mismatch:csrT('val.warn'),not_found:csrT('val.err'),sold_or_missing:csrT('val.gone')}[e.status]||'?';
         const sc2=e.status==='mismatch'?'#f59e0b':'#ef4444';
-        row.innerHTML=`<svg class="csrx-val-icon" viewBox="0 0 24 24" fill="none" stroke="${sc2}" stroke-width="2" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span class="csrx-val-name">${e.item?.name||`ID: ${e.weaponId}`}</span><span class="csrx-val-status ${sc}">${sl}</span>`;
+        const safeName = escapeCasesHtml(e.item?.name || `ID: ${e.weaponId}`);
+        row.innerHTML=`<svg class="csrx-val-icon" viewBox="0 0 24 24" fill="none" stroke="${sc2}" stroke-width="2" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span class="csrx-val-name">${safeName}</span><span class="csrx-val-status ${sc}">${sl}</span>`;
         grid.appendChild(row);
     });
 }
@@ -4825,6 +4827,8 @@ let casesBuyAbort = false;
 let casesOpenAbort = false;
 let casesOpenRunning = false;
 let casesOpenSelling = false;
+let casesOpenSessionGen = 0;
+let casesOpenActiveGen = 0;
 let casesSessionDrops = [];
 let casesOpenStats = { opened: 0, gold: 0, lastName: '', lastRarity: null };
 let casesMode = 'bulk';
@@ -5269,7 +5273,6 @@ function syncCasesPanelVisibility() {
         casesWinOpen = false;
         casesBuyAbort = true;
         casesOpenAbort = true;
-        casesOpenRunning = false;
         return;
     }
 
@@ -5449,7 +5452,7 @@ async function resolveSessionDropWeaponIds(drops) {
     const inv = await apiInv();
     const used = new Set(drops.filter(d => d.weaponId).map(d => d.weaponId));
     for (const d of need) {
-        const match = inv.find(i => {
+        const cands = inv.filter(i => {
             if (used.has(i.weapon_id)) return false;
             if (String(i.name || '') !== String(d.name || '')) return false;
             if (d.rarity != null && parseInt(i.rarity, 10) !== parseInt(d.rarity, 10)) return false;
@@ -5458,12 +5461,25 @@ async function resolveSessionDropWeaponIds(drops) {
             }
             return d.float == null;
         });
-        if (match?.weapon_id != null) {
-            d.weaponId = parseInt(match.weapon_id, 10);
+        if (cands.length === 1 && cands[0]?.weapon_id != null) {
+            d.weaponId = parseInt(cands[0].weapon_id, 10);
             used.add(d.weaponId);
         }
     }
     return drops;
+}
+
+function isCasesSessionActive(gen) {
+    return gen === casesOpenActiveGen && !casesOpenAbort;
+}
+
+function isCasesOpenBusy() {
+    return casesOpenRunning || casesOpenSelling;
+}
+
+async function persistCasesAutoOpenSellConfig() {
+    casesAutoOpenSellCfg.batchSize = getCasesSessionSellBatchSize();
+    await csrPrefsWrite({ [CASES_AUTO_OPEN_SELL_CFG_KEY]: casesAutoOpenSellCfg });
 }
 
 function getCasesSessionSellBatchSize() {
@@ -5654,6 +5670,10 @@ function refreshCasesOpenStatsUi() {
 }
 
 async function runCasesAutoOpen() {
+    if (isCasesOpenBusy()) {
+        toast(csrT('toast.autoOpenBusy'), 'warn');
+        return;
+    }
     const picked = getSelectedCase();
     if (!picked) {
         toast(csrT('toast.selectCase'), 'warn');
@@ -5683,6 +5703,8 @@ async function runCasesAutoOpen() {
         return;
     }
 
+    const sessionGen = ++casesOpenSessionGen;
+    casesOpenActiveGen = sessionGen;
     casesOpenAbort = false;
     casesOpenRunning = true;
     casesOpenStats = { opened: 0, gold: 0, lastName: '', lastRarity: null };
@@ -5708,13 +5730,14 @@ async function runCasesAutoOpen() {
     appendCasesOpenLog(`<span style="color:#a3a3a3">${csrT('cases.log.starting', { name: picked.name, max: hardMax, minutes })}</span>`);
 
     for (let i = 0; i < hardMax; i++) {
-        if (casesOpenAbort) break;
+        if (!isCasesSessionActive(sessionGen)) break;
         if (Date.now() >= end) break;
         if (cachedUserCoins != null && cachedUserCoins < picked.price) break;
         if (bar) bar.style.width = `${Math.round(((i) / hardMax) * 100)}%`;
 
         try {
             const data = await openCaseOnce(picked.id);
+            if (!isCasesSessionActive(sessionGen)) break;
             const name = data?.name ? String(data.name) : csrT('cases.unknownItem');
             const rarity = data?.rarity != null ? parseInt(data.rarity, 10) : null;
             const floatVal = extractFloatFromOpenData(data);
@@ -5742,7 +5765,7 @@ async function runCasesAutoOpen() {
                 appendCasesOpenLog(`<span style="${rarityStyle(rarity)}">${safeName}</span> <span style="color:#737373">(${rarity ?? '?'})</span>`);
             }
 
-            if (isCasesAutoSellEnabled() && casesAutoOpenSellCfg.timing === 'each') {
+            if (isCasesAutoSellEnabled() && casesAutoOpenSellCfg.timing === 'each' && isCasesSessionActive(sessionGen)) {
                 const soldNow = await tryAutoSellSessionDrop(drop);
                 if (soldNow) {
                     appendCasesOpenLog(`<span style="color:#86efac">${csrT('cases.log.autoSold')}</span> · <span style="color:#e5e7eb">${safeName}</span>`);
@@ -5754,31 +5777,39 @@ async function runCasesAutoOpen() {
             break;
         }
 
+        if (!isCasesSessionActive(sessionGen)) break;
         if (i < hardMax - 1) await sleep(delayMs);
     }
 
-    casesOpenRunning = false;
-    casesOpenAbort = false;
+    if (sessionGen !== casesOpenActiveGen) return;
+
     if (bar) bar.style.width = '100%';
-    if (btnStart) btnStart.disabled = false;
-    if (btnStop) btnStop.style.display = 'none';
-    setTimeout(() => { if (prog) prog.style.display = 'none'; if (bar) bar.style.width = '0%'; }, 800);
 
     await fetchUserCoins();
     scrapeCoinsFromPage();
     updateCasesAutoOpenSummary();
     updateCasesCostSummary();
 
-    await resolveSessionDropWeaponIds(sessionDrops);
-    casesSessionDrops = sessionDrops.filter(d => !d.sold);
-    if (isCasesAutoSellEnabled() && casesAutoOpenSellCfg.timing === 'end') {
-        await runCasesSessionQuickSell(
-            d => casesDropMatchesAutoSellRules(d),
-            describeAutoSellRules(),
-            { silent: true }
-        );
+    if (isCasesSessionActive(sessionGen)) {
+        await resolveSessionDropWeaponIds(sessionDrops);
+        casesSessionDrops = sessionDrops.filter(d => !d.sold);
+        if (isCasesAutoSellEnabled() && casesAutoOpenSellCfg.timing === 'end') {
+            await runCasesSessionQuickSell(
+                d => casesDropMatchesAutoSellRules(d),
+                describeAutoSellRules(),
+                { silent: true }
+            );
+        }
+        renderCasesOpenResults(casesSessionDrops);
     }
-    renderCasesOpenResults(casesSessionDrops);
+
+    if (sessionGen !== casesOpenActiveGen) return;
+
+    casesOpenRunning = false;
+    casesOpenAbort = false;
+    if (btnStop) btnStop.style.display = 'none';
+    setTimeout(() => { if (prog) prog.style.display = 'none'; if (bar) bar.style.width = '0%'; }, 800);
+    updateCasesAutoOpenSummary();
 
     if (lastErr) toast(lastErr, 'error');
     else toast(`${csrT('toast.autoOpenDone', { n: casesOpenStats.opened })}${casesOpenStats.gold ? csrT('toast.autoOpenGold', { n: casesOpenStats.gold }) : ''}`, 'success');
@@ -5822,7 +5853,7 @@ function setupCasesBulkBuy() {
             <label for="csrx-cases-qty" data-i18n="cases.quantity">${csrT('cases.quantity')}</label>
             <input type="text" id="csrx-cases-qty" inputmode="numeric" autocomplete="off" spellcheck="false" value="1" style="margin-top:6px;">
         </div>
-        <div id="csrx-cases-summary">Loading cases…</div>
+        <div id="csrx-cases-summary">${csrT('cases.loading')}</div>
         <button type="button" id="csrx-cases-buy" data-i18n="cases.buy">${csrT('cases.buy')}</button>
         <button type="button" id="csrx-cases-cancel" data-i18n="cases.cancel">${csrT('cases.cancel')}</button>
     </div>
@@ -5933,9 +5964,10 @@ function setupCasesBulkBuy() {
     });
 
     document.getElementById('csrx-cases-open-sell-rar')?.addEventListener('change', updateCasesOpenSellUi);
-    document.getElementById('csrx-cases-open-sell-spd')?.addEventListener('blur', (e) => {
+    document.getElementById('csrx-cases-open-sell-spd')?.addEventListener('blur', async (e) => {
         const inp = e.target;
         inp.value = String(getCasesSessionSellBatchSize());
+        await persistCasesAutoOpenSellConfig();
     });
     document.getElementById('csrx-cases-open-sell-rarity')?.addEventListener('click', () => {
         const rarVal = parseInt(document.getElementById('csrx-cases-open-sell-rar')?.value, 10);
@@ -6029,6 +6061,19 @@ async function bootstrapCsrExtension() {
         checkPageAndRun();
         applyOverlaysToAll({ urgent: true });
     });
+    const rt = typeof browser !== 'undefined' ? browser : (typeof chrome !== 'undefined' ? chrome : null);
+    if (rt?.runtime?.onMessage) {
+        rt.runtime.onMessage.addListener((msg) => {
+            if (msg?.type !== 'csr:reloadSettings') return;
+            (async () => {
+                await csrLoadSettings();
+                await loadCasesAutoOpenSellConfig();
+                applyCsrFeatureVisibility();
+                checkPageAndRun();
+                applyOverlaysToAll({ urgent: true });
+            })();
+        });
+    }
     applyCsrFeatureVisibility();
     checkPageAndRun();
     setInterval(() => {

@@ -521,6 +521,51 @@ body {
     gap: 8px;
 }
 
+.settings-backup-status {
+    margin-top: 4px;
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--line);
+    background: var(--surface-2);
+    font-size: 10px;
+    line-height: 1.45;
+    color: var(--fg);
+}
+
+.settings-backup-status.ok { border-color: rgba(67, 196, 99, 0.35); color: #86efac; }
+.settings-backup-status.err { border-color: rgba(239, 68, 68, 0.35); color: #fca5a5; }
+
+.settings-paste {
+    margin-top: 8px;
+    font-size: 10px;
+    color: var(--muted);
+}
+
+.settings-paste summary {
+    cursor: pointer;
+    user-select: none;
+    color: var(--fg-dim);
+    font-weight: 600;
+}
+
+.settings-paste-input {
+    width: 100%;
+    margin-top: 8px;
+    padding: 8px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--line-2);
+    background: var(--surface);
+    color: var(--fg);
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 10px;
+    resize: vertical;
+    min-height: 72px;
+}
+
+.settings-paste .btn {
+    margin-top: 8px;
+}
+
 /* ── about ── */
 .about {
     text-align: center;

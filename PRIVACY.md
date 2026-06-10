@@ -6,7 +6,7 @@ CS:Restored Inventory Helper is an unofficial browser extension for [Counter-Str
 
 ## Summary
 
-CS:Restored Inventory Helper **does not collect, store, or transmit personal data to developer servers**. All processing happens locally in your browser on pages you visit on csrestored.fun.
+CS:Restored Inventory Helper **does not collect or transmit personal data to developer-owned servers**. Extension preferences stay in your browser; optional third-party calls (CounterAPI, GitHub release check) are described below.
 
 ## What the extension does
 
@@ -30,6 +30,8 @@ The extension does **not**:
 | Permission | Purpose |
 |------------|--------|
 | `storage` | Save feature toggles, locked skin IDs, case config, language, and sync preferences in `storage.local` and (optionally) `storage.sync` |
+| `downloads` | Save exported JSON backup files to your Downloads folder |
+| `tabs` | After import, notify open csrestored.fun tabs so locks and settings apply without a full page reload |
 | `*://*.csrestored.fun/*` | Inject UI overlays and CSR Seller on the site |
 | `https://api.csrestored.fun/*` | Read inventory/marketplace/trade API responses to match float/seed to cards |
 | `https://cdn.csrestored.fun/*` | Load skin images in the sell confirmation modal |
@@ -50,7 +52,18 @@ When browser sync is **disabled** (default), all data stays in local extension s
 
 ## Export / import
 
-You can export or import a JSON backup of your settings from the Settings tab. Backups stay on your device unless you choose to move the file elsewhere.
+You can export or import a JSON backup of your settings from the Settings tab. Backups stay on your device unless you choose to move the file elsewhere. Import replaces matching settings after you confirm in the popup.
+
+## Ephemeral browser storage
+
+On csrestored.fun, the extension may use **sessionStorage** to remember a successful marketplace listing URL/body template (`csrx_mp_list_url`, `csrx_mp_list_body`) for the current tab session only.
+
+In the extension popup, **localStorage** may store:
+
+- `csr:liveUsersCounted` — timestamp for throttling the optional CounterAPI ping (once per hour per install)
+- `csr:update` — cached GitHub release metadata for the optional Chromium update checker
+
+These keys never leave your browser except when you explicitly export a settings JSON file.
 
 ## Firefox data collection declaration
 

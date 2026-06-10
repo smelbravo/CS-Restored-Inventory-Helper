@@ -4,6 +4,7 @@ GitHub-style release notes for published versions. Install packages live in [`..
 
 | Version | Release notes | GitHub |
 |---------|---------------|--------|
+| **3.7.4** | [v3.7.4.md](v3.7.4.md) | [Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) |
 | **3.4.0** | [v3.4.0.md](v3.4.0.md) | [v3.4.0](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases/tag/v3.4.0) |
 | **3.3.0** | [v3.3.0.md](v3.3.0.md) | [v3.3.0](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases/tag/v3.3.0) |
 | **3.2.7** | [v3.2.7.md](v3.2.7.md) | [v3.2.7](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases/tag/v3.2.7) |

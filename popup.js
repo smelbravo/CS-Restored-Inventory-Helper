@@ -11,8 +11,10 @@ const REPO = 'smelbravo/CS-Restored-Inventory-Helper';
 const GITHUB_RELEASES = `https://github.com/${REPO}/releases/latest`;
 const LIVE_USERS_COUNTER = 'https://api.counterapi.dev/v1/csr-inv-helper/online';
 const LIVE_USERS_COUNTED_KEY = 'csr:liveUsersCounted';
+const BACKUP_STATUS_KEY = 'csr:backupStatus';
+const PENDING_IMPORT_KEY = 'csr:pendingImport';
 
-const DEFAULTS = {
+const DEFAULTS = { ...(globalThis.CSR_SETTINGS_DEFAULTS || {
     floatOverlays: true,
     browseFilters: true,
     quickSellPanel: true,
@@ -20,7 +22,7 @@ const DEFAULTS = {
     caseAutoOpen: true,
     tradeSearch: true,
     skinLock: true,
-};
+}) };
 
 const SELL_DEFAULTS = {
     mode: 'manual',
@@ -145,6 +147,81 @@ function toast(msg, ms = 2400) {
     }, ms);
 }
 
+function setBackupStatus(kind, message, persist = true) {
+    const el = document.getElementById('settings-backup-status');
+    if (el) {
+        el.hidden = false;
+        el.className = 'settings-backup-status ' + (kind === 'ok' ? 'ok' : kind === 'err' ? 'err' : '');
+        el.textContent = message;
+    }
+    if (persist) {
+        try {
+            sessionStorage.setItem(BACKUP_STATUS_KEY, JSON.stringify({ kind, message, at: Date.now() }));
+        } catch (_) { /* ignore */ }
+    }
+    toast(message);
+}
+
+function restoreBackupStatus() {
+    try {
+        const raw = sessionStorage.getItem(BACKUP_STATUS_KEY);
+        if (!raw) return;
+        const { kind, message, at } = JSON.parse(raw);
+        if (Date.now() - at > 120000) {
+            sessionStorage.removeItem(BACKUP_STATUS_KEY);
+            return;
+        }
+        setBackupStatus(kind, message, false);
+        switchTab('settings');
+    } catch (_) { /* ignore */ }
+}
+
+async function downloadSettingsJson(json, filename) {
+    const blobUrl = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+    const downloads = runtime.downloads;
+    if (downloads?.download) {
+        try {
+            await downloads.download({ url: blobUrl, filename, saveAs: false });
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 15000);
+            return;
+        } catch (_) {
+            URL.revokeObjectURL(blobUrl);
+        }
+    }
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = filename;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
+}
+
+async function notifySiteTabsSettingsReload() {
+    const tabsApi = runtime.tabs;
+    if (!tabsApi?.query) return 0;
+    let tabs = [];
+    try {
+        tabs = await tabsApi.query({ url: ['*://*.csrestored.fun/*', '*://csrestored.fun/*'] });
+    } catch (_) {
+        return 0;
+    }
+    let n = 0;
+    for (const tab of tabs) {
+        try {
+            await tabsApi.sendMessage(tab.id, { type: 'csr:reloadSettings' });
+            n++;
+        } catch (_) { /* tab without content script */ }
+    }
+    return n;
+}
+
+function importDoneMessage(imported, tabsNotified) {
+    const locks = Array.isArray(imported?.csrLockedWeaponIds) ? imported.csrLockedWeaponIds.length : 0;
+    if (tabsNotified > 0) {
+        return csrT('popup.settings.importDoneLive', { locks, tabs: tabsNotified });
+    }
+    return csrT('popup.settings.importDoneStats', { locks });
+}
+
 function applyPopupI18n() {
     document.querySelectorAll('[data-i18n]').forEach(el => {
         const key = el.dataset.i18n;
@@ -254,9 +331,31 @@ function persist() {
     writeFeatures(featureState, sellState);
 }
 
+function refreshPopupFromStorage() {
+    return new Promise((resolve) => {
+        readStorage((features, locks, sellCfg, autoUpdate) => {
+            featureState = features;
+            lockIds = locks;
+            sellState = sellCfg;
+            autoUpdateEnabled = autoUpdate;
+            const toggle = document.getElementById('auto-update-toggle');
+            if (toggle) toggle.checked = autoUpdateEnabled;
+            syncCheckboxes();
+            csrLoadLanguage().then(() => {
+                applyPopupI18n();
+                populateLanguageSelect();
+                updateLockCount();
+                resolve();
+            });
+        });
+    });
+}
+
 function switchTab(tab) {
     document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.tab === tab);
+        const on = btn.dataset.tab === tab;
+        btn.classList.toggle('active', on);
+        btn.setAttribute('aria-selected', on ? 'true' : 'false');
     });
     document.querySelectorAll('.popup-panel').forEach(panel => {
         panel.classList.toggle('active', panel.dataset.tab === tab);
@@ -376,7 +475,9 @@ async function fetchLatest(useCache) {
             if (cached && Date.now() - cached.at < 3600e3) return cached;
         } catch (_) { /* ignore */ }
     }
-    const r = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`);
+    const r = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, {
+        headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'CS-Restored-Inventory-Helper' },
+    });
     if (r.status === 404) return { none: true, at: Date.now() };
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const data = await r.json();
@@ -504,58 +605,111 @@ async function loadLiveUsers() {
 }
 
 async function bindSettingsAccountUi() {
+    restoreBackupStatus();
+
     const syncToggle = document.getElementById('browser-sync-toggle');
     if (syncToggle && typeof csrIsBrowserSyncEnabled === 'function') {
         syncToggle.checked = await csrIsBrowserSyncEnabled();
         syncToggle.addEventListener('change', async () => {
             const on = syncToggle.checked;
-            try {
-                await csrSetBrowserSyncEnabled(on);
-                toast(csrT(on ? 'popup.settings.browserSyncEnabled' : 'popup.settings.browserSyncDisabled'));
-            } catch (_) {
-                syncToggle.checked = !on;
-            }
+        try {
+            await csrSetBrowserSyncEnabled(on);
+            await refreshPopupFromStorage();
+            await notifySiteTabsSettingsReload();
+            toast(csrT(on ? 'popup.settings.browserSyncEnabled' : 'popup.settings.browserSyncDisabled'));
+        } catch (_) {
+            syncToggle.checked = !on;
+            toast(csrT('popup.settings.storageError'));
+        }
         });
     }
 
     document.getElementById('btn-export-settings')?.addEventListener('click', async () => {
         try {
             const blob = await csrExportSettings();
+            const settings = blob.settings || {};
+            const lockCount = Array.isArray(settings.csrLockedWeaponIds)
+                ? settings.csrLockedWeaponIds.length
+                : 0;
+            const keyCount = Object.keys(settings).length;
             const json = JSON.stringify(blob, null, 2);
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
-            a.download = `csr-inventory-helper-settings-${new Date().toISOString().slice(0, 10)}.json`;
-            a.click();
-            URL.revokeObjectURL(a.href);
-            toast(csrT('popup.settings.exportDone'));
-        } catch (_) { /* ignore */ }
+            const filename = `csr-inventory-helper-settings-${new Date().toISOString().slice(0, 10)}.json`;
+            const msg = csrT('popup.settings.exportDoneStats', { locks: lockCount, keys: keyCount });
+            setBackupStatus('ok', msg);
+            switchTab('settings');
+            await downloadSettingsJson(json, filename);
+        } catch (_) {
+            setBackupStatus('err', csrT('popup.settings.exportError'));
+            switchTab('settings');
+        }
     });
 
-    const fileInput = document.getElementById('import-file-input');
-    document.getElementById('btn-import-settings')?.addEventListener('click', () => fileInput?.click());
-    fileInput?.addEventListener('change', async () => {
-        const file = fileInput.files?.[0];
-        fileInput.value = '';
-        if (!file) return;
+    document.getElementById('btn-import-settings')?.addEventListener('click', () => {
         try {
-            const text = await file.text();
-            const imported = await csrImportSettings(text);
-            if (imported[FEATURES_KEY]) featureState = normalizeFeatures(imported[FEATURES_KEY]);
-            if (imported[SELL_CFG_KEY]) sellState = normalizeSellConfig(imported[SELL_CFG_KEY]);
-            if (imported[LOCKS_KEY]) lockIds = normalizeLocks(imported[LOCKS_KEY]);
-            if (imported[AUTO_UPDATE_KEY] !== undefined) {
-                autoUpdateEnabled = !!imported[AUTO_UPDATE_KEY];
-                const toggle = document.getElementById('auto-update-toggle');
-                if (toggle) toggle.checked = autoUpdateEnabled;
-            }
-            if (imported[CSR_LANG_KEY]) await csrLoadLanguage();
-            syncCheckboxes();
-            applyPopupI18n();
-            populateLanguageSelect();
-            toast(csrT('popup.settings.importDone'));
+            runtime.tabs.create({ url: runtime.runtime.getURL('import-backup.html') });
+            setBackupStatus('ok', csrT('popup.settings.importPageOpened'), false);
+            switchTab('settings');
         } catch (_) {
-            toast(csrT('popup.settings.importError'));
+            setBackupStatus('err', csrT('popup.settings.importError'));
+            switchTab('settings');
         }
+    });
+
+    const importModal = document.getElementById('import-modal');
+    let pendingImportText = null;
+
+    function showImportModal(text) {
+        pendingImportText = text;
+        if (importModal) importModal.hidden = false;
+        switchTab('settings');
+    }
+
+    try {
+        const pending = sessionStorage.getItem(PENDING_IMPORT_KEY);
+        if (pending) {
+            sessionStorage.removeItem(PENDING_IMPORT_KEY);
+            showImportModal(pending);
+        }
+    } catch (_) { /* ignore */ }
+
+    document.getElementById('import-cancel')?.addEventListener('click', () => {
+        pendingImportText = null;
+        if (importModal) importModal.hidden = true;
+    });
+    importModal?.addEventListener('click', (e) => {
+        if (e.target === importModal) {
+            pendingImportText = null;
+            importModal.hidden = true;
+        }
+    });
+
+    async function confirmImport() {
+        if (importModal) importModal.hidden = true;
+        if (!pendingImportText) return;
+        const text = pendingImportText;
+        pendingImportText = null;
+        try {
+            const imported = await csrImportSettings(text);
+            await refreshPopupFromStorage();
+            const tabsNotified = await notifySiteTabsSettingsReload();
+            setBackupStatus('ok', importDoneMessage(imported, tabsNotified));
+            switchTab('settings');
+        } catch (_) {
+            setBackupStatus('err', csrT('popup.settings.importError'));
+            switchTab('settings');
+        }
+    }
+
+    document.getElementById('import-confirm')?.addEventListener('click', confirmImport);
+
+    document.getElementById('btn-import-paste')?.addEventListener('click', () => {
+        const text = document.getElementById('import-paste')?.value?.trim();
+        if (!text) {
+            setBackupStatus('err', csrT('popup.settings.importError'));
+            switchTab('settings');
+            return;
+        }
+        showImportModal(text);
     });
 
     if (typeof csrWatchPrefsChanges === 'function') {
@@ -578,6 +732,13 @@ async function bindSettingsAccountUi() {
                     populateLanguageSelect();
                     updateLockCount();
                     renderChangelog();
+                });
+            }
+            if (Object.prototype.hasOwnProperty.call(changes, AUTO_UPDATE_KEY)) {
+                readStorage((features, locks, sellCfg, autoUpdate) => {
+                    autoUpdateEnabled = autoUpdate;
+                    const toggle = document.getElementById('auto-update-toggle');
+                    if (toggle) toggle.checked = autoUpdateEnabled;
                 });
             }
         });
