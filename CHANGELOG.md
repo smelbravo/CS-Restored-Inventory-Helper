@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.7.5
+
+**Fix — Quick Sell manual picking**
+- Clicking duplicate skins (same weapon/skin + wear, e.g. multiple AK-47 Nightwish BS) no longer shows `ID: null` / Not matched in Confirm Sale
+- Card matching now uses overlay `weapon_id`, float/seed hints, and the same logic as float overlays — not the old index-only matcher that failed on duplicates
+
 ## 3.7.4
 
 **Fix — browser sync after import**

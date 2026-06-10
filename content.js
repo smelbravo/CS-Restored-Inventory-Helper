@@ -2700,6 +2700,34 @@ function itemCacheKey(item) {
     return 'w' + (item.weapon_id ?? `${item.item_id}-${item.float}-${item.seed}`);
 }
 
+function weaponIdFromCsrxKey(key) {
+    if (!key || key[0] !== 'w') return null;
+    const rest = key.slice(1);
+    if (!/^\d+$/.test(rest)) return null;
+    const wid = parseInt(rest, 10);
+    return Number.isFinite(wid) && wid > 0 ? wid : null;
+}
+
+function parseOverlaySig(cardEl) {
+    const sig = cardEl.querySelector('.csrx-card-wrap')?.dataset?.csrxSig;
+    if (!sig) return { float: null, seed: null };
+    const [fs, ss] = sig.split('|');
+    const f = fs ? parseFloat(fs) : NaN;
+    const s = ss ? parseInt(ss, 10) : NaN;
+    return {
+        float: Number.isFinite(f) ? f : null,
+        seed: Number.isFinite(s) ? s : null,
+    };
+}
+
+function usedKeysFromWeaponIds(usedWeaponIds) {
+    const used = new Set();
+    for (const wid of usedWeaponIds) {
+        if (wid != null) used.add('w' + wid);
+    }
+    return used;
+}
+
 function matchItemByName(cardEl, cache, used) {
     const names = getCardSkinNames(cardEl);
     if (!names) return null;
@@ -4322,20 +4350,47 @@ function findCard(target) {
 }
 
 function matchCard(cardEl, inv, usedIds) {
-    const cards=getAllCards(); const idx=cards.indexOf(cardEl); const imgId=getImgItemId(cardEl);
-    if(idx>=0&&idx<inv.length){
-        const cand=inv[idx];
-        if(imgId===cand.item_id&&!usedIds.has(cand.weapon_id))return{item:cand,confidence:'high'};
+    if (!inv?.length) return null;
+
+    const wrap = cardEl.querySelector('.csrx-card-wrap');
+    const overlayWid = weaponIdFromCsrxKey(wrap?.dataset?.csrxKey);
+    if (overlayWid != null && !usedIds.has(overlayWid)) {
+        const item = inv.find(i => parseInt(i.weapon_id, 10) === overlayWid);
+        if (item) return { item, confidence: 'high' };
     }
-    const paras=[...cardEl.querySelectorAll('p')];
-    const wear=paras.find(p=>['FN','MW','FT','WW','BS'].includes(p.textContent?.trim()))?.textContent?.trim();
-    const hasSt=(paras[0]?.textContent?.trim()||'').toLowerCase().startsWith('stattrak');
-    if(imgId!=null){
-        const cands=inv.filter(i=>i.item_id===imgId&&!usedIds.has(i.weapon_id)&&(!wear||getCondition(i.float)===wear)&&i.stattrak===hasSt);
-        if(cands.length===1)return{item:cands[0],confidence:'medium'};
-        if(cands.length>1) return null;
-        const c2=inv.filter(i=>i.item_id===imgId&&!usedIds.has(i.weapon_id)&&(!wear||getCondition(i.float)===wear));
-        if(c2.length===1)return{item:c2[0],confidence:'low'};
+
+    const used = usedKeysFromWeaponIds(usedIds);
+    const matched = matchOverlayItem(cardEl, inv, used);
+    if (matched && !usedIds.has(matched.weapon_id)) {
+        return { item: matched, confidence: overlayWid === matched.weapon_id ? 'high' : 'medium' };
+    }
+
+    const imgId = getImgItemId(cardEl);
+    const wear = getCardWear(cardEl);
+    const hasSt = cardHasStatTrak(cardEl);
+    if (imgId == null) return null;
+
+    let cands = inv.filter(i =>
+        i.item_id === imgId &&
+        !usedIds.has(i.weapon_id) &&
+        (!wear || getCondition(i.float) === wear) &&
+        i.stattrak === hasSt
+    );
+    if (cands.length > 1) {
+        const { float, seed } = parseOverlaySig(cardEl);
+        if (float != null) {
+            const byFloat = cands.filter(i =>
+                i.float != null && Math.abs(i.float - float) < 0.00005
+            );
+            if (byFloat.length) cands = byFloat;
+        }
+        if (cands.length > 1 && seed != null) {
+            const bySeed = cands.filter(i => i.seed === seed);
+            if (bySeed.length) cands = bySeed;
+        }
+    }
+    if (cands.length >= 1) {
+        return { item: cands[0], confidence: cands.length === 1 ? 'medium' : 'low' };
     }
     return null;
 }
@@ -4382,6 +4437,7 @@ function enterSel() {
     btnSell.style.display='block';
     document.getElementById('csrx-picked-info').classList.add('show');
     updateSelBtn();
+    apiInv().then((inv) => { if (selMode && inv?.length) serverInv = inv; }).catch(() => {});
 }
 function exitSel() {
     selMode=false; setStatus(csrT('qs.status.ready'),'ready');

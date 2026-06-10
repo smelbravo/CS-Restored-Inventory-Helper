@@ -4,7 +4,7 @@ Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.f
 
 Works in **Firefox**, **Microsoft Edge**, and **Chromium** browsers (Manifest V3).
 
-**Current version:** `3.7.4`
+**Current version:** `3.7.5`
 
 **Repository:** [github.com/smelbravo/CS-Restored-Inventory-Helper](https://github.com/smelbravo/CS-Restored-Inventory-Helper)
 
@@ -199,7 +199,7 @@ Lock state is stored per `weapon_id` in `storage.local` and syncs across tabs. T
 
 When **Quick Sell & Market** is enabled in the popup, the floating **CS:R button** (bottom-right on inventory) opens the helper panel:
 
-- **Start Picking** — click cards to select items to sell (respects skin lock)
+- **Start Picking** — click cards to select items to sell (respects skin lock; duplicate skins matched by float/seed overlay, v3.7.5+)
 - **Review & Sell** — confirm selection in a modal with validation
 - **Sell by Rarity** — bulk sell all items of a chosen rarity tier (respects skin lock)
 - **Batch size** (under **Speed**) — how many items are sold or listed **in parallel** during bulk Quick Sell or List on Market (see below)
@@ -332,7 +332,7 @@ The **`.xpi` on GitHub** is unsigned and **does not install** on Firefox Release
 
 ## Releases
 
-Stable downloads: [GitHub Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) (latest: **v3.7.4**).
+Stable downloads: [GitHub Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) (latest: **v3.7.5**).
 
 | Browser | Install |
 |---------|---------|
@@ -422,6 +422,11 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 | `develop` | Integration branch for next release |
 
 ## Changelog
+
+### v3.7.5
+
+- **Fix:** Quick Sell **Start Picking** — duplicate skins (same weapon/skin + wear) no longer show `ID: null` / Not matched in Confirm Sale
+- **Fix:** Card matching uses overlay `weapon_id`, float/seed hints, and the same logic as float overlays
 
 ### v3.7.4
 
