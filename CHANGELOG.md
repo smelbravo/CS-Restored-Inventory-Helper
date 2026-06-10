@@ -2,33 +2,104 @@
 
 ## 3.7.4
 
-- Fix browser sync toggle restoring old settings — local/imported data now wins over stale `storage.sync`; import clears leftover sync keys
-- Export reads only the active storage area (no mixing with old sync when sync is off)
+**Fix — browser sync after import**
+- Enabling **Browser sync** no longer restores stale `storage.sync` data over freshly imported or local settings — **local snapshot wins** when any local prefs exist
+- **Import** clears leftover sync keys even when browser sync is off (prevents ghost data on next sync enable)
+- **Export** with sync off reads **only** `storage.local` (no mixing with old sync entries)
+
+**Improvement**
+- Popup and open csrestored.fun tabs refresh immediately after toggling browser sync
+
+---
 
 ## 3.7.3
 
-- Fix export/import backup — reliable download via `downloads` API; import opens a dedicated tab (Firefox popup no longer closes before file pick)
-- Import always writes to `storage.local` (and sync when enabled); export merges local + sync so locks are not missed
-- Visible backup status in Settings (survives popup close); paste JSON fallback; open csrestored.fun tabs notified after import
-- Permissions: `downloads`, `tabs` (see PRIVACY.md)
+**Fix — export / import backup (Firefox & Chromium)**
+- **Export** uses the `downloads` API so the JSON file saves reliably when the popup closes
+- **Import** opens a dedicated **`import-backup.html`** tab — Firefox no longer loses the file picker when the popup closes
+- **Paste JSON** fallback in Settings for quick manual import without a file dialog
+- **Backup status** line in Settings (persists via `sessionStorage` if the popup closes)
+- **Import** always writes to `storage.local` first; also writes to sync when browser sync is enabled
+- Open **csrestored.fun** tabs receive a reload message after import so locks apply without a manual refresh
+
+**Permissions**
+- `downloads` — save exported JSON to Downloads
+- `tabs` — notify content scripts after import
+
+**Files**
+- New: `import-backup.html`, `import-backup.js`
+
+---
 
 ## 3.7.2
 
-- Fix auto-open session mutex — no overlapping runs; Start stays disabled until end-of-session auto-sell finishes
-- Fix import/export — confirmation modal, full popup reload after import, storage error handling, lock cap (5000)
-- Browser sync clears inactive storage area when toggling; import normalizes payload
-- Safer marketplace listing (learned template first), fetch/XHR hooks skip non-JSON, ambiguous card/drop matching skipped
-- Validator XSS escape; cases batch size persists from panel; GitHub API User-Agent; ARIA tab labels; README/PRIVACY updates
+**Fix — auto case opening**
+- Session **mutex** — no overlapping auto-open runs
+- **Start** stays disabled until end-of-session auto-sell finishes
+- Panel hide no longer forces `casesOpenRunning = false` mid-session
+
+**Fix — export / import (first hardening pass)**
+- Import **confirmation modal** before replacing settings
+- Full **popup reload** from storage after import
+- **Lock cap** — max 5000 IDs per import
+- Storage errors surfaced to the user (toast)
+
+**Fix — browser sync**
+- Toggling sync **clears** the inactive storage area (local ↔ sync migration)
+- Import **normalizes** payload (features, locks, case config, language)
+
+**Fix — site & security**
+- Safer **marketplace listing** (learned template first, less brute-force)
+- Fetch/XHR hooks skip non-JSON responses
+- Ambiguous card/drop matching skipped instead of wrong match
+- **Validator XSS** — user-facing strings escaped in confirm UI
+
+**Improvement**
+- Cases **batch size** persists when the input loses focus
+- GitHub API **User-Agent** on release checks
+- Popup **ARIA** tab labels (`aria-selected`)
+- Popup loads **`settings.js`** for shared prefs API
+- Firefox **min version 128.0**
+- **`scripts/test-import-export.mjs`** — storage export/import smoke tests
+- **`scripts/scan-i18n.js`** — i18n key scanner updates
+- README and PRIVACY updates
+
+---
 
 ## 3.7.1
 
-- **Live user counter** in popup header (next to version) — community total via CounterAPI; one anonymous ping per install per hour
+**New — live user counter**
+- Approximate **ONLINE** user count in popup header (next to version badge)
+- Powered by **CounterAPI** (`csr-inv-helper/online` namespace — separate from CSR+)
+- One anonymous increment per install per hour when you open the popup; fails silent if unreachable
+
+**Improvement**
+- Header layout refined for version badge + counter + status label
+
+**Permission**
+- `https://api.counterapi.dev/*`
+
+---
 
 ## 3.7.0
 
-- **Browser sync** — optional `storage.sync` for settings across devices (Firefox Sync / Chrome sync) in Settings tab
-- **Export / import** — JSON backup of all extension preferences (features, locks, case config, language)
-- New module `csr-storage.js` — unified prefs API for local and sync storage
+**New — browser sync**
+- Optional **Browser sync** toggle in Settings tab
+- When enabled, preferences sync via **Firefox Sync** or **Chrome sync** (`storage.sync`)
+- Toggle flag always stays in `storage.local` (per device)
+
+**New — export / import backup**
+- **Export settings** — JSON file with all extension preferences
+- **Import settings** — restore from JSON (initial popup file picker flow)
+- Useful for moving settings between Firefox and Chromium (sync vendors do not cross over)
+
+**New — unified storage module**
+- **`csr-storage.js`** — `csrPrefsGet` / `csrPrefsSet`, sync toggle, export/import API
+- **`settings.js`** and popup updated to route prefs through the new module
+
+**Backup includes:** `csrFeatureSettings`, `csrLockedWeaponIds`, `csrCasesAutoOpenSellConfig`, `csrCasesAutoOpenConfig`, `csrLanguage`, `csrAutoUpdateCheck`
+
+---
 
 ## 3.6.0
 

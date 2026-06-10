@@ -425,31 +425,36 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 
 ### v3.7.4
 
-- Fix browser sync toggle restoring old settings — local/imported data wins over stale `storage.sync`; import clears leftover sync keys
-- Export reads only the active storage area (no mixing with old sync when sync is off)
+- **Fix:** Browser sync toggle no longer restores stale cloud/sync data over imported or local settings — local wins
+- **Fix:** Import clears leftover sync keys; export with sync off reads only `storage.local`
+- **Improvement:** Popup and csrestored.fun tabs refresh after toggling browser sync
 
 ### v3.7.3
 
-- Fix export/import backup — `downloads` API; dedicated import tab (Firefox); paste JSON fallback; backup status in Settings
-- Import always writes to `storage.local`; open csrestored.fun tabs notified after import
-- Permissions: `downloads`, `tabs`
+- **Fix:** Export via `downloads` API; import opens dedicated tab (`import-backup.html`) — works on Firefox
+- **New:** Paste JSON import; visible backup status in Settings
+- **Fix:** Import always writes `storage.local`; notifies open csrestored.fun tabs after import
+- **Permissions:** `downloads`, `tabs`
 
 ### v3.7.2
 
-- Fix auto-open session mutex — no overlapping runs; Start disabled until end-of-session auto-sell finishes
-- Import/export hardening — confirmation modal, popup reload after import, lock cap (5000), storage error handling
-- Browser sync clears inactive storage area when toggling; safer marketplace listing; fetch/XHR JSON-only; validator XSS escape
-- Cases batch size persists from panel; GitHub API User-Agent; ARIA tab labels; README/PRIVACY updates
+- **Fix:** Auto-open session mutex; Start disabled until end-of-session auto-sell completes
+- **Fix:** Import confirmation modal, popup reload after import, lock cap (5000), storage error toasts
+- **Fix:** Browser sync clears inactive storage area; marketplace listing, XSS, JSON-only fetch hooks
+- **Improvement:** Cases batch size persists; ARIA tabs; Firefox min 128.0; import/export tests
 
 ### v3.7.1
 
-- **Live user counter** in popup header (CounterAPI; one anonymous ping per install per hour)
+- **New:** Live **ONLINE** user counter in popup header (CounterAPI; one ping/hour per install)
+- **Permission:** `api.counterapi.dev`
 
 ### v3.7.0
 
-- **Browser sync** — optional `storage.sync` (Firefox Sync / Chrome sync) in Settings tab
-- **Export / import** — JSON backup of all extension preferences
-- New module **`csr-storage.js`** — unified prefs API for local and sync storage
+- **New:** Optional **browser sync** (`storage.sync` — Firefox Sync / Chrome sync)
+- **New:** **Export / import** JSON backup of all extension preferences
+- **New:** `csr-storage.js` — unified prefs API for local and sync storage
+
+See **[CHANGELOG.md](CHANGELOG.md)** for the full per-version breakdown.
 
 ### v3.6.0
 
