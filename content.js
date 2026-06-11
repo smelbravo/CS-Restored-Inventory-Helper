@@ -474,18 +474,45 @@ S.textContent = `
     display: flex !important;
     flex-direction: column !important;
     align-items: flex-start !important;
-    gap: 4px !important;
-    min-width: 0 !important;
+    justify-content: flex-start !important;
+    gap: 0.35rem !important;
+    min-width: 3.5rem !important;
+    flex: 1 1 0 !important;
+    box-sizing: border-box !important;
 }
 .csrx-mp-offer-pattern-label {
-    font-size: 11px !important;
+    font-family: inherit !important;
+    font-size: 0.75rem !important;
     font-weight: 500 !important;
-    color: rgba(255,255,255,0.45) !important;
-    letter-spacing: 0.02em !important;
+    color: rgba(255,255,255,0.5) !important;
+    letter-spacing: 0.01em !important;
+    line-height: 1.2 !important;
+    white-space: nowrap !important;
 }
-.csrx-mp-offer-pattern-col .csrx-pattern-badge {
-    font-size: 11px !important;
-    padding: 3px 8px !important;
+.csrx-mp-offer-pattern-value {
+    font-family: inherit !important;
+    font-size: 0.875rem !important;
+    font-weight: 600 !important;
+    line-height: 1.3 !important;
+    color: rgba(255,255,255,0.92) !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    backdrop-filter: none !important;
+    white-space: nowrap !important;
+}
+.csrx-mp-offer-pattern-value.csrx-pattern-ch1 { color: #bfdbfe !important; }
+.csrx-mp-offer-pattern-value.csrx-pattern-ch2 { color: #93c5fd !important; }
+.csrx-mp-offer-pattern-value.csrx-pattern-ch3 { color: #7dd3fc !important; }
+.csrx-mp-offer-pattern-value.csrx-pattern-phase { color: rgba(255,255,255,0.9) !important; }
+.csrx-mp-offer-pattern-value.csrx-pattern-ch0,
+.csrx-mp-offer-pattern-value.csrx-pattern-gem {
+    display: inline-flex !important;
+    align-items: center !important;
+    font-size: 0.8125rem !important;
+    padding: 0.15rem 0.5rem !important;
+    border-radius: 0.25rem !important;
+    backdrop-filter: blur(6px) !important;
 }
 
 @keyframes csrxPulse {
@@ -2261,23 +2288,51 @@ function findMpOfferStatsRow() {
     return patternLabel.parentElement?.parentElement || patternLabel.parentElement;
 }
 
+function copyMpOfferColumnShell(target, refCol) {
+    if (!refCol) return;
+    for (const cls of refCol.classList) {
+        if (!cls.startsWith('csrx')) target.classList.add(cls);
+    }
+    const st = getComputedStyle(refCol);
+    if (st.flex && st.flex !== 'none') target.style.flex = st.flex;
+    if (st.minWidth && st.minWidth !== 'auto') target.style.minWidth = st.minWidth;
+}
+
 function buildMpOfferPatternColumn(pattern, sig) {
+    const refCol = findMpOfferExactLabel('Pattern')?.parentElement
+        || findMpOfferExactLabel('Float')?.parentElement;
+    const refLabel = findMpOfferExactLabel('Pattern') || findMpOfferExactLabel('Wear');
+    const refValue = refLabel?.parentElement
+        ? [...refLabel.parentElement.children].find(el => el !== refLabel)
+        : null;
+
     const col = document.createElement('div');
     col.id = MP_OFFER_PATTERN_COL_ID;
     col.className = 'csrx-mp-offer-pattern-col';
     col.dataset.csrxSig = sig;
+    copyMpOfferColumnShell(col, refCol);
 
     const label = document.createElement('span');
     label.className = 'csrx-mp-offer-pattern-label';
-    label.textContent = pattern.type === 'doppler' ? 'Phase' : (pattern.gemKind === 'gold' ? 'Gold gem' : 'Blue gem');
+    if (refLabel) {
+        for (const cls of refLabel.classList) {
+            if (!cls.startsWith('csrx')) label.classList.add(cls);
+        }
+    }
+    label.textContent = pattern.type === 'doppler' ? 'Phase' : (pattern.gemKind === 'gold' ? 'Gold' : 'Tier');
 
-    const badge = document.createElement('span');
-    badge.className = 'csrx-pattern-badge ' + (pattern.css || '');
-    badge.textContent = pattern.short || pattern.label;
-    badge.title = pattern.label;
+    const value = document.createElement('span');
+    value.className = 'csrx-mp-offer-pattern-value ' + (pattern.css || '');
+    if (refValue) {
+        for (const cls of refValue.classList) {
+            if (!cls.startsWith('csrx')) value.classList.add(cls);
+        }
+    }
+    value.textContent = pattern.short || pattern.label;
+    value.title = pattern.label;
 
     col.appendChild(label);
-    col.appendChild(badge);
+    col.appendChild(value);
     return col;
 }
 
