@@ -34,25 +34,19 @@ Shows **wear abbreviation** (FN, MW, FT, WW, BS), **float value** (e.g. `0.1962`
 
 Data is matched by offer ID, skin image, wear, StatTrak, and name. The extension reads data from the site's own API responses in your browser session — it does not send data to external servers or spam duplicate API calls.
 
-#### Large inventories — lazy overlay loading (v3.4+)
+#### Large inventories — batched overlay loading (v3.4+, unified v3.8.1+)
 
-Float/seed badges (and skin-lock buttons on inventory) are applied in **batches** instead of all at once on large grids.
+Float/seed badges (and skin-lock buttons on inventory) are applied in **batches of 50** instead of all at once when a grid has **50+** cards.
 
-| Context | When lazy mode starts | How batches load |
-|---------|----------------------|------------------|
-| **Inventory**, **Marketplace**, Create Offer | **80+** cards | Viewport-based (~45 visible cards per scroll) |
-| **Trades**, trade detail, **Send Trade Offer** | **50+** cards | **50** cards first, then **+50** when you scroll near the bottom |
+Same behaviour everywhere:
 
-**Inventory / marketplace / Create Offer**
+| When | What happens |
+|------|----------------|
+| Page / modal open | First **50** cards (DOM order) |
+| You scroll | Up to **50** **visible** cards without overlays are stamped first |
+| Near bottom of grid | Next **50** in list order |
 
-- Page open: visible cards (plus buffer) first
-- Scroll: more cards as they enter the viewport
-
-**Trades & Send Trade Offer** (v3.8.1+)
-
-- First **50** item cards get overlays immediately
-- Scrolling to the bottom of the grid loads the next **50**, and so on
-- Reduces lag when picking items from a large inventory in trade modals
+Applies to **inventory**, **marketplace**, **trades**, trade detail, **Send Trade Offer**, and **Create Offer**.
 
 With **200+** items you may still see some site slowness, but the extension should no longer spike the page by stamping every card immediately. A short info toast may appear on very large inventory, marketplace, or trade lists.
 
@@ -446,7 +440,7 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 
 ### Unreleased (develop)
 
-- **Perf:** Trade / Send Trade Offer overlays load **50 items at a time**, then **+50** near scroll bottom (inventory/marketplace unchanged)
+- **Perf:** All float/seed overlays use unified **50-item batches** on scroll (inventory, marketplace, trades, modals)
 
 ### v3.8.0
 
@@ -521,7 +515,7 @@ See **[CHANGELOG.md](CHANGELOG.md)** for the full per-version breakdown.
 
 - **New:** **Auto case opening** — **Auto open** tab on `/app/inventory/cases`; configure delay, time limit, and spend limit (saved in `storage.local`); live drop log; **Stop** button; toggle in popup (default off)
 - **New:** **Results table** after each auto-open session — every skin with float/wear, sorted **lowest float first** (best → worst)
-- **Perf:** **Lazy overlay loading** on large grids (**80+** cards) — inventory, marketplace, trades, trade detail, Send Trade Offer, and Create Offer modals; visible cards first, more on scroll (reduces lag with 200+ items)
+- **Perf:** **Batched overlay loading** on large grids (**50+** cards) — 50 items at a time on inventory, marketplace, trades, and picker modals (reduces lag with 200+ items)
 - **Perf:** Info toast for very large lists (**200+** items on inventory or marketplace)
 - **Fix:** **Quick Sell & Market** panel — brighter labels (**Picker**, **Global**, **Speed**), status text, rarity dropdown, and batch-size label
 - **Fix:** Confirm Sale modal subtitle contrast improved
@@ -732,7 +726,7 @@ The **search/filter bar** loads with the page. **Float/seed badges** appear once
 
 ### Large inventories (200+ skins)
 
-With **80+** visible item cards, float/seed badges load in **batches** (visible area first, then as you scroll) on inventory, marketplace, trades, and picker modals. The extension shows a **one-time info message** at **200+** items. Very large inventories can still feel slow because the CS:R site itself loads many cards — if the page freezes, reload or use a fresh tab.
+With **50+** item cards, float/seed badges load in **batches of 50** (visible cards on scroll, then more near the bottom) on inventory, marketplace, trades, and picker modals. The extension shows a **one-time info message** at **200+** items. Very large inventories can still feel slow because the CS:R site itself loads many cards — if the page freezes, reload or use a fresh tab.
 
 **Tips:**
 
@@ -786,7 +780,7 @@ WHAT IT DOES
 • Case bulk buy — on the Cases tab (/app/inventory/cases), buy multiple weapon cases at once (quantity 1–99) using your coin balance; purchased cases go to your in-game inventory (toggle in extension settings)
 • Auto case opening — Auto open tab on Cases: delay (default 1000 ms), time limit, spend limit; live log; results sorted by float; optional session auto-sell (manual default, non-gold, or by rarity) configured in toolbar popup; Quick sell session drops after a run
 • Multi-language UI — popup Settings tab: English (US/UK), Portuguese (PT/BR), German, Russian, Spanish; rarity names stay English
-• Lazy overlays on large inventories — float/seed badges load in batches on big grids (80+ cards) to reduce lag; scroll to load more
+• Batched overlays on large grids — float/seed badges load 50 at a time (50+ cards) to reduce lag; scroll to load more
 • Trade offer search — compact search bar in Send Trade Offer (My Items / Their Items)
 • Toolbar settings popup — Features tab (toggles) + Settings tab (language); preferences saved in extension storage
 • Skin lock — padlock on inventory cards to block accidental quick sell from the extension (does not block the site’s own Weapon Details button)

@@ -1969,12 +1969,11 @@ function resetTradePickerBrowseOnTabSwitch() {
 }
 let _largeInvWarned      = false;
 const LARGE_INV_WARN     = 200;
-const OVERLAY_LAZY_MIN_CARDS = 80;
-const OVERLAY_LAZY_VIEW_MARGIN = 400;
-const OVERLAY_LAZY_BATCH = 45;
-const OVERLAY_INCREMENTAL_MIN_CARDS = 50;
-const OVERLAY_INCREMENTAL_BATCH = 50;
-const OVERLAY_INCREMENTAL_BOTTOM_MARGIN = 280;
+const OVERLAY_BATCH_MIN_CARDS = 50;
+const OVERLAY_BATCH_SIZE = 50;
+const OVERLAY_VIEW_MARGIN = 400;
+const OVERLAY_SCROLL_BOTTOM_MARGIN = 280;
+const OVERLAY_PRIME_MAX_BATCHES = 3;
 let _overlayLazyScroll = null;
 let _overlayLazyScrollTarget = null;
 let _overlayLazyCards = null;
@@ -2052,7 +2051,7 @@ function scheduleOverlayBootstrap() {
             && cards.some(c => !c.querySelector('.csrx-card-wrap'));
         step++;
         if (missing && step < delays.length) {
-            if (_overlayLazyMode === 'incremental') maybeLoadIncrementalOverlayBatch(true);
+            if (_overlayLazyMode === 'batched') maybeLoadBatchedOverlayBatch(true);
             _overlayBootTimer = setTimeout(tick, delays[step]);
         }
     };
@@ -2757,10 +2756,8 @@ function applyTradeDetailOverlays() {
         return;
     }
 
-    if (shouldUseIncrementalOverlays(allCards.length)) {
-        runIncrementalOverlayPass(allCards, applyBatch);
-    } else if (shouldUseLazyOverlays(allCards.length)) {
-        runLazyOverlayPass(allCards, applyBatch);
+    if (shouldUseBatchedOverlays(allCards.length)) {
+        runBatchedOverlayPass(allCards, applyBatch);
     } else {
         const usedYour = new Set();
         const usedTheir = new Set();
@@ -2916,10 +2913,8 @@ function applyTradeOverlays() {
     const cards = getAllCards();
     if (!cards.length) return;
     const stamp = (batch) => applyOverlaysToCardList(batch, cache);
-    if (shouldUseIncrementalOverlays(cards.length)) {
-        runIncrementalOverlayPass(cards, stamp);
-    } else if (shouldUseLazyOverlays(cards.length)) {
-        runLazyOverlayPass(cards, stamp);
+    if (shouldUseBatchedOverlays(cards.length)) {
+        runBatchedOverlayPass(cards, stamp);
     } else {
         applyOverlaysToCardList(cards, cache);
     }
@@ -3939,7 +3934,7 @@ function pruneOrphanOverlays(cardSet) {
     });
 }
 
-function isCardNearViewport(cardEl, margin = OVERLAY_LAZY_VIEW_MARGIN) {
+function isCardNearViewport(cardEl, margin = OVERLAY_VIEW_MARGIN) {
     if (!cardEl?.isConnected) return false;
     const r = cardEl.getBoundingClientRect();
     return r.bottom >= -margin && r.top <= window.innerHeight + margin
@@ -3955,19 +3950,8 @@ function isLazyOverlayGridPage() {
     return false;
 }
 
-function isIncrementalOverlayContext() {
-    return isTradePage() || isTradeDetailView() || isItemPickerModal();
-}
-
-function shouldUseIncrementalOverlays(cardCount) {
-    if (cardCount < OVERLAY_INCREMENTAL_MIN_CARDS) return false;
-    if (!isIncrementalOverlayContext()) return false;
-    return csrIsFeatureEnabled('floatOverlays');
-}
-
-function shouldUseLazyOverlays(cardCount) {
-    if (shouldUseIncrementalOverlays(cardCount)) return false;
-    if (cardCount < OVERLAY_LAZY_MIN_CARDS) return false;
+function shouldUseBatchedOverlays(cardCount) {
+    if (cardCount < OVERLAY_BATCH_MIN_CARDS) return false;
     if (!isLazyOverlayGridPage()) return false;
     if (csrIsFeatureEnabled('floatOverlays')) return true;
     return csrIsFeatureEnabled('skinLock') && isInventoryPage() && !isMarketplacePage();
@@ -3980,13 +3964,17 @@ function getPendingOverlayCards() {
     );
 }
 
+function getPendingOverlayCardsInViewport() {
+    return getPendingOverlayCards().filter((c) => isCardNearViewport(c));
+}
+
 function canOverlayScrollContainer() {
     const root = _overlayLazyScrollTarget;
     if (root) return root.scrollHeight > root.clientHeight + 8;
     return document.documentElement.scrollHeight > window.innerHeight + 8;
 }
 
-function isOverlayScrollNearBottom(margin = OVERLAY_INCREMENTAL_BOTTOM_MARGIN) {
+function isOverlayScrollNearBottom(margin = OVERLAY_SCROLL_BOTTOM_MARGIN) {
     const root = _overlayLazyScrollTarget;
     if (root) {
         return root.scrollTop + root.clientHeight >= root.scrollHeight - margin;
@@ -3995,31 +3983,40 @@ function isOverlayScrollNearBottom(margin = OVERLAY_INCREMENTAL_BOTTOM_MARGIN) {
     return window.innerHeight + window.scrollY >= doc.scrollHeight - margin;
 }
 
-function loadIncrementalOverlayBatch() {
-    if (!_overlayLazyTick || !_overlayLazyCards) return 0;
-    const pending = getPendingOverlayCards();
-    if (!pending.length) return 0;
-    _overlayLazyTick(pending.slice(0, OVERLAY_INCREMENTAL_BATCH));
-    return Math.min(pending.length, OVERLAY_INCREMENTAL_BATCH);
+function loadBatchedOverlayBatch(cards) {
+    if (!_overlayLazyTick || !cards?.length) return 0;
+    _overlayLazyTick(cards.slice(0, OVERLAY_BATCH_SIZE));
+    return Math.min(cards.length, OVERLAY_BATCH_SIZE);
 }
 
-function primeIncrementalOverlayBatches() {
+function loadNextBatchedOverlayBatch() {
+    if (!_overlayLazyTick || !_overlayLazyCards) return 0;
+    const pending = getPendingOverlayCards();
+    return loadBatchedOverlayBatch(pending);
+}
+
+function primeBatchedOverlayBatches() {
     let guard = 0;
-    while (guard++ < 24) {
-        if (!loadIncrementalOverlayBatch()) break;
+    while (guard++ < OVERLAY_PRIME_MAX_BATCHES) {
+        if (!loadNextBatchedOverlayBatch()) break;
         if (canOverlayScrollContainer()) break;
     }
 }
 
-function maybeLoadIncrementalOverlayBatch(aggressive = false) {
-    if (_overlayLazyMode !== 'incremental' || !_overlayLazyTick) return;
+function maybeLoadBatchedOverlayBatch(aggressive = false) {
+    if (_overlayLazyMode !== 'batched' || !_overlayLazyTick) return;
     if (!getPendingOverlayCards().length) return;
     if (aggressive) {
-        primeIncrementalOverlayBatches();
+        primeBatchedOverlayBatches();
+        return;
+    }
+    const visiblePending = getPendingOverlayCardsInViewport();
+    if (visiblePending.length) {
+        loadBatchedOverlayBatch(visiblePending);
         return;
     }
     if (isOverlayScrollNearBottom() || !canOverlayScrollContainer()) {
-        loadIncrementalOverlayBatch();
+        loadNextBatchedOverlayBatch();
     }
 }
 
@@ -4065,7 +4062,7 @@ function stopOverlayLazyScroll() {
     _overlayLazyMode = null;
 }
 
-function bindOverlayIncrementalScrollListener() {
+function bindOverlayBatchedScrollListener() {
     if (_overlayLazyScroll && _overlayLazyScrollTarget) {
         _overlayLazyScrollTarget.removeEventListener('scroll', _overlayLazyScroll);
     }
@@ -4074,11 +4071,11 @@ function bindOverlayIncrementalScrollListener() {
     }
     let ticking = false;
     const onScroll = () => {
-        if (!overlayRunning || ticking || _overlayLazyMode !== 'incremental') return;
+        if (!overlayRunning || ticking || _overlayLazyMode !== 'batched') return;
         ticking = true;
         requestAnimationFrame(() => {
             ticking = false;
-            maybeLoadIncrementalOverlayBatch(false);
+            maybeLoadBatchedOverlayBatch(false);
         });
     };
     _overlayLazyScroll = onScroll;
@@ -4088,53 +4085,14 @@ function bindOverlayIncrementalScrollListener() {
     window.addEventListener('scroll', onScroll, { passive: true });
 }
 
-function runIncrementalOverlayPass(allCards, applyBatch) {
+function runBatchedOverlayPass(allCards, applyBatch) {
     stopOverlayLazyScroll();
     _overlayLazyCards = allCards;
     _overlayLazyTick = applyBatch;
-    _overlayLazyMode = 'incremental';
+    _overlayLazyMode = 'batched';
     _overlayLazyScrollTarget = findOverlayScrollRoot();
-    primeIncrementalOverlayBatches();
-    bindOverlayIncrementalScrollListener();
-}
-
-function bindOverlayLazyScrollListener() {
-    if (_overlayLazyScroll && _overlayLazyScrollTarget) {
-        _overlayLazyScrollTarget.removeEventListener('scroll', _overlayLazyScroll);
-    }
-    if (_overlayLazyScroll) {
-        window.removeEventListener('scroll', _overlayLazyScroll);
-    }
-    let ticking = false;
-    const onScroll = () => {
-        if (!overlayRunning || ticking || _overlayLazyMode !== 'viewport' || !_overlayLazyTick || !_overlayLazyCards) return;
-        ticking = true;
-        requestAnimationFrame(() => {
-            ticking = false;
-            if (!overlayRunning || _overlayLazyMode !== 'viewport' || !_overlayLazyTick || !_overlayLazyCards) return;
-            const pending = _overlayLazyCards.filter((c) =>
-                c.isConnected && isCardNearViewport(c) && !c.querySelector('.csrx-card-wrap')
-            );
-            if (!pending.length) return;
-            _overlayLazyTick(pending.slice(0, OVERLAY_LAZY_BATCH));
-        });
-    };
-    _overlayLazyScroll = onScroll;
-    const root = findOverlayScrollRoot();
-    _overlayLazyScrollTarget = root;
-    if (root) root.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('scroll', onScroll, { passive: true });
-}
-
-function runLazyOverlayPass(allCards, applyBatch) {
-    stopOverlayLazyScroll();
-    _overlayLazyCards = allCards;
-    _overlayLazyTick = applyBatch;
-    _overlayLazyMode = 'viewport';
-    const visible = allCards.filter((c) => isCardNearViewport(c));
-    const firstBatch = visible.length ? visible : allCards.slice(0, OVERLAY_LAZY_BATCH);
-    applyBatch(firstBatch);
-    bindOverlayLazyScrollListener();
+    primeBatchedOverlayBatches();
+    bindOverlayBatchedScrollListener();
 }
 
 function applyOverlaysToAll(opts) {
@@ -4164,10 +4122,8 @@ function applyOverlaysToAll(opts) {
 
     _currentOverlayCards = cards;
     try {
-        if (shouldUseIncrementalOverlays(cards.length)) {
-            runIncrementalOverlayPass(cards, (batch) => applyOverlaysToCardList(batch, cache));
-        } else if (shouldUseLazyOverlays(cards.length)) {
-            runLazyOverlayPass(cards, (batch) => applyOverlaysToCardList(batch, cache));
+        if (shouldUseBatchedOverlays(cards.length)) {
+            runBatchedOverlayPass(cards, (batch) => applyOverlaysToCardList(batch, cache));
         } else {
             stopOverlayLazyScroll();
             applyOverlaysToCardList(cards, cache);
@@ -4205,7 +4161,7 @@ async function startAlwaysOnOverlay() {
         const cache = getOverlayCache();
         if (!cards.length || !cache.length) return;
         if (cards.some(c => !c.querySelector('.csrx-card-wrap'))) {
-            if (_overlayLazyMode === 'incremental') maybeLoadIncrementalOverlayBatch(true);
+            if (_overlayLazyMode === 'batched') maybeLoadBatchedOverlayBatch(true);
             else applyOverlaysToAll({ urgent: true });
         }
     }, 6000);

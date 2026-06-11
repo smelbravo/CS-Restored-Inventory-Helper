@@ -2,10 +2,10 @@
 
 ## Unreleased
 
-**Perf — trade overlay incremental load**
-- Trades, trade detail, and **Send Trade Offer** pickers load float/seed overlays in **batches of 50** (not all at once)
-- More batches load when you scroll near the bottom of the item grid
-- Inventory and marketplace keep the existing viewport-based lazy loading (80+ cards)
+**Perf — unified batched float/seed overlays**
+- **Every** grid with **50+** cards uses the same batching: inventory, marketplace, trades, trade detail, **Send Trade Offer**, Create Offer
+- First **50** cards get overlays; more load on scroll (visible cards first, then **+50** near scroll bottom)
+- Skin-lock buttons on large inventories follow the same batching when float overlays are off
 
 ## 3.8.0
 
