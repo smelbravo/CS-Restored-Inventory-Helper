@@ -25,6 +25,8 @@ Log in with Discord on the website after meeting these requirements.
 
 Shows **wear abbreviation** (FN, MW, FT, WW, BS), **float value** (e.g. `0.1962`), and **paint seed** (`#640`) on item cards. Color-coded float dot (green → yellow → red by wear).
 
+**WIP (develop):** extra badges for **Doppler / Gamma Doppler** phase or gem (Ruby, Sapphire, P1–P4, Emerald…) and **Case Hardened** blue-gem tier on known seeds — see [Pattern badges](#pattern-badges-wip).
+
 | Page | Route | Notes |
 |------|-------|-------|
 | **Inventory** | `/app/inventory` | Badges in the bottom-right corner of each card |
@@ -49,6 +51,18 @@ Same behaviour everywhere:
 Applies to **inventory**, **marketplace**, **trades**, trade detail, **Send Trade Offer**, and **Create Offer**.
 
 With **200+** items you may still see some site slowness, but the extension should no longer spike the page by stamping every card immediately. A short info toast may appear on very large inventory, marketplace, or trade lists.
+
+#### Pattern badges (WIP)
+
+| Skin family | Identified by | Badge examples |
+|-------------|---------------|----------------|
+| **Doppler** | Finish Catalog **415–421** (Ruby, Sapphire, Black Pearl, Phase 1–4) | `Ruby`, `P2`, `BP` |
+| **Gamma Doppler** | Finish Catalog **568–572** (Emerald, Phase 1–4) | `Emerald`, `P3` |
+| **Case Hardened** | Paint **seed** (community tier lists) | `#1`, `T1`, `T2`, `T3` |
+
+**Doppler:** phase is **not** derived from seed — it needs `finish_catalog` / `paint_index` (or equivalent) in `GET /inventory/` or marketplace payloads. If CS:R does not send it yet, badges will not appear for Dopplers; open DevTools (F12) → Console after loading inventory — the extension logs once which keys exist on your first Doppler item.
+
+**Case Hardened:** works today when `seed` is present (same as float overlays). Lists included for **AK-47**, **Karambit** (your tiers), **M9** (tier 0–1 community list), and **#1 Blue Gem** seeds for Butterfly / Bayonet. More weapons can be added over time.
 
 ### Search & filters (inventory + marketplace)
 
@@ -395,8 +409,8 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 
 | Endpoint | Purpose |
 |----------|---------|
-| `GET /inventory/` | Your inventory (float, seed, weapon_id) |
-| `GET /inventory/marketplace/` | Marketplace listings (`skin_float`, `skin_seed`, price) |
+| `GET /inventory/` | Your inventory (float, seed, weapon_id; **finish catalog TBD**) |
+| `GET /inventory/marketplace/` | Marketplace listings (`skin_float`, `skin_seed`, price; **finish catalog TBD**) |
 | `GET /api/trades` | Trade offers (intercepted from site; not fetched by extension) |
 | `GET /users/{id}/inventory` | Friend inventory for Send Trade Offer (Their Items) |
 | `GET /api/user/{id}/inventory` | Site inventory route (intercepted; may include quick sell prices) |

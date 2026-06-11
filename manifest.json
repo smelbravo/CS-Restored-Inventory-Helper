@@ -56,7 +56,7 @@
 
       "matches": ["*://*.csrestored.fun/*"],
 
-      "js": ["csr-storage.js", "i18n-packs.js", "i18n-packs-generated.js", "i18n.js", "settings.js", "content.js"],
+      "js": ["csr-storage.js", "i18n-packs.js", "i18n-packs-generated.js", "i18n.js", "settings.js", "skin-patterns.js", "content.js"],
 
       "run_at": "document_idle"
 

@@ -441,6 +441,31 @@ S.textContent = `
     white-space: nowrap !important;
     letter-spacing: 0.1px !important;
 }
+.csrx-pattern-badge {
+    font-family: 'Inter', sans-serif !important;
+    font-size: 9px !important;
+    font-weight: 700 !important;
+    padding: 2px 6px !important;
+    border-radius: 3px !important;
+    backdrop-filter: blur(6px) !important;
+    white-space: nowrap !important;
+    letter-spacing: 0.2px !important;
+    line-height: 1.2 !important;
+}
+.csrx-pattern-gem { color: #fff !important; border: 1px solid rgba(255,255,255,0.2) !important; }
+.csrx-pattern-ruby { background: rgba(190, 24, 56, 0.92) !important; }
+.csrx-pattern-sapphire { background: rgba(29, 78, 216, 0.92) !important; }
+.csrx-pattern-emerald { background: rgba(5, 150, 105, 0.92) !important; }
+.csrx-pattern-bp { background: rgba(88, 28, 135, 0.92) !important; }
+.csrx-pattern-phase { color: rgba(255,255,255,0.9) !important; background: rgba(0,0,0,0.72) !important; border: 1px solid rgba(255,255,255,0.12) !important; }
+.csrx-pattern-p1 { border-color: rgba(147, 197, 253, 0.35) !important; }
+.csrx-pattern-p2 { border-color: rgba(244, 114, 182, 0.4) !important; }
+.csrx-pattern-p3 { border-color: rgba(74, 222, 128, 0.35) !important; }
+.csrx-pattern-p4 { border-color: rgba(96, 165, 250, 0.4) !important; }
+.csrx-pattern-ch0 { color: #fef08a !important; background: rgba(30, 58, 138, 0.9) !important; border: 1px solid rgba(250, 204, 21, 0.55) !important; }
+.csrx-pattern-ch1 { color: #bfdbfe !important; background: rgba(30, 64, 175, 0.85) !important; }
+.csrx-pattern-ch2 { color: #93c5fd !important; background: rgba(30, 58, 138, 0.75) !important; }
+.csrx-pattern-ch3 { color: #7dd3fc !important; background: rgba(15, 23, 42, 0.78) !important; border: 1px solid rgba(56, 189, 248, 0.25) !important; }
 
 @keyframes csrxPulse {
     0%   { box-shadow: 0 0 0 0 rgba(239,68,68,0.4); }
@@ -2291,12 +2316,14 @@ function isOverlayPage() {
 
 function normalizeInventoryEntry(i) {
     if (!i) return null;
+    const finishCatalog = typeof CSR_extractFinishCatalog === 'function' ? CSR_extractFinishCatalog(i) : null;
     return {
         offer_id:  null,
         weapon_id: i.weapon_id != null ? parseInt(i.weapon_id, 10) : null,
         item_id:   i.item_id != null ? parseInt(i.item_id, 10) : null,
         float:     i.float != null && !Number.isNaN(parseFloat(i.float)) ? parseFloat(i.float) : null,
         seed:      i.seed != null ? parseInt(i.seed, 10) : null,
+        finish_catalog: finishCatalog,
         stattrak:  !!i.stattrak,
         stattrak_count: i.stattrak_count != null ? parseInt(i.stattrak_count, 10) : null,
         rarity:    i.rarity,
@@ -2493,12 +2520,14 @@ function normalizeOfferEntry(o) {
         ?? o.seed ?? item?.seed
         ?? o.paint_seed ?? item?.paint_seed;
     if (itemId == null && fl == null && offerId == null) return null;
+    const finishCatalog = typeof CSR_extractFinishCatalog === 'function' ? CSR_extractFinishCatalog(o) : null;
     return {
         offer_id:  offerId != null ? parseInt(offerId, 10) : null,
         weapon_id: weaponId != null ? parseInt(weaponId, 10) : null,
         item_id:   itemId != null ? parseInt(itemId, 10) : null,
         float:     fl != null && !Number.isNaN(parseFloat(fl)) ? parseFloat(fl) : null,
         seed:      seed != null ? parseInt(seed, 10) : null,
+        finish_catalog: finishCatalog,
         stattrak:  !!(o.stat_trak ?? item?.stat_trak ?? o.stattrak ?? item?.stattrak),
         stattrak_count: o.stattrak_count ?? item?.stattrak_count ?? null,
         rarity:    o.item_rarity ?? o.rarity ?? item?.rarity,
@@ -2547,6 +2576,7 @@ function ingestApiPayload(url, data) {
         if (Array.isArray(arr) && arr.length) {
             inventoryCache = arr.sort((a, b) => parseInt(a.rarity) - parseInt(b.rarity));
             cacheQuickSellFromInventory(inventoryCache);
+            if (typeof CSR_probePatternApiFields === 'function') CSR_probePatternApiFields(inventoryCache);
             rebuildInvItemIndex();
             maybeWarnLargeInventory();
             if (overlayRunning) {
@@ -2678,6 +2708,7 @@ async function fetchInventory() {
         const arr = Array.isArray(d) ? d : (d.items || d.inventory || d.data || []);
         inventoryCache = arr.sort((a, b) => parseInt(a.rarity) - parseInt(b.rarity));
         cacheQuickSellFromInventory(inventoryCache);
+        if (typeof CSR_probePatternApiFields === 'function') CSR_probePatternApiFields(inventoryCache);
         rebuildInvItemIndex();
         maybeWarnLargeInventory();
         return inventoryCache;
@@ -3176,7 +3207,10 @@ function overlaySignature(item) {
     if (!item) return '';
     const f = item.float != null ? item.float.toFixed(4) : '';
     const s = item.seed != null ? String(item.seed) : '';
-    return `${f}|${s}`;
+    const p = typeof CSR_patternSignature === 'function'
+        ? CSR_patternSignature(typeof CSR_resolveSkinPattern === 'function' ? CSR_resolveSkinPattern(item) : null)
+        : '';
+    return `${f}|${s}|${p}`;
 }
 
 function injectCardOverlay(cardEl, item) {
@@ -3254,6 +3288,17 @@ function injectCardOverlay(cardEl, item) {
         seed.className = 'csrx-seed-badge';
         seed.textContent = `#${item.seed}`;
         wrap.appendChild(seed);
+    }
+
+    if (wantOverlay && typeof CSR_resolveSkinPattern === 'function') {
+        const pattern = CSR_resolveSkinPattern(item);
+        if (pattern) {
+            const badge = document.createElement('div');
+            badge.className = 'csrx-pattern-badge ' + (pattern.css || '');
+            badge.textContent = pattern.short || pattern.label;
+            badge.title = pattern.label;
+            wrap.appendChild(badge);
+        }
     }
 
     cardEl.appendChild(wrap);
