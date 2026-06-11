@@ -1,11 +1,27 @@
 # Changelog
 
-## Unreleased
+## 3.8.2
 
-**WIP — Doppler phase & Case Hardened blue-gem badges** (`feature/doppler-phase-overlay`)
-- **Doppler / Gamma Doppler:** phase or gem label from **`skin_index`** / Finish Catalog (415–421, 568–572) on CS:R inventory API
-- **Case Hardened:** blue/gold gem tier badges from **paint seed** — AK/Karambit full tiers, #1 seeds for all 20 CH knives (sources: BlueGemLab, SteamAnalyst, CSGOBlueGem, isitabluegem)
-- One-time console probe logs API keys when a Doppler is in inventory but Finish Catalog is missing
+**New — Doppler / Gamma Doppler phase & Case Hardened tier badges**
+- **Doppler / Gamma Doppler:** phase or gem from **`skin_index`** (Finish Catalog **415–421**, knife Gamma **568–572**, **Glock-18 Gamma 1119–1123**) on inventory, trades, Create Offer, and marketplace **offer detail**
+- **Case Hardened:** blue/gold gem tier badges from **paint seed** (AK/Karambit full T1–T3, #1 seeds for 20 CH knives; bundled offline lists)
+- Badges show **phase · paint index** (e.g. `Emerald · 568`, `P2 · 1121`) next to wear on cards; float/seed overlays unchanged
+
+**Marketplace — Doppler phases (important)**
+- The **marketplace listing API does not include `skin_index`**. Phase badges on marketplace **grid cards** only appear when the extension knows that **`item_id` → paint index** mapping — typically after you **own at least one Doppler/Gamma** (or the same `item_id` was learned from inventory, trades, or case opens), plus entries in bundled `data/csr-doppler-item-map.json`
+- If you have **never** had that knife/skin in your inventory, marketplace Doppler listings often show **float/seed only** — no phase label
+- **Offer detail** (`/marketplace/offer/{id}`) uses the same map when available
+
+**Browse filters**
+- **Phase** filter (phased only, Ruby/Sapphire/BP/Emerald, P1–P4): **inventory** and **Create Offer** only — **not** on marketplace (unreliable without per-listing `skin_index`)
+- **Case Hardened tier** filter: inventory, marketplace, and Create Offer
+
+**Fix — marketplace float/seed overlays**
+- Restored float + seed badges on marketplace grid (top-right); improved card→API matching (name, wear, seed)
+- Phase badge placement: inventory top row beside wear; marketplace beside wear at top
+
+**Project structure**
+- Source under `src/` (`content.js`, `lib/`, `popup/`), `data/csr-doppler-item-map.json`, docs in `docs/`; build via `scripts/build-zip.py`
 
 ## 3.8.1
 
@@ -54,7 +70,7 @@
 
 **Fix — export / import backup (Firefox & Chromium)**
 - **Export** uses the `downloads` API so the JSON file saves reliably when the popup closes
-- **Import** opens a dedicated **`import-backup.html`** tab — Firefox no longer loses the file picker when the popup closes
+- **Import** opens a dedicated **`src/popup/import-backup.html`** tab — Firefox no longer loses the file picker when the popup closes
 - **Paste JSON** fallback in Settings for quick manual import without a file dialog
 - **Backup status** line in Settings (persists via `sessionStorage` if the popup closes)
 - **Import** always writes to `storage.local` first; also writes to sync when browser sync is enabled
@@ -65,7 +81,7 @@
 - `tabs` — notify content scripts after import
 
 **Files**
-- New: `import-backup.html`, `import-backup.js`
+- New: `src/popup/import-backup.html`, `src/popup/import-backup.js`
 
 ---
 

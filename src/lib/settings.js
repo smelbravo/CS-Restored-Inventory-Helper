@@ -1,6 +1,6 @@
 /**
  * Shared feature toggles & skin locks (storage.local or storage.sync).
- * Loaded before content.js and by popup.html.
+ * Loaded before content.js and by src/popup/popup.html.
  */
 (function (global) {
     'use strict';

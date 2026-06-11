@@ -4,7 +4,7 @@
 
   "name": "CS:Restored Inventory Helper",
 
-  "version": "3.8.1",
+  "version": "3.8.2",
 
   "description": "Float, seed, quick sell, case bulk buy, auto case opening, session auto-sell, multi-language UI, and skin lock for CS:Restored (csrestored.fun). Unofficial extension.",
 
@@ -30,7 +30,7 @@
 
   "action": {
 
-    "default_popup": "popup.html",
+    "default_popup": "src/popup/popup.html",
 
     "default_title": "CS:Restored Inventory Helper — settings"
 
@@ -56,7 +56,15 @@
 
       "matches": ["*://*.csrestored.fun/*"],
 
-      "js": ["csr-storage.js", "i18n-packs.js", "i18n-packs-generated.js", "i18n.js", "settings.js", "skin-patterns.js", "content.js"],
+      "js": [
+        "src/lib/csr-storage.js",
+        "src/lib/i18n-packs.js",
+        "src/lib/i18n-packs-generated.js",
+        "src/lib/i18n.js",
+        "src/lib/settings.js",
+        "src/lib/skin-patterns.js",
+        "src/content.js"
+      ],
 
       "run_at": "document_idle"
 
@@ -68,7 +76,7 @@
 
     {
 
-      "resources": ["icons/*.png", "CHANGELOG.md"],
+      "resources": ["icons/*.png", "docs/CHANGELOG.md", "data/csr-doppler-item-map.json"],
 
       "matches": ["*://*.csrestored.fun/*"]
 
@@ -95,4 +103,3 @@
   }
 
 }
-

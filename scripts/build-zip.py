@@ -5,22 +5,26 @@ import sys
 import zipfile
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parent.parent
 RELEASES = ROOT / "releases"
 
 FILES = [
     "manifest.json",
-    "csr-storage.js",
-    "content.js",
-    "settings.js",
-    "i18n-packs.js",
-    "i18n-packs-generated.js",
-    "i18n.js",
-    "popup.html",
-    "popup.js",
-    "popup.css",
-    "CHANGELOG.md",
-    "PRIVACY.md",
+    "src/content.js",
+    "src/lib/csr-storage.js",
+    "src/lib/settings.js",
+    "src/lib/skin-patterns.js",
+    "src/lib/i18n.js",
+    "src/lib/i18n-packs.js",
+    "src/lib/i18n-packs-generated.js",
+    "src/popup/popup.html",
+    "src/popup/popup.js",
+    "src/popup/popup.css",
+    "src/popup/import-backup.html",
+    "src/popup/import-backup.js",
+    "data/csr-doppler-item-map.json",
+    "docs/CHANGELOG.md",
+    "docs/PRIVACY.md",
     "LICENSE",
     "icons/icon-16.png",
     "icons/icon-48.png",

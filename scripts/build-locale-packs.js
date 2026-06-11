@@ -7,8 +7,8 @@ const path = require('path');
 const vm = require('vm');
 
 const root = path.join(__dirname, '..');
-const i18nSrc = fs.readFileSync(path.join(root, 'i18n.js'), 'utf8');
-const packsSrc = fs.readFileSync(path.join(root, 'i18n-packs.js'), 'utf8');
+const i18nSrc = fs.readFileSync(path.join(root, 'src/lib/i18n.js'), 'utf8');
+const packsSrc = fs.readFileSync(path.join(root, 'src/lib/i18n-packs.js'), 'utf8');
 
 const g = {};
 vm.runInNewContext(packsSrc, g);
@@ -356,7 +356,7 @@ function serialize(obj) {
     return lines.join('\n');
 }
 
-const outPath = path.join(root, 'i18n-packs-generated.js');
+const outPath = path.join(root, 'src/lib/i18n-packs-generated.js');
 const body = `/**
  * AUTO-GENERATED — do not edit by hand. Run: node scripts/build-locale-packs.js
  */

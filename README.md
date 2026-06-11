@@ -1,10 +1,10 @@
 # CS:Restored Inventory Helper
 
-Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.fun) — float and paint seed overlays, search and filters on inventory/marketplace, a quick-sell panel, **case bulk buy** and **auto case opening** (single or **multi case**, with optional **session auto-sell** and **per-item sell**) on the Cases tab, optional **toolbar settings** to turn each feature on or off, **skin lock** to avoid accidental sells, **multi-language UI** (popup + on-site panels), optional **browser sync** and **JSON backup** for settings, a **live user counter** in the popup header, and an **About** tab with release info and (on Chromium) a GitHub update checker.
+Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.fun) — float and paint seed overlays, **Doppler/Gamma phase** and **Case Hardened tier** badges, search and filters on inventory/marketplace, a quick-sell panel, **case bulk buy** and **auto case opening** (single or **multi case**, with optional **session auto-sell** and **per-item sell**) on the Cases tab, optional **toolbar settings** to turn each feature on or off, **skin lock** to avoid accidental sells, **multi-language UI** (popup + on-site panels), optional **browser sync** and **JSON backup** for settings, a **live user counter** in the popup header, and an **About** tab with release info and (on Chromium) a GitHub update checker.
 
 Works in **Firefox**, **Microsoft Edge**, and **Chromium** browsers (Manifest V3).
 
-**Current version:** `3.8.1`
+**Current version:** `3.8.2`
 
 **Repository:** [github.com/smelbravo/CS-Restored-Inventory-Helper](https://github.com/smelbravo/CS-Restored-Inventory-Helper)
 
@@ -25,12 +25,12 @@ Log in with Discord on the website after meeting these requirements.
 
 Shows **wear abbreviation** (FN, MW, FT, WW, BS), **float value** (e.g. `0.1962`), and **paint seed** (`#640`) on item cards. Color-coded float dot (green → yellow → red by wear).
 
-**WIP (develop):** extra badges for **Doppler / Gamma Doppler** phase or gem (Ruby, Sapphire, P1–P4, Emerald…) and **Case Hardened** blue-gem tier on known seeds — see [Pattern badges](#pattern-badges-wip).
+On **Doppler / Gamma Doppler** and **Case Hardened** skins, extra badges show **phase or gem** (Ruby, Sapphire, P1–P4, Emerald…) and **CH tier** (#1, T1–T3) — see [Pattern badges](#pattern-badges).
 
 | Page | Route | Notes |
 |------|-------|-------|
 | **Inventory** | `/app/inventory` | Badges in the bottom-right corner of each card |
-| **Marketplace** | `/app/inventory/marketplace` | Badges below the price (top-right) |
+| **Marketplace** | `/app/inventory/marketplace` | Float/seed top-right; phase badge beside wear when known (see [Marketplace Doppler phases](#marketplace-doppler--gamma-doppler-phases)) |
 | **Trade views** | `/app/play`, `/app/inventory/trade-up` | Float/seed for **your** items when inventory data is available; disable in popup **Trades** → **Trade float & seed overlays** to reduce lag |
 | **Send Trade Offer** | Modal on site | Search on item grid (My Items / Their Items); filters on Inventory, Marketplace, Create Offer; trade float/seed toggle applies here too; **Their Items** float/seed depends on site API (see limitations) |
 
@@ -52,19 +52,32 @@ Applies to **inventory**, **marketplace**, **trades**, trade detail, **Send Trad
 
 With **200+** items you may still see some site slowness, but the extension should no longer spike the page by stamping every card immediately. A short info toast may appear on very large inventory, marketplace, or trade lists.
 
-#### Pattern badges (WIP)
+#### Pattern badges
 
 | Skin family | Identified by | Badge examples |
 |-------------|---------------|----------------|
-| **Doppler** | Finish Catalog **415–421** (Ruby, Sapphire, Black Pearl, Phase 1–4) | `Ruby`, `P2`, `BP` |
-| **Gamma Doppler** | Finish Catalog **568–572** (Emerald, Phase 1–4) | `Emerald`, `P3` |
+| **Doppler** | Finish Catalog **415–421** (Ruby, Sapphire, Black Pearl, Phase 1–4) | `Ruby · 415`, `P2 · 419` |
+| **Gamma Doppler** (knives) | Finish Catalog **568–572** (Emerald, Phase 1–4) | `Emerald · 568`, `P3 · 571` |
+| **Glock-18 Gamma Doppler** | Paint index **1119–1123** (CS:R-specific, not 568–572) | `Emerald · 1119`, `P2 · 1121` |
 | **Case Hardened** | Paint **seed** (community tier lists) | `#1`, `T1`, `T2`, `T3` |
 
 **Where badges appear:** same places and toggles as float/seed — **inventory**, **marketplace** (grid + **offer detail** `/marketplace/offer/{id}`), **trades**, **Send Trade Offer**, **Create Offer** (not the Cases shop panel). Respects **Float & seed overlays** and **Trade float & seed overlays**.
 
-**Doppler:** phase is **not** derived from seed — CS:R exposes it as **`skin_index`** on inventory items (values **415–421** / **568–572**, same as Steam Finish Catalog). Also checks `finish_catalog` / `paint_index` if the site adds them later.
+**Doppler:** phase is **not** derived from seed — CS:R exposes it as **`skin_index`** (paint index) on inventory items. Knives use **415–421** / **568–572**; **Glock-18 Gamma Doppler** uses **1119–1123**. Badges show **phase + paint index** (e.g. `Emerald · 1119`) anywhere float/seed overlays run when the paint index is known.
 
-**Case Hardened:** works today when `seed` is present (same as float overlays). Seed lists are **bundled offline** (no calls to third-party sites) and cross-checked against community databases:
+#### Marketplace Doppler / Gamma Doppler phases
+
+The **marketplace listing API does not send `skin_index`**. On marketplace **grid cards**, Doppler/Gamma phase badges appear **only** when the extension already knows that listing’s **`item_id` → paint index** mapping — for example after you **owned at least one** Doppler or Gamma of that skin type (same `item_id`), or the map was learned from trades, case opens, friend inventory, or bundled `data/csr-doppler-item-map.json`.
+
+| Situation | Marketplace grid |
+|-----------|------------------|
+| You **have owned** that Doppler/Gamma `item_id` (map learned) | Phase badge shown (e.g. `P2 · 419`) beside wear |
+| You **never had** that knife/skin in your inventory | Usually **float + seed only** — **no phase label** |
+| **Offer detail** (`/marketplace/offer/{id}`) | Same rule — phase when `item_id` is in the map |
+
+**Inventory** always shows phase when the site API includes `skin_index` (your items and other players’ inventories when the API is accessible). This is why the **Phase browse filter** is on **inventory** and **Create Offer** only — **not** on marketplace (filtering by phase there would be unreliable without per-listing `skin_index`).
+
+**Case Hardened:** works when `seed` is present (same as float overlays). Seed lists are **bundled offline** (no calls to third-party sites) and cross-checked against community databases:
 
 - [BlueGemLab](https://bluegemlab.com/) — 25 Case Hardened skins, ~25k patterns
 - [CSGOBlueGem.com](https://csgobluegem.com/) — collector reference
@@ -83,6 +96,8 @@ Horizontal bar above the item grid (same layout on both pages):
 | **Search** | Weapon or skin name | Weapon or skin name (uses API `item_name`) |
 | **Rarity** | Consumer → Covert / Knives / Gloves → Contraband | Same |
 | **Wear** | FN, MW, FT, WW, BS | Same |
+| **Phase** | Phased only, Ruby/Sapphire/BP/Emerald, P1–P4 | — (not on marketplace; API has no `skin_index` per listing) |
+| **CH tier** | Tiered only, #1 / T1–T3 blue, #1 / G1–G3 gold | Same (seed tier lists) |
 | **Float order** | Low → High / High → Low | Same |
 | **Price order** | — | Cheapest / Most expensive (coins) |
 | **Clear** | Reset all filters | Reset all filters |
@@ -372,7 +387,7 @@ The **`.xpi` on GitHub** is unsigned and **does not install** on Firefox Release
 
 ## Releases
 
-Stable downloads: [GitHub Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) (latest: **v3.8.1**).
+Stable downloads: [GitHub Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) (latest: **v3.8.2**).
 
 | Browser | Install |
 |---------|---------|
@@ -384,7 +399,7 @@ See **[Installation](#installation)** for details. GitHub `.xpi` is for AMO pack
 Build release packages locally:
 
 ```bash
-python build-zip.py
+python scripts/build-zip.py
 ```
 
 Creates `releases/CS-Restored-Inventory-Helper-v{version}.zip` and `.xpi` (forward-slash paths). Release notes and older zips stay in `release-notes/` and `extension-zip/` (all gitignored locally).
@@ -413,14 +428,14 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 | `https://cdn.csrestored.fun/*` | Skin images in the sell modal |
 | `https://api.github.com/*` | Check for new releases from the About tab (Chromium only) |
 | `https://api.counterapi.dev/*` | Optional live user counter in popup header (one ping per hour) |
-| `icons/*.png`, `CHANGELOG.md` (web accessible) | Extension logo on the floating button, panel, popup; changelog in About tab |
+| `icons/*.png`, `docs/CHANGELOG.md` (web accessible) | Extension logo on the floating button, panel, popup; changelog in About tab |
 
 ## API endpoints used
 
 | Endpoint | Purpose |
 |----------|---------|
-| `GET /inventory/` | Your inventory (float, seed, weapon_id; **finish catalog TBD**) |
-| `GET /inventory/marketplace/` | Marketplace listings (`skin_float`, `skin_seed`, price; **finish catalog TBD**) |
+| `GET /inventory/` | Your inventory (float, seed, weapon_id, **skin_index** on phased skins) |
+| `GET /inventory/marketplace/` | Marketplace listings (`skin_float`, `skin_seed`, price; **no `skin_index`**) |
 | `GET /api/trades` | Trade offers (intercepted from site; not fetched by extension) |
 | `GET /users/{id}/inventory` | Friend inventory for Send Trade Offer (Their Items) |
 | `GET /api/user/{id}/inventory` | Site inventory route (intercepted; may include quick sell prices) |
@@ -433,25 +448,33 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 ## Project structure
 
 ```
-├── manifest.json          # Extension manifest (MV3)
-├── csr-storage.js         # Local + sync prefs, export/import (v3.7+)
-├── settings.js            # Feature toggles & skin locks (shared with popup)
-├── import-backup.html     # Dedicated import page (Firefox-friendly file pick)
-├── import-backup.js
-├── i18n-packs.js          # Locale packs (pt-PT, pt-BR)
-├── i18n-packs-generated.js # Full locale packs (de, ru, es) — run scripts/build-locale-packs.js to regenerate
-├── i18n.js                # Translation API (csrT, csrLoadLanguage, …)
-├── popup.html             # Toolbar popup UI (Features + Settings + About tabs)
-├── popup.js
-├── popup.css
-├── CHANGELOG.md           # Bundled release notes (About → What's new)
-├── content.js             # Content script (overlays, filters, quick-sell UI)
-├── scripts/               # i18n scan/build, import/export tests
-├── release-notes/         # GitHub-style release note drafts
-├── icons/                 # Extension icons (16, 48, 128, 300 px)
-├── PRIVACY.md             # Privacy policy (store listings)
-├── LICENSE                # MIT
-└── README.md
+├── manifest.json              # Extension manifest (MV3)
+├── LICENSE
+├── README.md
+├── src/
+│   ├── content.js             # Content script (overlays, filters, quick-sell UI)
+│   ├── lib/
+│   │   ├── csr-storage.js     # Local + sync prefs, export/import
+│   │   ├── settings.js        # Feature toggles & skin locks
+│   │   ├── skin-patterns.js   # Doppler / Case Hardened patterns
+│   │   ├── i18n.js            # Translation API (csrT, csrLoadLanguage, …)
+│   │   ├── i18n-packs.js      # Locale packs (pt-PT, pt-BR)
+│   │   └── i18n-packs-generated.js  # Full de/ru/es — scripts/build-locale-packs.js
+│   └── popup/
+│       ├── popup.html         # Toolbar popup (Features + Settings + About)
+│       ├── popup.js
+│       ├── popup.css
+│       ├── import-backup.html # Dedicated import page (Firefox-friendly)
+│       └── import-backup.js
+├── data/
+│   └── csr-doppler-item-map.json
+├── docs/
+│   ├── CHANGELOG.md           # Bundled release notes (About → What's new)
+│   └── PRIVACY.md             # Privacy policy (store listings)
+├── icons/                     # Extension icons (16, 48, 128, 300 px)
+├── scripts/                   # build-zip.py, i18n tools, tests
+├── release-notes/             # GitHub-style release note drafts (local)
+└── releases/                  # Built .zip / .xpi (local, gitignored)
 ```
 
 ## Branches
@@ -464,6 +487,14 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 ## Changelog
 
 ### Unreleased (develop)
+
+### v3.8.2
+
+- **New:** **Doppler / Gamma Doppler** phase badges (`skin_index` 415–421, 568–572, Glock 1119–1123) and **Case Hardened** tier badges (#1, T1–T3) on inventory, trades, Create Offer, marketplace (when map known)
+- **Important:** Marketplace Doppler phases only when you have owned that `item_id` (or map learned) — API has no `skin_index`; otherwise float/seed only
+- **Browse:** Phase filter on inventory + Create Offer only; CH tier filter on marketplace too
+- **Fix:** Marketplace float/seed overlays restored; improved card matching
+- **Structure:** `src/`, `data/`, `docs/` layout; build via `scripts/build-zip.py`
 
 ### v3.8.1
 
@@ -514,7 +545,7 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 - **New:** **Export / import** JSON backup of all extension preferences
 - **New:** `csr-storage.js` — unified prefs API for local and sync storage
 
-See **[CHANGELOG.md](CHANGELOG.md)** for the full per-version breakdown.
+See **[CHANGELOG.md](docs/CHANGELOG.md)** for the full per-version breakdown.
 
 ### v3.6.0
 
@@ -562,7 +593,7 @@ See **[CHANGELOG.md](CHANGELOG.md)** for the full per-version breakdown.
 - **Fix:** browse/search, Create Offer layout, and popup regressions shipped in v3.2.2–v3.2.6 (merged to `main`)
 - **Docs:** batch size (Speed slider) — parallel sell/list count (1–20) explained in README
 - **Docs:** Firefox install — unsigned `.xpi` from GitHub does not work on Release; use `.zip` + `about:debugging`, AMO when signed, or Developer Edition for permanent `.xpi`
-- **Build:** `build-zip.py` outputs both `.zip` (Chromium) and `.xpi` (AMO / Developer Edition)
+- **Build:** `scripts/build-zip.py` outputs both `.zip` (Chromium) and `.xpi` (AMO / Developer Edition)
 
 ### v3.2.6
 
@@ -767,6 +798,7 @@ With **50+** item cards, float/seed badges load in **batches of 50** (visible ca
 
 ## Known limitations
 
+- **Marketplace Doppler/Gamma phases:** listing API has no `skin_index`. Phase badges on marketplace grid only when **`item_id` → paint index** is known (you owned that Doppler type, trades/case opens, or bundled map). Otherwise listings show float/seed only. Phase **browse filter** is not on marketplace for this reason.
 - **Other player's items** in trades / Their Items: CS:R API does not expose `float`, `seed`, and `weapon_id` for the other player's items. Third-party tools cannot show accurate values until the site adds these fields to `/api/trades` and `/users/{id}/inventory`.
 - **Case open / bulk sell rate limits:** CS:R may return **Too Many Requests** when many players open cases or quick-sell at once, or when delay/batch size is too aggressive. Lower delay between opens, use auto-sell batch size 1–2, or wait and retry — not caused by large inventory overlays.
 - **Pin images** missing on the site are a **CS:R website** issue (assets not uploaded yet), not the extension.
@@ -801,7 +833,8 @@ CS:Restored Inventory Helper is an unofficial browser extension for Counter-Stri
 WHAT IT DOES
 
 • Float & seed overlays — wear (FN/MW/FT/WW/BS), float value, and paint seed on inventory, marketplace, and trade item cards
-• Search & filters — filter by name, rarity, wear, float order, and (on marketplace) price; works on Inventory, Marketplace, and Create Offer; bar stays in place when the site sidebar expands
+• Doppler / Gamma Doppler phase badges (Ruby, Sapphire, P1–P4, Emerald…) and Case Hardened tier badges (#1, T1–T3) on inventory and trades; on marketplace only when you have owned that Doppler item_id (API has no skin_index per listing)
+• Search & filters — filter by name, rarity, wear, phase (inventory + Create Offer), CH tier, float order, and (on marketplace) price; works on Inventory, Marketplace, and Create Offer; bar stays in place when the site sidebar expands
 • Quick Sell & Market panel — floating helper on inventory: pick items, sell by rarity, review before selling, list on marketplace or quick sell in bulk
 • Batch size control — choose how many items are sold or listed in parallel (1–20) for faster or safer bulk operations
 • Confirm Sale modal — per-item quick sell price, market price input, List on Market and Quick Sell buttons with validation
@@ -836,17 +869,18 @@ PRIVACY
 • Feature toggles, language, locked skin IDs, and case auto-sell settings stored locally in extension storage (storage.local)
 
 Source: https://github.com/smelbravo/CS-Restored-Inventory-Helper
-Privacy: https://github.com/smelbravo/CS-Restored-Inventory-Helper/blob/main/PRIVACY.md
+Privacy: https://github.com/smelbravo/CS-Restored-Inventory-Helper/blob/main/docs/PRIVACY.md
 
 NOT AFFILIATED with Valve Corporation or the CS:Restored team.
 
 LIMITATION: Float/seed for other players' items in trades is not available until the site API provides those fields.
+Marketplace Doppler/Gamma phase badges require a learned item_id map (typically after owning that skin type); otherwise marketplace shows float/seed only.
 ```
 
 ### Privacy policy URL
 
 ```
-https://github.com/smelbravo/CS-Restored-Inventory-Helper/blob/main/PRIVACY.md
+https://github.com/smelbravo/CS-Restored-Inventory-Helper/blob/main/docs/PRIVACY.md
 ```
 
 ### Support site
@@ -899,7 +933,7 @@ Large inventories:
 
 Data collection: The extension declares required ["none"] in the manifest. It does not transmit data to developer servers. It only reads csrestored.fun API responses in the page (via the site's own fetch/XHR) to match float/seed to UI cards and power filters.
 
-Privacy policy: https://github.com/smelbravo/CS-Restored-Inventory-Helper/blob/main/PRIVACY.md
+Privacy policy: https://github.com/smelbravo/CS-Restored-Inventory-Helper/blob/main/docs/PRIVACY.md
 Source code: https://github.com/smelbravo/CS-Restored-Inventory-Helper
 Support: https://github.com/smelbravo/CS-Restored-Inventory-Helper/issues
 ```

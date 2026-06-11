@@ -1,9 +1,9 @@
 const fs = require('fs');
 const path = require('path');
 const root = path.join(__dirname, '..');
-const i18nSrc = fs.readFileSync(path.join(root, 'i18n.js'), 'utf8');
-const packsSrc = fs.readFileSync(path.join(root, 'i18n-packs.js'), 'utf8');
-const genPath = path.join(root, 'i18n-packs-generated.js');
+const i18nSrc = fs.readFileSync(path.join(root, 'src/lib/i18n.js'), 'utf8');
+const packsSrc = fs.readFileSync(path.join(root, 'src/lib/i18n-packs.js'), 'utf8');
+const genPath = path.join(root, 'src/lib/i18n-packs-generated.js');
 const genSrc = fs.existsSync(genPath) ? fs.readFileSync(genPath, 'utf8') : '';
 
 const enMatch = i18nSrc.match(/const enUS = \{([\s\S]*?)\n    \};/);

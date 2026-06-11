@@ -34,6 +34,12 @@
         570: { label: 'Phase 2', short: 'P2', kind: 'phase', family: 'gamma' },
         571: { label: 'Phase 3', short: 'P3', kind: 'phase', family: 'gamma' },
         572: { label: 'Phase 4', short: 'P4', kind: 'phase', family: 'gamma' },
+        /* Glock-18 | Gamma Doppler — CS:R uses 1119–1123 (not 568–572) */
+        1119: { label: 'Emerald', short: 'Emerald', kind: 'gem', family: 'gamma-glock' },
+        1120: { label: 'Phase 1', short: 'P1', kind: 'phase', family: 'gamma-glock' },
+        1121: { label: 'Phase 2', short: 'P2', kind: 'phase', family: 'gamma-glock' },
+        1122: { label: 'Phase 3', short: 'P3', kind: 'phase', family: 'gamma-glock' },
+        1123: { label: 'Phase 4', short: 'P4', kind: 'phase', family: 'gamma-glock' },
     };
 
     const FINISH_CATALOG_KEYS = [
@@ -78,6 +84,169 @@
         return Number.isFinite(n) ? n : null;
     }
 
+    const ITEM_ID_FINISH_STORAGE_KEY = 'csrItemIdFinishMap';
+    let itemIdFinishMap = Object.create(null);
+    let itemIdFinishMapLoaded = false;
+    let itemIdFinishPersistTimer = null;
+    let itemIdFinishMapReady = null;
+
+    function isGlockWeaponName(name) {
+        return /glock-18/i.test(name || '');
+    }
+
+    function dopplerInfoMatchesWeapon(info, name) {
+        if (!info || !isDopplerFamilyName(name)) return false;
+        const gamma = isGammaDopplerName(name);
+        const glock = isGlockWeaponName(name);
+        if (info.family === 'gamma-glock') return gamma && glock;
+        if (info.family === 'gamma') return gamma && !glock;
+        if (info.family === 'doppler') return !gamma;
+        return false;
+    }
+
+    function finishCatalogMatchesName(finishCatalog, name) {
+        const info = DOPPLER_FINISH[finishCatalog];
+        if (!info) return false;
+        return dopplerInfoMatchesWeapon(info, name);
+    }
+
+    /** CS:R skin/image id (CDN + marketplace) — smaller of item_id / weapon_id when both set. */
+    function skinDefinitionId(raw) {
+        if (!raw || typeof raw !== 'object') return null;
+        const item = raw.item || raw.weapon || raw.skin;
+        const a = toInt(raw.item_id ?? item?.item_id ?? raw.skin_id ?? item?.skin_id);
+        const b = toInt(raw.weapon_id ?? item?.weapon_id);
+        if (a == null && b == null) return null;
+        if (a == null) return b;
+        if (b == null) return a;
+        return Math.min(a, b);
+    }
+
+    function finishFromItemId(itemId, name) {
+        if (itemId == null || !isDopplerFamilyName(name)) return null;
+        const fc = toInt(itemIdFinishMap[String(itemId)]);
+        if (fc == null || !finishCatalogMatchesName(fc, name)) return null;
+        return fc;
+    }
+
+    function learnItemIdFinish(itemId, finishCatalog, name) {
+        if (itemId == null || finishCatalog == null || !finishCatalogMatchesName(finishCatalog, name)) return false;
+        const key = String(itemId);
+        if (itemIdFinishMap[key] === finishCatalog) return false;
+        itemIdFinishMap[key] = finishCatalog;
+        schedulePersistItemIdFinishMap();
+        return true;
+    }
+
+    function schedulePersistItemIdFinishMap() {
+        clearTimeout(itemIdFinishPersistTimer);
+        itemIdFinishPersistTimer = setTimeout(() => {
+            try {
+                const st = typeof chrome !== 'undefined' && chrome.storage?.local;
+                if (!st) return;
+                st.set({ [ITEM_ID_FINISH_STORAGE_KEY]: { ...itemIdFinishMap } });
+            } catch (_) {}
+        }, 400);
+    }
+
+    function mergeItemIdFinishMap(map) {
+        if (!map || typeof map !== 'object') return false;
+        let changed = false;
+        for (const [k, v] of Object.entries(map)) {
+            if (k.startsWith('_')) continue;
+            const fc = toInt(v);
+            if (fc == null || !DOPPLER_FINISH[fc]) continue;
+            if (itemIdFinishMap[k] === fc) continue;
+            itemIdFinishMap[k] = fc;
+            changed = true;
+        }
+        return changed;
+    }
+
+    function storageGetLocal(keys) {
+        const st = typeof chrome !== 'undefined' && chrome.storage?.local;
+        if (!st) return Promise.resolve({});
+        return new Promise((resolve) => {
+            try {
+                st.get(keys, (data) => {
+                    const err = chrome.runtime?.lastError;
+                    resolve(err ? {} : (data || {}));
+                });
+            } catch (_) {
+                resolve({});
+            }
+        });
+    }
+
+    function loadBundledItemIdFinishMap() {
+        const rt = typeof chrome !== 'undefined' && chrome.runtime?.getURL;
+        if (!rt) return Promise.resolve(false);
+        return fetch(rt('data/csr-doppler-item-map.json'), { cache: 'no-store' })
+            .then((r) => (r.ok ? r.json() : null))
+            .then((data) => mergeItemIdFinishMap(data))
+            .catch(() => false);
+    }
+
+    function loadCommunityItemIdFinishMap() {
+        const url = 'https://api.github.com/repos/smelbravo/CS-Restored-Inventory-Helper/contents/csr%20inventory%20plugin/data/csr-doppler-item-map.json?ref=develop';
+        return fetch(url, { cache: 'no-store' })
+            .then((r) => (r.ok ? r.json() : null))
+            .then((meta) => {
+                if (!meta?.content) return false;
+                const json = JSON.parse(atob(meta.content.replace(/\n/g, '')));
+                return mergeItemIdFinishMap(json);
+            })
+            .catch(() => false);
+    }
+
+    function loadItemIdFinishMap() {
+        if (itemIdFinishMapReady) return itemIdFinishMapReady;
+        itemIdFinishMapReady = storageGetLocal([ITEM_ID_FINISH_STORAGE_KEY])
+            .then((data) => {
+                mergeItemIdFinishMap(data[ITEM_ID_FINISH_STORAGE_KEY]);
+                itemIdFinishMapLoaded = true;
+                return loadBundledItemIdFinishMap();
+            })
+            .then(() => loadCommunityItemIdFinishMap())
+            .then(() => itemIdFinishMap);
+        return itemIdFinishMapReady;
+    }
+
+    function learnItemIdFinishBatch(items) {
+        if (!Array.isArray(items)) return false;
+        let changed = false;
+        for (const raw of items) {
+            if (!raw || typeof raw !== 'object') continue;
+            const item = raw.item || raw.weapon || raw.skin;
+            const name = raw.name ?? raw.item_name ?? item?.name ?? '';
+            const itemId = skinDefinitionId(raw);
+            const fc = extractFinishCatalog(raw);
+            if (fc != null && learnItemIdFinish(itemId, fc, name)) changed = true;
+        }
+        return changed;
+    }
+
+    function learnItemIdFinishFromPayload(data) {
+        if (!data || typeof data !== 'object') return false;
+        let changed = false;
+        if (Array.isArray(data)) {
+            if (learnItemIdFinishBatch(data)) changed = true;
+            return changed;
+        }
+        if (data.skin_index != null || data.item_id != null) {
+            if (learnItemIdFinishBatch([data])) changed = true;
+        }
+        for (const k of ['item', 'weapon', 'skin', 'items', 'inventory', 'data', 'reward', 'won_item', 'opened_item']) {
+            const v = data[k];
+            if (Array.isArray(v)) {
+                if (learnItemIdFinishBatch(v)) changed = true;
+            } else if (v && typeof v === 'object' && (v.skin_index != null || v.item_id != null)) {
+                if (learnItemIdFinishBatch([v])) changed = true;
+            }
+        }
+        return changed;
+    }
+
     function extractFinishCatalog(raw) {
         if (!raw || typeof raw !== 'object') return null;
         const item = raw.item || raw.weapon || raw.skin;
@@ -91,6 +260,20 @@
                 return n;
             }
         }
+        return null;
+    }
+
+    function resolveFinishCatalog(raw) {
+        const direct = extractFinishCatalog(raw);
+        if (direct != null) return direct;
+        if (!raw || typeof raw !== 'object') return null;
+        const item = raw.item || raw.weapon || raw.skin;
+        const name = raw.name ?? raw.item_name ?? item?.name ?? '';
+        const itemId = toInt(raw.item_id ?? item?.item_id ?? raw.skin_id ?? item?.skin_id);
+        const mapped = finishFromItemId(itemId, name);
+        if (mapped != null) return mapped;
+        const cached = toInt(raw.finish_catalog);
+        if (cached != null && finishCatalogMatchesName(cached, name)) return cached;
         return null;
     }
 
@@ -265,10 +448,7 @@
     function resolveDopplerPhase(name, finishCatalog) {
         if (finishCatalog == null || !isDopplerFamilyName(name)) return null;
         const info = DOPPLER_FINISH[finishCatalog];
-        if (!info) return null;
-        const gamma = isGammaDopplerName(name);
-        if (info.family === 'gamma' && !gamma) return null;
-        if (info.family === 'doppler' && gamma) return null;
+        if (!info || !dopplerInfoMatchesWeapon(info, name)) return null;
         const css = info.kind === 'gem'
             ? `csrx-pattern-gem csrx-pattern-${info.short.toLowerCase().replace(/\s+/g, '-')}`
             : `csrx-pattern-phase csrx-pattern-${info.short.toLowerCase()}`;
@@ -282,10 +462,35 @@
         };
     }
 
+    function dopplerPaintIndex(item) {
+        if (!item || typeof item !== 'object') return null;
+        const name = item.name || '';
+        if (!isDopplerFamilyName(name)) return null;
+        const fc = item.finish_catalog != null ? toInt(item.finish_catalog) : resolveFinishCatalog(item);
+        if (fc == null) return null;
+        return finishCatalogMatchesName(fc, name) ? fc : null;
+    }
+
+    function formatDopplerPatternText(pattern) {
+        if (!pattern || pattern.type !== 'doppler') return pattern?.short || pattern?.label || '';
+        const label = pattern.short || pattern.label;
+        return pattern.finishCatalog != null ? `${label} · ${pattern.finishCatalog}` : label;
+    }
+
+    function formatDopplerPatternTitle(pattern) {
+        if (!pattern) return '';
+        if (pattern.type !== 'doppler') return pattern.label || '';
+        return pattern.finishCatalog != null
+            ? `${pattern.label} (paint index ${pattern.finishCatalog})`
+            : pattern.label;
+    }
+
     function resolveSkinPattern(item) {
         if (!item || typeof item !== 'object') return null;
         const name = item.name || '';
-        const finishCatalog = item.finish_catalog != null ? toInt(item.finish_catalog) : extractFinishCatalog(item);
+        const finishCatalog = item.finish_catalog != null
+            ? toInt(item.finish_catalog)
+            : resolveFinishCatalog(item);
         const doppler = resolveDopplerPhase(name, finishCatalog);
         if (doppler) return doppler;
         return resolveCaseHardenedTier(name, item.seed != null ? toInt(item.seed) : null);
@@ -323,6 +528,15 @@
     }
 
     global.CSR_extractFinishCatalog = extractFinishCatalog;
+    global.CSR_resolveFinishCatalog = resolveFinishCatalog;
+    global.CSR_skinDefinitionId = skinDefinitionId;
+    global.CSR_dopplerPaintIndex = dopplerPaintIndex;
+    global.CSR_formatDopplerPatternText = formatDopplerPatternText;
+    global.CSR_formatDopplerPatternTitle = formatDopplerPatternTitle;
+    global.CSR_finishFromItemId = finishFromItemId;
+    global.CSR_learnItemIdFinishBatch = learnItemIdFinishBatch;
+    global.CSR_learnItemIdFinishFromPayload = learnItemIdFinishFromPayload;
+    global.CSR_loadItemIdFinishMap = loadItemIdFinishMap;
     global.CSR_resolveSkinPattern = resolveSkinPattern;
     global.CSR_patternSignature = patternSignature;
     global.CSR_probePatternApiFields = probePatternApiFields;

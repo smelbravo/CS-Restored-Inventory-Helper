@@ -489,7 +489,7 @@ async function renderChangelog() {
     const box = document.getElementById('changelog');
     if (!box) return;
     try {
-        const url = runtime.runtime.getURL('CHANGELOG.md');
+        const url = runtime.runtime.getURL('docs/CHANGELOG.md');
         const md = await fetch(url).then(r => r.text());
         const blocks = md.split(/^## /m).filter(b => /^\d/.test(b.trim()));
         if (!blocks.length) {
@@ -505,7 +505,7 @@ async function renderChangelog() {
         box.innerHTML =
             `<div class="cl-ver">${escHtml(title)}</div>` +
             '<ul class="cl-list">' + items.map(i => `<li>${escHtml(i)}</li>`).join('') + '</ul>' +
-            `<a class="cl-more" href="https://github.com/${REPO}/blob/main/CHANGELOG.md" target="_blank" rel="noopener">${escHtml(csrT('popup.about.fullChangelog'))}</a>`;
+            `<a class="cl-more" href="https://github.com/${REPO}/blob/main/docs/CHANGELOG.md" target="_blank" rel="noopener">${escHtml(csrT('popup.about.fullChangelog'))}</a>`;
     } catch (_) {
         box.innerHTML = `<p style="color:var(--muted)">${escHtml(csrT('popup.about.noChangelog'))}</p>`;
     }
@@ -699,7 +699,7 @@ async function bindSettingsAccountUi() {
 
     document.getElementById('btn-import-settings')?.addEventListener('click', () => {
         try {
-            runtime.tabs.create({ url: runtime.runtime.getURL('import-backup.html') });
+            runtime.tabs.create({ url: runtime.runtime.getURL('src/popup/import-backup.html') });
             setBackupStatus('ok', csrT('popup.settings.importPageOpened'), false);
             switchTab('settings');
         } catch (_) {

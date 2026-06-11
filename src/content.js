@@ -401,11 +401,76 @@ S.textContent = `
     pointer-events: none !important;
     z-index: 5 !important;
 }
-/* Marketplace: abaixo do preço (coins), canto superior direito */
+.csrx-wear-pattern-inline {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 3px !important;
+    margin-left: 5px !important;
+    vertical-align: middle !important;
+    font-size: 9px !important;
+    font-weight: 700 !important;
+    padding: 1px 5px !important;
+    border-radius: 3px !important;
+    line-height: 1.2 !important;
+    pointer-events: none !important;
+    white-space: nowrap !important;
+}
+.csrx-wear-pattern-idx {
+    font-size: 8px !important;
+    font-weight: 500 !important;
+    opacity: 0.72 !important;
+}
+.csrx-wear-pattern-fallback,
+.csrx-inv-phase-anchor {
+    position: absolute !important;
+    top: 7px !important;
+    right: 34px !important;
+    z-index: 6 !important;
+    pointer-events: none !important;
+}
+.csrx-inv-phase-anchor .csrx-wear-pattern-inline,
+.csrx-wear-pattern-fallback .csrx-wear-pattern-inline {
+    margin-left: 0 !important;
+}
+/* Marketplace: float + seed — canto superior direito (abaixo do preço) */
 .csrx-card-wrap.csrx-mp-pos {
     bottom: auto !important;
     top: 32px !important;
     right: 8px !important;
+    left: auto !important;
+    align-items: flex-end !important;
+    gap: 2px !important;
+}
+.csrx-mp-phase-anchor {
+    position: absolute !important;
+    top: 22px !important;
+    left: 8px !important;
+    z-index: 6 !important;
+    pointer-events: none !important;
+    max-width: calc(100% - 16px) !important;
+}
+.csrx-mp-phase-anchor .csrx-wear-pattern-inline {
+    margin-left: 0 !important;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+}
+.csrx-mp-phase-badge {
+    display: inline-flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0 !important;
+    line-height: 1.15 !important;
+    padding: 3px 7px 4px !important;
+}
+.csrx-mp-phase-label {
+    font-size: 10px !important;
+    font-weight: 700 !important;
+}
+.csrx-mp-phase-idx {
+    font-size: 8px !important;
+    font-weight: 500 !important;
+    opacity: 0.72 !important;
+    letter-spacing: 0.3px !important;
 }
 .csrx-float-badge {
     display: inline-flex !important;
@@ -1973,6 +2038,14 @@ input[type=range].csrx-range:hover::-moz-range-thumb { transform: scale(1.2); }
     min-width: 148px;
     max-width: 162px;
 }
+#csrx-browse-phase {
+    min-width: 128px;
+    max-width: 148px;
+}
+#csrx-browse-ch {
+    min-width: 128px;
+    max-width: 148px;
+}
 #csrx-browse.csrx-browse-trade .csrx-browse-filters select {
     height: 30px;
     max-width: 100px;
@@ -2080,6 +2153,120 @@ function rebuildFriendItemIndex() {
         if (item.item_id == null) continue;
         if (!friendIndexByItemId.has(item.item_id)) friendIndexByItemId.set(item.item_id, []);
         friendIndexByItemId.get(item.item_id).push(item);
+    }
+}
+
+function csrSkinDefId(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    if (typeof CSR_skinDefinitionId === 'function') return CSR_skinDefinitionId(raw);
+    const id = raw.item_id;
+    return id != null ? parseInt(id, 10) : null;
+}
+
+function csrInstanceWeaponId(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    const a = raw.weapon_id != null ? parseInt(raw.weapon_id, 10) : null;
+    const b = raw.item_id != null ? parseInt(raw.item_id, 10) : null;
+    if (a == null && b == null) return null;
+    if (a == null) return b;
+    if (b == null) return a;
+    return Math.max(a, b);
+}
+
+function dopplerSkinNameMatches(a, b) {
+    if (!a || !b) return true;
+    const norm = (s) => s.toLowerCase().replace(/[★\s]+/g, ' ').replace(/\s+/g, ' ').trim();
+    const na = norm(a);
+    const nb = norm(b);
+    if (na === nb) return true;
+    const pa = na.split('|').map((s) => s.trim());
+    const pb = nb.split('|').map((s) => s.trim());
+    return pa.length >= 2 && pb.length >= 2 && pa[0] === pb[0] && pa[1] === pb[1];
+}
+
+function finishCatalogFromLocalIndexes(itemId, name) {
+    if (itemId == null) return null;
+    for (const raw of inventoryCache) {
+        const sid = csrSkinDefId(raw);
+        if (sid !== itemId) continue;
+        const n = raw.name ?? '';
+        if (!dopplerSkinNameMatches(name, n)) continue;
+        if (typeof CSR_extractFinishCatalog === 'function') {
+            const fc = CSR_extractFinishCatalog(raw);
+            if (fc != null) return fc;
+        }
+    }
+    for (const bucket of [invIndexByItemId, friendIndexByItemId, mpIndexByItemId]) {
+        const list = bucket.get(itemId);
+        if (!list) continue;
+        for (const it of list) {
+            if (it.finish_catalog == null) continue;
+            if (name && it.name && !dopplerSkinNameMatches(name, it.name)) continue;
+            return it.finish_catalog;
+        }
+    }
+    return null;
+}
+
+function resolveEntryFinishCatalog(raw, itemId, name) {
+    const existing = raw?.finish_catalog != null ? parseInt(raw.finish_catalog, 10) : null;
+    if (existing != null && !Number.isNaN(existing)) return existing;
+    if (typeof CSR_resolveFinishCatalog === 'function') {
+        const probe = raw && typeof raw === 'object'
+            ? { ...raw, item_id: itemId ?? raw.item_id, name: name || raw.name || raw.item_name }
+            : { item_id: itemId, name };
+        const fc = CSR_resolveFinishCatalog(probe);
+        if (fc != null) return fc;
+    }
+    return finishCatalogFromLocalIndexes(itemId, name);
+}
+
+function refreshMarketplaceFinishCatalogs() {
+    if (!marketplaceCache.length) return false;
+    let changed = false;
+    marketplaceCache = marketplaceCache.map((o) => {
+        const fc = resolveEntryFinishCatalog(o, o.item_id, o.name);
+        if (fc == null || fc === o.finish_catalog) return o;
+        changed = true;
+        return { ...o, finish_catalog: fc };
+    });
+    if (changed) rebuildMpItemIndex();
+    return changed;
+}
+
+let _mpPhaseGapWarned = false;
+function maybeWarnMarketplacePhaseGaps() {
+    if (_mpPhaseGapWarned || !isMarketplacePage() || !marketplaceCache.length) return;
+    if (typeof CSR_resolveSkinPattern !== 'function') return;
+    const missing = new Set();
+    for (const o of marketplaceCache) {
+        if (!o?.name || !/doppler/i.test(o.name)) continue;
+        const item = { ...o, finish_catalog: o.finish_catalog ?? resolveEntryFinishCatalog(o, o.item_id, o.name) };
+        if (!CSR_resolveSkinPattern(item)) missing.add(o.item_id);
+    }
+    if (!missing.size) return;
+    _mpPhaseGapWarned = true;
+    console.info(
+        '[CSR Inventory Helper] Marketplace Doppler phases missing for item_id(s):',
+        [...missing].sort((a, b) => a - b).join(', '),
+        '— open Inventory once (logged in) so owned skins teach the map, or add ids to data/csr-doppler-item-map.json.',
+    );
+}
+
+function maybeLearnDopplerItemIds(data) {
+    if (typeof CSR_learnItemIdFinishFromPayload !== 'function') return false;
+    const changed = CSR_learnItemIdFinishFromPayload(data);
+    if (changed) refreshMarketplaceFinishCatalogs();
+    return changed;
+}
+
+async function ensureDopplerItemIdMapReady() {
+    if (typeof CSR_loadItemIdFinishMap !== 'function') return;
+    await CSR_loadItemIdFinishMap();
+    if (refreshMarketplaceFinishCatalogs()) {
+        if (overlayRunning) scheduleApplyOverlays(true);
+        if (isMarketplaceOfferDetailPage()) injectMarketplaceOfferDetailPattern();
+        if (browseToolsActive) scheduleBrowseFilters();
     }
 }
 
@@ -2246,17 +2433,18 @@ function getMarketplaceOfferDetailItem() {
     const offerId = getMarketplaceOfferIdFromUrl();
     const cached = offerId != null ? mpIndexByOfferId.get(offerId) : null;
     const scraped = scrapeMarketplaceOfferDetail();
-    const finishCatalog = cached && typeof CSR_extractFinishCatalog === 'function'
-        ? CSR_extractFinishCatalog(cached) : null;
     const name = cached?.name || scraped.name || '';
+    const itemId = cached?.item_id != null ? cached.item_id : null;
     const seed = cached?.seed != null ? cached.seed : scraped.seed;
     const float = cached?.float != null ? cached.float : scraped.float;
+    const finishCatalog = resolveEntryFinishCatalog(cached || { name }, itemId, name);
     return {
         offer_id: offerId,
+        item_id: itemId,
         name,
         seed,
         float,
-        finish_catalog: cached?.finish_catalog != null ? cached.finish_catalog : finishCatalog,
+        finish_catalog: finishCatalog,
     };
 }
 
@@ -2328,8 +2516,8 @@ function buildMpOfferPatternColumn(pattern, sig) {
             if (!cls.startsWith('csrx')) value.classList.add(cls);
         }
     }
-    value.textContent = pattern.short || pattern.label;
-    value.title = pattern.label;
+    value.textContent = overlayPatternText(pattern, null) || pattern.short || pattern.label;
+    value.title = overlayPatternTitle(pattern, null) || pattern.label;
 
     col.appendChild(label);
     col.appendChild(value);
@@ -2616,13 +2804,16 @@ function isOverlayPage() {
 
 function normalizeInventoryEntry(i) {
     if (!i) return null;
-    const finishCatalog = typeof CSR_extractFinishCatalog === 'function' ? CSR_extractFinishCatalog(i) : null;
+    const skinId = csrSkinDefId(i);
+    const name = i.name;
+    const finishCatalog = resolveEntryFinishCatalog(i, skinId, name);
     return {
         offer_id:  null,
-        weapon_id: i.weapon_id != null ? parseInt(i.weapon_id, 10) : null,
-        item_id:   i.item_id != null ? parseInt(i.item_id, 10) : null,
+        weapon_id: csrInstanceWeaponId(i),
+        item_id:   skinId,
         float:     i.float != null && !Number.isNaN(parseFloat(i.float)) ? parseFloat(i.float) : null,
         seed:      i.seed != null ? parseInt(i.seed, 10) : null,
+        skin_index: i.skin_index != null ? parseInt(i.skin_index, 10) : null,
         finish_catalog: finishCatalog,
         stattrak:  !!i.stattrak,
         stattrak_count: i.stattrak_count != null ? parseInt(i.stattrak_count, 10) : null,
@@ -2811,27 +3002,30 @@ function normalizeOfferEntry(o) {
     if (!o || typeof o !== 'object') return null;
     const item = o.item || o.weapon || o.skin || o;
     const offerId = o.id ?? o.offer_id ?? o.listing_id ?? item?.offer_id;
-    const itemId  = o.item_id ?? item?.item_id ?? o.skin_id ?? item?.skin_id;
-    const weaponId = o.weapon_id ?? item?.weapon_id;
+    const skinId = csrSkinDefId(o);
+    const weaponId = csrInstanceWeaponId(o);
     const fl = o.skin_float ?? item?.skin_float
         ?? o.float ?? item?.float
         ?? o.wear ?? item?.wear;
     const seed = o.skin_seed ?? item?.skin_seed
         ?? o.seed ?? item?.seed
         ?? o.paint_seed ?? item?.paint_seed;
-    if (itemId == null && fl == null && offerId == null) return null;
-    const finishCatalog = typeof CSR_extractFinishCatalog === 'function' ? CSR_extractFinishCatalog(o) : null;
+    if (skinId == null && fl == null && offerId == null) return null;
+    const name = o.item_name ?? o.name ?? item?.name;
+    const finishCatalog = resolveEntryFinishCatalog(o, skinId, name);
     return {
         offer_id:  offerId != null ? parseInt(offerId, 10) : null,
-        weapon_id: weaponId != null ? parseInt(weaponId, 10) : null,
-        item_id:   itemId != null ? parseInt(itemId, 10) : null,
+        weapon_id: weaponId,
+        item_id:   skinId,
         float:     fl != null && !Number.isNaN(parseFloat(fl)) ? parseFloat(fl) : null,
         seed:      seed != null ? parseInt(seed, 10) : null,
+        skin_index: (o.skin_index ?? item?.skin_index) != null
+            ? parseInt(o.skin_index ?? item?.skin_index, 10) : null,
         finish_catalog: finishCatalog,
         stattrak:  !!(o.stat_trak ?? item?.stat_trak ?? o.stattrak ?? item?.stattrak),
         stattrak_count: o.stattrak_count ?? item?.stattrak_count ?? null,
         rarity:    o.item_rarity ?? o.rarity ?? item?.rarity,
-        name:      o.item_name ?? o.name ?? item?.name,
+        name,
         price:     o.price != null ? parseInt(String(o.price).replace(/[^\d]/g, ''), 10)
             : (o.coins != null ? parseInt(String(o.coins).replace(/[^\d]/g, ''), 10) : null),
     };
@@ -2867,8 +3061,13 @@ function ingestApiPayload(url, data) {
         const arr = Array.isArray(data) ? data : (data.items || data.inventory || data.data || []);
         if (Array.isArray(arr) && arr.length) {
             cacheQuickSellFromInventory(arr);
+            maybeLearnDopplerItemIds(arr);
             scheduleQuickSellDomScrape();
         }
+    }
+
+    if (/\/inventory\/cases\/open\//i.test(url)) {
+        maybeLearnDopplerItemIds(data);
     }
 
     if (/\/inventory\/?(?:\?|$)/i.test(url) && !/\/inventory\/marketplace/i.test(url) && !/\/users\//i.test(url)) {
@@ -2876,8 +3075,10 @@ function ingestApiPayload(url, data) {
         if (Array.isArray(arr) && arr.length) {
             inventoryCache = arr.sort((a, b) => parseInt(a.rarity) - parseInt(b.rarity));
             cacheQuickSellFromInventory(inventoryCache);
+            maybeLearnDopplerItemIds(arr);
             if (typeof CSR_probePatternApiFields === 'function') CSR_probePatternApiFields(inventoryCache);
             rebuildInvItemIndex();
+            refreshMarketplaceFinishCatalogs();
             maybeWarnLargeInventory();
             if (overlayRunning) {
                 scheduleApplyOverlays(true);
@@ -2896,6 +3097,7 @@ function ingestApiPayload(url, data) {
         }
         if (items.length) {
             marketplaceCache = mergeMarketplaceCache(marketplaceCache, items);
+            refreshMarketplaceFinishCatalogs();
             rebuildMpItemIndex();
             if (overlayRunning) {
                 scheduleApplyOverlays(true);
@@ -2923,6 +3125,7 @@ function ingestApiPayload(url, data) {
         return;
     }
     if (TRADE_API_RE.test(url) || (looksLikeTradePayload(data) && !Array.isArray(data))) {
+        maybeLearnDopplerItemIds(data);
         parseTradesResponse(data);
         if ((isTradePage() || isTradeDetailView()) && overlayRunning) scheduleApplyOverlays(true);
         return;
@@ -2930,8 +3133,10 @@ function ingestApiPayload(url, data) {
     if (/\/users\/[^/]+\/inventory/i.test(url)) {
         const arr = Array.isArray(data) ? data : (data.items || data.inventory || data.data || []);
         if (Array.isArray(arr) && arr.length) {
+            maybeLearnDopplerItemIds(arr);
             friendInventoryCache = arr.map(normalizeInventoryEntry).filter(Boolean);
             rebuildFriendItemIndex();
+            refreshMarketplaceFinishCatalogs();
             if (overlayRunning) {
                 scheduleApplyOverlays(true);
                 scheduleOverlayBootstrap();
@@ -2954,6 +3159,9 @@ function scheduleApplyOverlays(urgent) {
 function clearSkinOverlays() {
     document.querySelectorAll('.csrx-card-wrap').forEach(w => {
         if (!w.closest('#csrx-win, #csrx-overlay, #csrx-fab, #csrx-toast')) w.remove();
+    });
+    document.querySelectorAll('.csrx-wear-pattern-inline, .csrx-wear-pattern-fallback, .csrx-mp-phase-anchor, .csrx-inv-phase-anchor').forEach((el) => {
+        if (!el.closest('#csrx-win, #csrx-overlay, #csrx-fab, #csrx-toast')) el.remove();
     });
 }
 
@@ -3013,8 +3221,10 @@ async function fetchInventory() {
         const arr = Array.isArray(d) ? d : (d.items || d.inventory || d.data || []);
         inventoryCache = arr.sort((a, b) => parseInt(a.rarity) - parseInt(b.rarity));
         cacheQuickSellFromInventory(inventoryCache);
+        maybeLearnDopplerItemIds(arr);
         if (typeof CSR_probePatternApiFields === 'function') CSR_probePatternApiFields(inventoryCache);
         rebuildInvItemIndex();
+        refreshMarketplaceFinishCatalogs();
         maybeWarnLargeInventory();
         return inventoryCache;
     } catch(e) { return inventoryCache; }
@@ -3028,7 +3238,9 @@ async function fetchMarketplace() {
         const items = normalizeOfferList(d);
         if (items.length) {
             marketplaceCache = items;
+            refreshMarketplaceFinishCatalogs();
             rebuildMpItemIndex();
+            maybeWarnMarketplacePhaseGaps();
         }
     } catch (_) {}
     return marketplaceCache;
@@ -3113,11 +3325,15 @@ function applyTradeDetailOverlays() {
 }
 
 function getOfferIdFromCard(cardEl) {
-    const nodes = [cardEl, cardEl.closest('a'), cardEl.parentElement, ...cardEl.querySelectorAll('a')];
+    const nodes = [cardEl, cardEl.closest('a'), cardEl.parentElement, ...cardEl.querySelectorAll('a, button')];
     for (const el of nodes) {
         if (!el) continue;
+        for (const attr of ['data-offer-id', 'data-offer', 'data-listing-id', 'data-id']) {
+            const raw = el.getAttribute?.(attr);
+            if (raw && /^\d+$/.test(String(raw).trim())) return parseInt(raw, 10);
+        }
         const href = el.href || el.getAttribute?.('href') || '';
-        const m = href.match(/\/offer\/(\d+)/i);
+        const m = href.match(/\/(?:marketplace\/)?offer\/(\d+)/i);
         if (m) return parseInt(m[1], 10);
     }
     return null;
@@ -3126,21 +3342,109 @@ function getOfferIdFromCard(cardEl) {
 function getCardWear(cardEl) {
     const WEARS = ['FN', 'MW', 'FT', 'WW', 'BS'];
     for (const el of cardEl.querySelectorAll('p, span, div')) {
+        if (el.closest('.csrx-card-wrap, .csrx-wear-pattern-inline')) continue;
         const t = el.textContent?.trim();
         if (WEARS.includes(t)) return t;
     }
     return null;
 }
 
-function getCardSeedHint(cardEl) {
+function findCardWearElement(cardEl) {
+    const WEARS = ['FN', 'MW', 'FT', 'WW', 'BS'];
+    const cardRect = cardEl.getBoundingClientRect();
+    let best = null;
+    let bestScore = Infinity;
     for (const el of cardEl.querySelectorAll('p, span, div')) {
+        if (el.closest('.csrx-card-wrap, .csrx-wear-pattern-inline, .csrx-lock-btn, .csrx-inv-phase-anchor, .csrx-mp-phase-anchor')) continue;
         const t = el.textContent?.trim();
-        if (/^\d{1,4}$/.test(t)) {
-            const n = parseInt(t, 10);
-            if (n >= 0 && n <= 1000) return n;
+        if (!WEARS.includes(t)) continue;
+        if (el.children.length) {
+            const own = [...el.childNodes]
+                .filter((n) => n.nodeType === 3)
+                .map((n) => n.textContent)
+                .join('')
+                .trim();
+            if (own !== t) continue;
+        }
+        const r = el.getBoundingClientRect();
+        if (!r.width || !r.height) continue;
+        const topOff = r.top - cardRect.top;
+        if (topOff > cardRect.height * 0.32) continue;
+        const score = topOff * 1000 + r.width * r.height;
+        if (score < bestScore) {
+            bestScore = score;
+            best = el;
         }
     }
+    return best;
+}
+
+function getCardSeedHint(cardEl) {
+    const isSeedText = (t) => {
+        if (!/^\d{1,3}$/.test(t)) return false;
+        const n = parseInt(t, 10);
+        return n >= 0 && n <= 1000;
+    };
+    const elems = [...cardEl.querySelectorAll('p, span, div')]
+        .filter((el) => !el.closest('.csrx-card-wrap, .csrx-wear-pattern-inline'));
+    const cardRect = cardEl.getBoundingClientRect();
+    for (const el of elems) {
+        const t = el.textContent?.trim();
+        if (!isSeedText(t)) continue;
+        const r = el.getBoundingClientRect();
+        if (r.top < cardRect.top + cardRect.height * 0.55) return parseInt(t, 10);
+    }
+    for (const el of elems) {
+        const t = el.textContent?.trim();
+        if (isSeedText(t)) return parseInt(t, 10);
+    }
     return null;
+}
+
+function enrichItemWithCardSeed(cardEl, item) {
+    if (!item || !cardEl) return item;
+    const hint = getCardSeedHint(cardEl);
+    if (hint == null || item.seed === hint) return item;
+    return { ...item, seed: hint };
+}
+
+function enrichItemWithCardOverlay(cardEl, item) {
+    if (!item || !cardEl) return item;
+    let next = enrichItemWithCardSeed(cardEl, item);
+    const domFloat = getCardFloat(cardEl, next);
+    if (domFloat != null && next.float == null) next = { ...next, float: domFloat };
+    return next;
+}
+
+function disambiguateOverlayCandidates(cands, cardEl) {
+    if (!cands.length) return cands;
+    let list = cands;
+    const wear = getCardWear(cardEl);
+    if (wear && list.length > 1) {
+        const byWear = list.filter((i) => i.float == null || getCondition(i.float) === wear);
+        if (byWear.length) list = byWear;
+    }
+    const seedHint = getCardSeedHint(cardEl);
+    if (seedHint != null && list.length > 1) {
+        const bySeed = list.filter((i) => i.seed === seedHint);
+        if (bySeed.length) list = bySeed;
+    }
+    return list;
+}
+
+function matchMarketplaceCardItem(cardEl, cache, used) {
+    const names = getCardSkinNames(cardEl);
+    if (!names) return null;
+    const hasSt = cardHasStatTrak(cardEl);
+    let cands = cache.filter((i) => {
+        if (used.has(itemCacheKey(i))) return false;
+        return itemMatchesNames(i, names.weapon, names.skin, hasSt);
+    });
+    cands = disambiguateOverlayCandidates(cands, cardEl);
+    if (!cands.length) return null;
+    const item = cands[0];
+    used.add(itemCacheKey(item));
+    return item;
 }
 
 function cardHasStatTrak(cardEl) {
@@ -3160,25 +3464,42 @@ function getStatTrakCount(cardEl) {
     return null;
 }
 
+function isCardNameNoise(t) {
+    return !t
+        || ['FN', 'MW', 'FT', 'WW', 'BS'].includes(t)
+        || /^(STT|ST™|StatTrak)/i.test(t)
+        || /^[\d,]+$/.test(t)
+        || /^\d+\.\d+$/.test(t)
+        || /^#\d+$/.test(t)
+        || /^\d{1,3}$/.test(t);
+}
+
 function getCardSkinNames(cardEl) {
-    const lines = [...cardEl.querySelectorAll('p')]
-        .map(p => p.textContent?.trim())
-        .filter(t => t
-            && !['FN', 'MW', 'FT', 'WW', 'BS'].includes(t)
-            && !/^(STT|ST™|StatTrak)/i.test(t)
-            && !/^[\d,]+$/.test(t)
-            && !/^\d+\.\d+$/.test(t)
-            && !/^#\d+$/.test(t)
-            && !/^\d+$/.test(t));
-    const full = lines.find(t => t.includes(' | '));
+    const skipSel = '.csrx-card-wrap, .csrx-wear-pattern-inline, .csrx-mp-phase-anchor, .csrx-inv-phase-anchor, .csrx-lock-btn';
+    const cardRect = cardEl.getBoundingClientRect();
+    const seen = new Set();
+    const lines = [];
+    for (const el of cardEl.querySelectorAll('p, span, div')) {
+        if (el.closest(skipSel)) continue;
+        if (el.querySelector('img, svg, button, a')) continue;
+        const t = el.textContent?.trim();
+        if (!t || isCardNameNoise(t) || t.length > 60 || seen.has(t)) continue;
+        const r = el.getBoundingClientRect();
+        if (r.top < cardRect.top + cardRect.height * 0.42) continue;
+        seen.add(t);
+        lines.push({ t, top: r.top });
+    }
+    lines.sort((a, b) => a.top - b.top);
+    const texts = lines.map((x) => x.t);
+    const full = texts.find((t) => t.includes(' | '));
     if (full) {
-        const [weapon, skin] = full.split(' | ').map(s => s.trim());
+        const [weapon, skin] = full.split(' | ').map((s) => s.trim());
         return { weapon, skin };
     }
-    if (lines.length >= 2) {
-        return { weapon: lines[lines.length - 2], skin: lines[lines.length - 1] };
+    if (texts.length >= 2) {
+        return { weapon: texts[texts.length - 2], skin: texts[texts.length - 1] };
     }
-    if (lines.length === 1) return { weapon: lines[0], skin: '' };
+    if (texts.length === 1) return { weapon: texts[0], skin: '' };
     return null;
 }
 
@@ -3195,6 +3516,7 @@ function itemMatchesNames(item, weapon, skin, hasSt) {
 }
 
 function itemCacheKey(item) {
+    if (item.offer_id != null) return 'o' + item.offer_id;
     return 'w' + (item.weapon_id ?? `${item.item_id}-${item.float}-${item.seed}`);
 }
 
@@ -3286,12 +3608,12 @@ function matchOverlayItem(cardEl, cache, used) {
     const trustSiteWear = !isTradeDetailView();
 
     if (imgId != null) {
-        const seedHint = isMarketplacePage() ? getCardSeedHint(cardEl) : null;
+        const seedHint = getCardSeedHint(cardEl);
         const stCount  = isTradeDetailView() ? getStatTrakCount(cardEl) : null;
         let cands = candidatesForImgId(imgId).filter(i =>
             !used.has(itemCacheKey(i)) &&
             (i.stattrak === hasSt || i.stattrak == null) &&
-            (!trustSiteWear || !wear || getCondition(i.float) === wear)
+            (!trustSiteWear || !wear || i.float == null || getCondition(i.float) === wear)
         );
         if (stCount != null && cands.length > 1) {
             const bySt = cands.filter(i => i.stattrak_count === stCount);
@@ -3301,11 +3623,12 @@ function matchOverlayItem(cardEl, cache, used) {
             const bySeed = cands.filter(i => i.seed === seedHint);
             if (bySeed.length) cands = bySeed;
         }
-        if (!cands.length && trustSiteWear && wear && isInventoryPage()) {
+        if (!cands.length && trustSiteWear && wear && (isInventoryPage() || isMarketplacePage())) {
             cands = candidatesForImgId(imgId).filter(i =>
                 !used.has(itemCacheKey(i)) &&
                 (i.stattrak === hasSt || i.stattrak == null)
             );
+            cands = disambiguateOverlayCandidates(cands, cardEl);
         }
         if (cands.length >= 1) {
             const item = cands[0];
@@ -3317,9 +3640,24 @@ function matchOverlayItem(cardEl, cache, used) {
         }
     }
 
-    if (!isMarketplacePage()) {
+    if (isMarketplacePage()) {
+        const byName = matchMarketplaceCardItem(cardEl, cache, used);
+        if (byName) return byName;
+    } else {
         const byName = matchItemByName(cardEl, cache, used);
         if (byName) return byName;
+    }
+
+    if (isMarketplacePage() && _currentOverlayCards) {
+        const idx = _currentOverlayCards.indexOf(cardEl);
+        if (idx >= 0 && idx < cache.length) {
+            const item = cache[idx];
+            const key = itemCacheKey(item);
+            if (!used.has(key)) {
+                used.add(key);
+                return item;
+            }
+        }
     }
 
     if (!isMarketplacePage() && !isTradeDetailView() && _currentOverlayCards) {
@@ -3336,13 +3674,18 @@ function matchOverlayItem(cardEl, cache, used) {
 
 function getImgItemId(cardEl) {
     for (const img of cardEl.querySelectorAll('img')) {
-        for (const attr of ['src', 'srcset', 'data-src']) {
+        for (const attr of ['src', 'srcset', 'data-src', 'data-lazy-src']) {
             const raw = img.getAttribute(attr) || '';
-            let dec = decodeURIComponent(raw);
-            let m = dec.match(/\/skins\/(\d+)\.png/i);
-            if (m) return parseInt(m[1], 10);
-            m = dec.match(/skins%2F(\d+)\.png/i);
-            if (m) return parseInt(m[1], 10);
+            const chunks = attr === 'srcset'
+                ? raw.split(',').map((s) => s.trim().split(/\s+/)[0]).filter(Boolean)
+                : [raw];
+            for (const chunk of chunks) {
+                let dec = decodeURIComponent(chunk);
+                let m = dec.match(/\/skins\/(\d+)\.(?:png|webp|jpg|jpeg)/i);
+                if (m) return parseInt(m[1], 10);
+                m = dec.match(/skins%2F(\d+)\.(?:png|webp|jpg|jpeg)/i);
+                if (m) return parseInt(m[1], 10);
+            }
         }
     }
     return null;
@@ -3508,14 +3851,79 @@ function getAllCards() {
     return [];
 }
 
+function overlayPatternText(pattern, item) {
+    if (pattern) {
+        if (pattern.type === 'doppler' && typeof CSR_formatDopplerPatternText === 'function') {
+            return CSR_formatDopplerPatternText(pattern);
+        }
+        return pattern.short || pattern.label || '';
+    }
+    const pi = typeof CSR_dopplerPaintIndex === 'function' ? CSR_dopplerPaintIndex(item) : null;
+    return pi != null ? String(pi) : '';
+}
+
+function overlayPatternTitle(pattern, item) {
+    if (pattern) {
+        if (pattern.type === 'doppler' && typeof CSR_formatDopplerPatternTitle === 'function') {
+            return CSR_formatDopplerPatternTitle(pattern);
+        }
+        return pattern.label || '';
+    }
+    const pi = typeof CSR_dopplerPaintIndex === 'function' ? CSR_dopplerPaintIndex(item) : null;
+    return pi != null ? `Paint index ${pi}` : '';
+}
+
+function removeWearPatternBadge(cardEl) {
+    cardEl.querySelector('.csrx-wear-pattern-fallback')?.remove();
+    cardEl.querySelector('.csrx-mp-phase-anchor')?.remove();
+    cardEl.querySelector('.csrx-inv-phase-anchor')?.remove();
+    cardEl.querySelectorAll('.csrx-wear-pattern-inline').forEach((el) => el.remove());
+}
+
+function injectWearPatternBadge(cardEl, pattern, item, mpPage) {
+    removeWearPatternBadge(cardEl);
+    const patternText = overlayPatternText(pattern, item);
+    if (!patternText) return;
+
+    const badge = document.createElement('span');
+    badge.className = 'csrx-wear-pattern-inline csrx-pattern-badge ' + (pattern?.css || 'csrx-pattern-phase');
+    badge.title = overlayPatternTitle(pattern, item);
+
+    if (pattern?.type === 'doppler') {
+        const label = document.createElement('span');
+        label.textContent = pattern.short || pattern.label;
+        badge.appendChild(label);
+        if (pattern.finishCatalog != null) {
+            const idx = document.createElement('span');
+            idx.className = 'csrx-wear-pattern-idx';
+            idx.textContent = '· ' + pattern.finishCatalog;
+            badge.appendChild(idx);
+        }
+    } else {
+        badge.textContent = pattern.short || pattern.label;
+    }
+
+    const wearEl = findCardWearElement(cardEl);
+    if (wearEl) {
+        const insert = mpPage ? 'afterend' : 'beforebegin';
+        wearEl.insertAdjacentElement(insert, badge);
+        return;
+    }
+
+    const anchor = document.createElement('div');
+    anchor.className = mpPage ? 'csrx-mp-phase-anchor' : 'csrx-inv-phase-anchor';
+    anchor.appendChild(badge);
+    cardEl.appendChild(anchor);
+}
+
 function overlaySignature(item) {
     if (!item) return '';
     const f = item.float != null ? item.float.toFixed(4) : '';
     const s = item.seed != null ? String(item.seed) : '';
-    const p = typeof CSR_patternSignature === 'function'
-        ? CSR_patternSignature(typeof CSR_resolveSkinPattern === 'function' ? CSR_resolveSkinPattern(item) : null)
-        : '';
-    return `${f}|${s}|${p}`;
+    const pattern = typeof CSR_resolveSkinPattern === 'function' ? CSR_resolveSkinPattern(item) : null;
+    const p = typeof CSR_patternSignature === 'function' ? CSR_patternSignature(pattern) : '';
+    const pi = typeof CSR_dopplerPaintIndex === 'function' ? CSR_dopplerPaintIndex(item) : null;
+    return `${f}|${s}|${p}|${pi ?? ''}`;
 }
 
 function injectCardOverlay(cardEl, item) {
@@ -3525,24 +3933,35 @@ function injectCardOverlay(cardEl, item) {
     if (!wantOverlay && !wantLock) return;
 
     const existing = cardEl.querySelector('.csrx-card-wrap');
+    const enrichedItem = enrichItemWithCardOverlay(cardEl, item);
+    const patternForSig = wantOverlay && typeof CSR_resolveSkinPattern === 'function'
+        ? CSR_resolveSkinPattern(enrichedItem) : null;
+    const patternSig = wantOverlay && typeof CSR_patternSignature === 'function'
+        ? CSR_patternSignature(patternForSig) : '';
     const lockSig = wantLock
         ? String(item.weapon_id) + (csrIsWeaponLocked(item.weapon_id) ? 'L' : 'U')
         : '';
-    const sig = wantOverlay ? overlaySignature(item) : '';
-    if (existing?.dataset.csrxSig === sig && existing?.dataset.csrxLock === lockSig) {
+    const sig = wantOverlay ? overlaySignature(enrichedItem) : '';
+    if (existing?.dataset.csrxSig === sig
+        && existing?.dataset.csrxLock === lockSig
+        && existing?.dataset.csrxPattern === patternSig
+        && (!patternSig || cardEl.querySelector('.csrx-wear-pattern-inline, .csrx-mp-phase-anchor, .csrx-inv-phase-anchor'))) {
         return;
     }
 
     existing?.remove();
+    removeWearPatternBadge(cardEl);
 
     const pos = getComputedStyle(cardEl).position;
     if (pos === 'static') cardEl.style.position = 'relative';
 
-    const f   = item.float;
+    const mpPage = isMarketplacePage();
+    const f   = enrichedItem.float;
     const col = wearColor(f);
     const wrap = document.createElement('div');
-    wrap.className = 'csrx-card-wrap' + (isMarketplacePage() ? ' csrx-mp-pos' : '');
+    wrap.className = 'csrx-card-wrap' + (mpPage ? ' csrx-mp-pos' : '');
     wrap.dataset.csrxSig = sig;
+    wrap.dataset.csrxPattern = patternSig;
     wrap.dataset.csrxKey = itemCacheKey(item);
     wrap.dataset.csrxLock = lockSig;
 
@@ -3588,25 +4007,19 @@ function injectCardOverlay(cardEl, item) {
         wrap.appendChild(pill);
     }
 
-    if (wantOverlay && item.seed != null) {
+    if (wantOverlay && enrichedItem.seed != null) {
         const seed = document.createElement('div');
         seed.className = 'csrx-seed-badge';
-        seed.textContent = `#${item.seed}`;
+        seed.textContent = `#${enrichedItem.seed}`;
         wrap.appendChild(seed);
     }
 
     if (wantOverlay && typeof CSR_resolveSkinPattern === 'function') {
-        const pattern = CSR_resolveSkinPattern(item);
-        if (pattern) {
-            const badge = document.createElement('div');
-            badge.className = 'csrx-pattern-badge ' + (pattern.css || '');
-            badge.textContent = pattern.short || pattern.label;
-            badge.title = pattern.label;
-            wrap.appendChild(badge);
-        }
+        injectWearPatternBadge(cardEl, patternForSig, enrichedItem, mpPage);
     }
 
-    cardEl.appendChild(wrap);
+    const hasFloatSeed = wantOverlay && (f != null || enrichedItem.seed != null);
+    if (hasFloatSeed || wantLock) cardEl.appendChild(wrap);
 }
 
 /* ── Browse: search & filters (inventory + marketplace) ── */
@@ -3999,7 +4412,8 @@ function buildCardItemMap(cards, cache) {
     const map = new Map();
     for (const card of cards) {
         let item = matchOverlayItem(card, cache, used);
-        if (!item) item = matchItemByName(card, cache, used);
+        if (!item && isMarketplacePage()) item = matchMarketplaceCardItem(card, cache, used);
+        else if (!item) item = matchItemByName(card, cache, used);
         map.set(card, item);
     }
     return map;
@@ -4068,6 +4482,27 @@ function restoreCardOrder(cards, grid) {
     ).forEach(c => grid.appendChild(c));
 }
 
+const BROWSE_PHASE_ANY = '__phase__';
+const BROWSE_CH_ANY = '__ch__';
+
+function browseDopplerFilterKey(item, card) {
+    if (!item || typeof CSR_resolveSkinPattern !== 'function') return null;
+    const enriched = card ? enrichItemWithCardSeed(card, item) : item;
+    const pattern = CSR_resolveSkinPattern(enriched);
+    if (!pattern || pattern.type !== 'doppler') return null;
+    return (pattern.short || '').toLowerCase().replace(/\s+/g, '');
+}
+
+function browseChFilterKey(item, card) {
+    if (!item || typeof CSR_resolveSkinPattern !== 'function') return null;
+    const enriched = card ? enrichItemWithCardSeed(card, item) : item;
+    const pattern = CSR_resolveSkinPattern(enriched);
+    if (!pattern || (pattern.type !== 'ch' && pattern.type !== 'ch-gold')) return null;
+    if (pattern.tier == null) return null;
+    const gold = pattern.gemKind === 'gold' || pattern.type === 'ch-gold';
+    return gold ? `gold${pattern.tier}` : `ch${pattern.tier}`;
+}
+
 function readBrowseFilters() {
     const bar = document.getElementById('csrx-browse');
     if (!bar) return null;
@@ -4075,6 +4510,8 @@ function readBrowseFilters() {
         q: (bar.querySelector('#csrx-browse-search')?.value || '').trim().toLowerCase(),
         rarity: bar.querySelector('#csrx-browse-rarity')?.value || '',
         wear: bar.querySelector('#csrx-browse-wear')?.value || '',
+        phase: bar.querySelector('#csrx-browse-phase')?.value || '',
+        chTier: bar.querySelector('#csrx-browse-ch')?.value || '',
         floatSort: bar.querySelector('#csrx-browse-float')?.value || '',
         priceSort: bar.querySelector('#csrx-browse-price')?.value || '',
     };
@@ -4096,6 +4533,26 @@ function cardPassesBrowseFilters(card, item, f) {
     if (wear) {
         const cardWear = item?.float != null ? getCondition(item.float) : getCardWear(card);
         if (cardWear !== wear) return false;
+    }
+
+    if (f.phase && !isMarketplacePage()) {
+        if (!item) return false;
+        const phaseKey = browseDopplerFilterKey(item, card);
+        if (f.phase === BROWSE_PHASE_ANY) {
+            if (!phaseKey) return false;
+        } else if (phaseKey !== f.phase) {
+            return false;
+        }
+    }
+
+    if (f.chTier) {
+        if (!item) return false;
+        const chKey = browseChFilterKey(item, card);
+        if (f.chTier === BROWSE_CH_ANY) {
+            if (!chKey) return false;
+        } else if (chKey !== f.chTier) {
+            return false;
+        }
     }
 
     return true;
@@ -4159,6 +4616,7 @@ function applyBrowseFilters() {
             ? csrT('browse.itemsCount', { n: cards.length })
             : csrT('browse.showing', { visible: visible.length, total: cards.length });
     }
+    if (overlayRunning && visible.length) scheduleApplyOverlays(true);
 }
 
 function scheduleBrowseFilters() {
@@ -4178,6 +4636,10 @@ function clearBrowseFilters() {
     if (flt) flt.value = '';
     const price = bar.querySelector('#csrx-browse-price');
     if (price) price.value = '';
+    const phase = bar.querySelector('#csrx-browse-phase');
+    const ch = bar.querySelector('#csrx-browse-ch');
+    if (phase) phase.value = '';
+    if (ch) ch.value = '';
     if (isTradePickerModal()) resetTradePickerBrowseClasses();
     applyBrowseFilters();
 }
@@ -4226,12 +4688,44 @@ function buildBrowseBar() {
         '</select>',
     ].join('') : '';
 
+    let phaseSelect = '';
+    if (!mp) {
+        const phaseOpts = [
+            `<option value="">${csrT('browse.allPhases')}</option>`,
+            `<option value="${BROWSE_PHASE_ANY}">${csrT('browse.anyPhase')}</option>`,
+            `<option value="ruby">${csrT('pattern.ruby')}</option>`,
+            `<option value="sapphire">${csrT('pattern.sapphire')}</option>`,
+            `<option value="bp">${csrT('pattern.bp')}</option>`,
+            `<option value="emerald">${csrT('pattern.emerald')}</option>`,
+            `<option value="p1">${csrT('pattern.p1')}</option>`,
+            `<option value="p2">${csrT('pattern.p2')}</option>`,
+            `<option value="p3">${csrT('pattern.p3')}</option>`,
+            `<option value="p4">${csrT('pattern.p4')}</option>`,
+        ].join('');
+        phaseSelect = `<select id="csrx-browse-phase" title="${csrT('browse.filterPhase')}">${phaseOpts}</select>`;
+    }
+
+    const chOpts = [
+        `<option value="">${csrT('browse.allCh')}</option>`,
+        `<option value="${BROWSE_CH_ANY}">${csrT('browse.chTiered')}</option>`,
+        `<option value="ch0">${csrT('browse.chRank1')}</option>`,
+        `<option value="ch1">${csrT('browse.chT1')}</option>`,
+        `<option value="ch2">${csrT('browse.chT2')}</option>`,
+        `<option value="ch3">${csrT('browse.chT3')}</option>`,
+        `<option value="gold0">${csrT('browse.chGoldRank1')}</option>`,
+        `<option value="gold1">${csrT('browse.chGoldT1')}</option>`,
+        `<option value="gold2">${csrT('browse.chGoldT2')}</option>`,
+        `<option value="gold3">${csrT('browse.chGoldT3')}</option>`,
+    ].join('');
+
     wrap.innerHTML = `
 <div class="csrx-browse-row">
     <input id="csrx-browse-search" type="search" placeholder="${csrT('browse.searchPlaceholder')}" autocomplete="off" spellcheck="false">
     <div class="csrx-browse-filters">
         <select id="csrx-browse-rarity" title="${csrT('browse.filterRarity')}">${rarityOpts}</select>
         <select id="csrx-browse-wear" title="${csrT('browse.filterWear')}">${wearOpts}</select>
+        ${phaseSelect}
+        <select id="csrx-browse-ch" title="${csrT('browse.filterCh')}">${chOpts}</select>
         <select id="csrx-browse-float" title="${csrT('browse.sortFloat')}">${floatOpts}</select>
         ${priceOpts}
         <button type="button" id="csrx-browse-clear" data-i18n="browse.clear">${csrT('browse.clear')}</button>
@@ -4511,8 +5005,9 @@ async function startAlwaysOnOverlay() {
     if (cacheReady) applyOverlaysToAll({ urgent: true });
     if (isBrowsePage()) scheduleBrowseInit();
 
+    await ensureDopplerItemIdMapReady();
     if (isMarketplacePage()) {
-        await fetchMarketplace();
+        await Promise.all([fetchMarketplace(), fetchInventory()]);
     } else {
         await fetchInventory();
     }
@@ -7405,6 +7900,7 @@ async function bootstrapCsrExtension() {
     await csrLoadLanguage();
     await csrLoadSettings();
     await loadCasesAutoOpenSellConfig();
+    ensureDopplerItemIdMapReady();
     csrWatchLanguageStorage();
     csrOnLanguageChanged(() => {
         csrApplyContentI18n();

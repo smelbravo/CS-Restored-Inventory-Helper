@@ -57,7 +57,7 @@ function createMockStorage() {
 }
 
 async function loadCsrStorage(mock) {
-    const src = fs.readFileSync(path.join(root, 'csr-storage.js'), 'utf8');
+    const src = fs.readFileSync(path.join(root, 'src/lib/csr-storage.js'), 'utf8');
     const ctx = {
         globalThis: {},
         browser: undefined,
