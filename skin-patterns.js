@@ -41,6 +41,8 @@
         'skin_finish_catalog', 'skin_finish_catalogue',
         'paint_index', 'paintindex', 'paintIndex', 'skin_paint_index',
         'finish_id', 'finish_index',
+        /* CS:R inventory API uses skin_index as Finish Catalog on Doppler / Gamma Doppler */
+        'skin_index',
     ];
 
     /** Order matters: specific knives before generic "bayonet". */
@@ -79,11 +81,14 @@
     function extractFinishCatalog(raw) {
         if (!raw || typeof raw !== 'object') return null;
         const item = raw.item || raw.weapon || raw.skin;
+        const name = raw.name ?? raw.item_name ?? item?.name ?? '';
         const sources = [raw, item].filter(Boolean);
         for (const src of sources) {
             for (const k of FINISH_CATALOG_KEYS) {
                 const n = toInt(src[k]);
-                if (n != null && DOPPLER_FINISH[n]) return n;
+                if (n == null || !DOPPLER_FINISH[n]) continue;
+                if (k === 'skin_index' && !isDopplerFamilyName(name)) continue;
+                return n;
             }
         }
         return null;
@@ -303,15 +308,17 @@
         _apiProbeDone = true;
         const fc = extractFinishCatalog(dop);
         if (fc == null) {
+            const hint = dop.skin_index != null ? ` (skin_index=${dop.skin_index} — not a known phase id)` : '';
             console.info(
-                '[CSR Inventory Helper] Doppler found but no Finish Catalog in API yet. Keys on item:',
+                '[CSR Inventory Helper] Doppler found but no phase id in API yet' + hint + '. Keys on item:',
                 Object.keys(dop),
                 '\nItem sample:',
                 dop,
             );
         } else {
             const phase = resolveDopplerPhase(dop.name, fc);
-            console.info('[CSR Inventory Helper] Finish Catalog', fc, '→', phase?.label || '?', 'for', dop.name);
+            const via = dop.skin_index === fc ? 'skin_index' : 'finish catalog';
+            console.info('[CSR Inventory Helper] Doppler phase via', via, fc, '→', phase?.label || '?', 'for', dop.name);
         }
     }
 

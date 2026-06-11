@@ -3,7 +3,7 @@
 ## Unreleased
 
 **WIP — Doppler phase & Case Hardened blue-gem badges** (`feature/doppler-phase-overlay`)
-- **Doppler / Gamma Doppler:** phase or gem label from **Finish Catalog** (415–421, 568–572) when the API exposes it
+- **Doppler / Gamma Doppler:** phase or gem label from **`skin_index`** / Finish Catalog (415–421, 568–572) on CS:R inventory API
 - **Case Hardened:** blue/gold gem tier badges from **paint seed** — AK/Karambit full tiers, #1 seeds for all 20 CH knives (sources: BlueGemLab, SteamAnalyst, CSGOBlueGem, isitabluegem)
 - One-time console probe logs API keys when a Doppler is in inventory but Finish Catalog is missing
 

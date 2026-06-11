@@ -62,7 +62,7 @@ With **200+** items you may still see some site slowness, but the extension shou
 
 **Where badges appear:** same places and toggles as float/seed — **inventory**, **marketplace** (grid + **offer detail** `/marketplace/offer/{id}`), **trades**, **Send Trade Offer**, **Create Offer** (not the Cases shop panel). Respects **Float & seed overlays** and **Trade float & seed overlays**.
 
-**Doppler:** phase is **not** derived from seed — it needs `finish_catalog` / `paint_index` (or equivalent) in `GET /inventory/` or marketplace payloads. If CS:R does not send it yet, badges will not appear for Dopplers; open DevTools (F12) → Console after loading inventory — the extension logs once which keys exist on your first Doppler item.
+**Doppler:** phase is **not** derived from seed — CS:R exposes it as **`skin_index`** on inventory items (values **415–421** / **568–572**, same as Steam Finish Catalog). Also checks `finish_catalog` / `paint_index` if the site adds them later.
 
 **Case Hardened:** works today when `seed` is present (same as float overlays). Seed lists are **bundled offline** (no calls to third-party sites) and cross-checked against community databases:
 
