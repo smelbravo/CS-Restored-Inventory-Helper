@@ -5538,6 +5538,30 @@ function readInt(inp, fallback) {
     return Number.isFinite(n) ? n : fallback;
 }
 
+/** Mirrors multi auto-open loop — spend, coins, and time cap. */
+function estimateMultiAutoOpens(queue, spendLimit, coins, minutes, delayMs) {
+    if (!queue.length || spendLimit <= 0) return 0;
+
+    let totalSpent = 0;
+    let balance = coins;
+    let multiIdx = 0;
+    let opens = 0;
+
+    for (let guard = 0; guard < 50000; guard++) {
+        const spendLeft = spendLimit - totalSpent;
+        const next = pickNextMultiCase(queue, multiIdx, spendLeft, balance);
+        if (!next) break;
+        multiIdx = next.nextIdx;
+        totalSpent += next.picked.price;
+        if (balance != null) balance = Math.max(0, balance - next.picked.price);
+        opens++;
+    }
+
+    const runMs = Math.max(1, minutes) * 60 * 1000;
+    const maxByTime = delayMs > 0 ? Math.floor(runMs / delayMs) + 1 : opens;
+    return Math.min(opens, maxByTime);
+}
+
 function updateCasesAutoOpenSummary() {
     const sum = document.getElementById('csrx-cases-open-summary');
     const btnStart = document.getElementById('csrx-cases-open-start');
@@ -5558,18 +5582,23 @@ function updateCasesAutoOpenSummary() {
             return;
         }
         const minPrice = Math.min(...queue.map(c => c.price));
-        const maxOpens = minPrice > 0 ? Math.floor(spendLimit / minPrice) : 0;
-        const warn = maxOpens <= 0
+        const totalOpens = estimateMultiAutoOpens(queue, spendLimit, cachedUserCoins, minutes, delayMs);
+        const canStart = minPrice > 0 && minPrice <= spendLimit
+            && (cachedUserCoins == null || minPrice <= cachedUserCoins)
+            && totalOpens > 0;
+        const warn = !canStart
             ? `<br><span style="color:#ef4444">${csrT('cases.spendTooLow')}</span>`
             : '';
         const names = queue.map(c => escapeCasesHtml(c.name)).join(', ');
-        sum.innerHTML = `${coinsLine}${csrT('cases.willOpenMulti', {
-            cases: `<strong>${queue.length}</strong>`,
+        const opensKey = totalOpens === 1 ? 'cases.willOpenMultiOne' : 'cases.willOpenMultiMany';
+        sum.innerHTML = `${coinsLine}${csrT(opensKey, {
+            types: `<strong>${queue.length}</strong>`,
+            opens: `<strong>${totalOpens}</strong>`,
             names: `<span style="color:#d4d4d4">${names}</span>`,
             delay: `<strong>${delayMs}ms</strong>`,
             minutes: `<strong>${minutes}</strong>`,
         })}${warn}<br><span style="color:#737373">${csrT('cases.autoSell', { rules: describeAutoSellRules() })}</span>`;
-        if (btnStart) btnStart.disabled = casesOpenRunning || maxOpens <= 0;
+        if (btnStart) btnStart.disabled = casesOpenRunning || !canStart;
         return;
     }
 
