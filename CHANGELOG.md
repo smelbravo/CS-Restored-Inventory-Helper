@@ -1,13 +1,19 @@
 # Changelog
 
-## Unreleased
+## 3.8.0
 
 **New — Multi case opening** (Auto open tab)
-- **Single case** / **Multi case** toggle — cycle several different cases one by one in the same session
-- Full auto-open features: auto-sell rules, results table, stop, spend/time limits, session quick sell
+- **Single case** / **Multi case** toggle — open one case type or several in the same session
+- **Multi open style** — **Cycle** (one of each until spend limit) or **Fixed per case** (quantity 1–99 per selected case); toggle in popup and on the Cases panel
+- **Case search** — filter the case dropdown or multi list by name
+- **Manual session sell — per item** — **Sell** on each drop in the results table; **Quick sell all non-gold** and sell-by-rarity bulk buttons remain
 
 **Change**
 - Auto open **default and minimum delay: 400 ms** (API rate limit)
+
+**Fix**
+- Per-item **Sell** buttons no longer stay disabled until a bulk sell runs (session flag cleared before results render)
+- Weapon IDs resolved with retries after session end; other rows stay clickable while one item sells
 
 ## 3.7.5
 

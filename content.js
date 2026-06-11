@@ -619,6 +619,28 @@ S.textContent = `
     letter-spacing: 0.05em;
     color: #71717a;
 }
+#csrx-cases-pick-search-wrap {
+    margin-bottom: 10px;
+}
+#csrx-cases-pick-search {
+    width: 100%;
+    margin-top: 6px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid #2a2a2a;
+    background: #111;
+    color: #fff;
+    font-size: 0.875rem;
+}
+#csrx-cases-pick-search:focus { border-color: #eab308; outline: none; }
+#csrx-cases-pick-search::placeholder { color: #555; }
+.csrx-cases-search-empty {
+    padding: 10px 8px;
+    font-size: 0.75rem;
+    color: #737373;
+    text-align: center;
+}
+.csrx-cases-multi-row-hidden { display: none !important; }
 #csrx-cases-select,
 #csrx-cases-qty {
     width: 100%;
@@ -680,15 +702,22 @@ S.textContent = `
 }
 .csrx-cases-result-row {
     display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 10px;
+    align-items: center;
+    gap: 8px;
     padding: 5px 0;
     border-bottom: 1px solid #1a1a1a;
     font-size: 0.75rem;
     line-height: 1.35;
 }
 .csrx-cases-result-row:last-child { border-bottom: none; }
+.csrx-cases-result-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+}
 .csrx-cases-result-name {
     flex: 1;
     min-width: 0;
@@ -700,6 +729,27 @@ S.textContent = `
     flex-shrink: 0;
     font-variant-numeric: tabular-nums;
     font-weight: 600;
+}
+.csrx-cases-result-sell {
+    flex-shrink: 0;
+    padding: 4px 8px;
+    border-radius: 6px;
+    border: 1px solid #3f3f46;
+    background: #141414;
+    color: #eab308;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.csrx-cases-result-sell:hover:not(:disabled) {
+    border-color: #eab308;
+    background: rgba(234, 179, 8, 0.08);
+}
+.csrx-cases-result-sell:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    color: #737373;
 }
 #csrx-cases-summary {
     font-size: 0.8125rem;
@@ -822,6 +872,32 @@ S.textContent = `
     font-style: normal;
     color: #737373;
     font-size: 0.6875rem;
+}
+.csrx-cases-multi-qty {
+    width: 44px;
+    flex-shrink: 0;
+    padding: 4px 6px;
+    border-radius: 6px;
+    border: 1px solid #2a2a2a;
+    background: #111;
+    color: #fff;
+    font-size: 0.75rem;
+    text-align: center;
+}
+.csrx-cases-multi-qty:disabled {
+    opacity: 0.35;
+}
+#csrx-cases-multi-strategy-wrap {
+    margin-bottom: 10px;
+}
+#csrx-cases-multi-strategy-wrap > label {
+    display: block;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #737373;
+    margin-bottom: 6px;
 }
 #csrx-cases-open-multi-actions {
     display: flex;
@@ -4951,6 +5027,7 @@ let casesBuyAbort = false;
 let casesOpenAbort = false;
 let casesOpenRunning = false;
 let casesOpenSelling = false;
+let casesOpenSellingDropIdx = null;
 let casesOpenSessionGen = 0;
 let casesOpenActiveGen = 0;
 let casesSessionDrops = [];
@@ -4958,7 +5035,15 @@ let casesOpenStats = { opened: 0, gold: 0, lastName: '', lastRarity: null };
 let casesMode = 'bulk';
 const CASES_AUTO_OPEN_CFG_KEY = 'csrCasesAutoOpenConfig';
 const CASES_AUTO_OPEN_SELL_CFG_KEY = 'csrCasesAutoOpenSellConfig';
-let casesAutoOpenCfg = { delayMs: CASES_OPEN_DELAY_MIN_MS, spendLimit: 150000, minutes: 10, openMode: 'single', multiCaseIds: [] };
+let casesAutoOpenCfg = {
+    delayMs: CASES_OPEN_DELAY_MIN_MS,
+    spendLimit: 150000,
+    minutes: 10,
+    openMode: 'single',
+    multiCaseIds: [],
+    multiStrategy: 'cycle',
+    multiCaseQuotas: {},
+};
 let casesAutoOpenSellCfg = {
     mode: 'manual',
     timing: 'end',
@@ -4987,6 +5072,54 @@ function getSelectedCase() {
     return casesCatalogCache.find(c => c.id === id) || null;
 }
 
+function getCasesPickSearchQuery() {
+    const inp = document.getElementById('csrx-cases-pick-search');
+    return String(inp?.value ?? '').trim().toLowerCase();
+}
+
+function caseNameMatchesSearch(name, query) {
+    if (!query) return true;
+    return String(name ?? '').toLowerCase().includes(query);
+}
+
+function applyCasesPickSearch() {
+    const query = getCasesPickSearchQuery();
+
+    const sel = document.getElementById('csrx-cases-select');
+    const selectEmpty = document.getElementById('csrx-cases-select-search-empty');
+    if (sel) {
+        let anyVisible = false;
+        for (const opt of sel.options) {
+            const dash = opt.textContent.indexOf(' — ');
+            const name = dash >= 0 ? opt.textContent.slice(0, dash) : opt.textContent;
+            const match = caseNameMatchesSearch(name, query);
+            opt.hidden = !match;
+            if (match) anyVisible = true;
+        }
+        if (selectEmpty) selectEmpty.hidden = !query || anyVisible;
+    }
+
+    const list = document.getElementById('csrx-cases-open-multi-list');
+    const multiEmpty = document.getElementById('csrx-cases-multi-search-empty');
+    if (list) {
+        let anyVisible = false;
+        list.querySelectorAll('.csrx-cases-multi-row').forEach((row) => {
+            const id = parseInt(row.querySelector('input[data-case-id]')?.dataset.caseId, 10);
+            const c = Number.isFinite(id) ? casesCatalogCache.find(x => x.id === id) : null;
+            const match = caseNameMatchesSearch(c?.name, query);
+            row.classList.toggle('csrx-cases-multi-row-hidden', !match);
+            if (match) anyVisible = true;
+        });
+        if (multiEmpty) multiEmpty.hidden = !query || anyVisible;
+    }
+}
+
+function clearCasesPickSearch() {
+    const inp = document.getElementById('csrx-cases-pick-search');
+    if (inp) inp.value = '';
+    applyCasesPickSearch();
+}
+
 function populateCasesSelect() {
     const sel = document.getElementById('csrx-cases-select');
     if (!sel) return;
@@ -4997,15 +5130,69 @@ function populateCasesSelect() {
     ).join('');
     if (prev && sorted.some(c => String(c.id) === prev)) sel.value = prev;
     populateCasesMultiList();
+    applyCasesPickSearch();
 }
 
 function isCasesOpenMultiMode() {
     return casesAutoOpenCfg.openMode === 'multi';
 }
 
+function isCasesMultiQuotaMode() {
+    return isCasesOpenMultiMode() && casesAutoOpenCfg.multiStrategy === 'quota';
+}
+
+function isCasesMultiCycleMode() {
+    return isCasesOpenMultiMode() && casesAutoOpenCfg.multiStrategy !== 'quota';
+}
+
 function readCasesOpenModeFromUi() {
     const multiBtn = document.getElementById('csrx-cases-open-mode-multi');
     return multiBtn?.classList.contains('active') ? 'multi' : 'single';
+}
+
+function getMultiCaseQuotasFromUi() {
+    const quotas = { ...(casesAutoOpenCfg.multiCaseQuotas || {}) };
+    const list = document.getElementById('csrx-cases-open-multi-list');
+    if (!list) return quotas;
+    list.querySelectorAll('input[type="checkbox"][data-case-id]').forEach((cb) => {
+        const id = parseInt(cb.dataset.caseId, 10);
+        if (!Number.isFinite(id) || id <= 0) return;
+        if (!cb.checked) {
+            delete quotas[id];
+            return;
+        }
+        const qtyInp = cb.closest('.csrx-cases-multi-row')?.querySelector('.csrx-cases-multi-qty');
+        if (qtyInp) quotas[id] = normalizeCasesQtyInput(qtyInp);
+        else if (!quotas[id]) quotas[id] = 1;
+    });
+    return quotas;
+}
+
+function buildQuotaOpenPlan(queue, quotas) {
+    const plan = [];
+    for (const c of queue) {
+        const q = parseInt(quotas[c.id], 10);
+        const n = Number.isFinite(q) ? Math.max(1, Math.min(99, q)) : 0;
+        for (let i = 0; i < n; i++) plan.push(c);
+    }
+    return plan;
+}
+
+function formatMultiQuotaBreakdown(queue, quotas) {
+    return queue
+        .map(c => {
+            const q = parseInt(quotas[c.id], 10);
+            if (!Number.isFinite(q) || q < 1) return null;
+            return `${q}× ${c.name}`;
+        })
+        .filter(Boolean)
+        .join(', ');
+}
+
+function persistMultiCaseSelection() {
+    const multiCaseIds = getMultiSelectedCaseIds();
+    const multiCaseQuotas = getMultiCaseQuotasFromUi();
+    scheduleSaveCasesAutoOpenConfig({ ...casesAutoOpenCfg, multiCaseIds, multiCaseQuotas });
 }
 
 function getMultiSelectedCaseIds() {
@@ -5036,17 +5223,64 @@ function getAutoOpenCaseQueue() {
     return picked ? [picked] : [];
 }
 
+function syncMultiStrategyUi() {
+    const cycleBtn = document.getElementById('csrx-cases-multi-strategy-cycle');
+    const quotaBtn = document.getElementById('csrx-cases-multi-strategy-quota');
+    const quota = isCasesMultiQuotaMode();
+    if (cycleBtn) cycleBtn.classList.toggle('active', !quota);
+    if (quotaBtn) quotaBtn.classList.toggle('active', quota);
+}
+
+function setCasesMultiStrategy(strategy) {
+    if (strategy !== 'cycle' && strategy !== 'quota') return;
+    casesAutoOpenCfg = { ...casesAutoOpenCfg, multiStrategy: strategy };
+    scheduleSaveCasesAutoOpenConfig(casesAutoOpenCfg);
+    syncMultiStrategyUi();
+    populateCasesMultiList();
+    syncCasesOpenSubModeUi();
+    updateCasesAutoOpenSummary();
+}
+
+async function refreshCasesAutoOpenFromStorage() {
+    const cfg = await loadCasesAutoOpenConfig();
+    const delayInp = document.getElementById('csrx-cases-open-delay');
+    const minsInp = document.getElementById('csrx-cases-open-mins');
+    const spendInp = document.getElementById('csrx-cases-open-spend');
+    if (delayInp) delayInp.value = String(cfg.delayMs ?? CASES_OPEN_DELAY_MIN_MS);
+    if (minsInp) minsInp.value = String(cfg.minutes ?? 10);
+    if (spendInp) spendInp.value = String(cfg.spendLimit ?? 150000);
+    populateCasesMultiList();
+    syncMultiStrategyUi();
+    syncCasesOpenSubModeUi();
+    updateCasesAutoOpenSummary();
+}
+
 function populateCasesMultiList() {
     const list = document.getElementById('csrx-cases-open-multi-list');
     if (!list) return;
     const selected = new Set(casesAutoOpenCfg.multiCaseIds || []);
+    const quotas = casesAutoOpenCfg.multiCaseQuotas || {};
+    const quotaMode = isCasesMultiQuotaMode();
     const sorted = [...casesCatalogCache].sort((a, b) => a.price - b.price || a.name.localeCompare(b.name));
-    list.innerHTML = sorted.map(c => `
+    const pickLabel = document.querySelector('label[for="csrx-cases-open-multi-list"], #csrx-cases-open-multi-wrap > label');
+    const multiLabel = document.getElementById('csrx-cases-multi-pick-label');
+    if (multiLabel) {
+        multiLabel.textContent = csrT(quotaMode ? 'cases.multiCasePickQuota' : 'cases.multiCasePick');
+    }
+    list.innerHTML = sorted.map(c => {
+        const checked = selected.has(c.id);
+        const q = quotas[c.id] ?? quotas[String(c.id)] ?? 1;
+        const qtyField = quotaMode
+            ? `<input type="text" class="csrx-cases-multi-qty" inputmode="numeric" autocomplete="off" spellcheck="false" value="${q}"${checked ? '' : ' disabled'}>`
+            : '';
+        return `
         <label class="csrx-cases-multi-row">
-            <input type="checkbox" data-case-id="${c.id}"${selected.has(c.id) ? ' checked' : ''}>
+            <input type="checkbox" data-case-id="${c.id}"${checked ? ' checked' : ''}>
             <span>${escapeCasesHtml(c.name)} <em>${formatCoins(c.price)}</em></span>
-        </label>
-    `).join('');
+            ${qtyField}
+        </label>`;
+    }).join('');
+    applyCasesPickSearch();
 }
 
 function syncCasesOpenSubModeUi() {
@@ -5068,6 +5302,13 @@ function syncCasesOpenSubModeUi() {
         if (selectWrap) selectWrap.style.display = 'block';
         if (multiWrap) multiWrap.style.display = 'none';
     }
+
+    const spendWrap = document.getElementById('csrx-cases-open-spend')?.parentElement;
+    if (spendWrap) {
+        spendWrap.style.display = (casesMode === 'open' && multi && isCasesMultiQuotaMode()) ? 'none' : 'block';
+    }
+
+    syncMultiStrategyUi();
 }
 
 function normalizeCasesQtyInput(inp) {
@@ -5213,6 +5454,8 @@ function normalizeCasesAutoCfg(raw) {
         minutes: 10,
         openMode: 'single',
         multiCaseIds: [],
+        multiStrategy: 'cycle',
+        multiCaseQuotas: {},
     };
     if (!raw || typeof raw !== 'object') return out;
     const d = parseInt(raw.delayMs, 10);
@@ -5230,6 +5473,18 @@ function normalizeCasesAutoCfg(raw) {
             if (ids.length >= 32) break;
         }
         out.multiCaseIds = ids;
+    }
+    if (raw.multiStrategy === 'quota' || raw.multiStrategy === 'cycle') out.multiStrategy = raw.multiStrategy;
+    if (raw.multiCaseQuotas && typeof raw.multiCaseQuotas === 'object') {
+        const quotas = {};
+        for (const [k, v] of Object.entries(raw.multiCaseQuotas)) {
+            const id = parseInt(k, 10);
+            const q = parseInt(v, 10);
+            if (Number.isFinite(id) && id > 0 && Number.isFinite(q)) {
+                quotas[id] = Math.max(1, Math.min(99, q));
+            }
+        }
+        out.multiCaseQuotas = quotas;
     }
     return out;
 }
@@ -5314,6 +5569,8 @@ function csrApplyContentI18n() {
 
     const browseSearch = document.getElementById('csrx-browse-search');
     if (browseSearch) browseSearch.placeholder = csrT('browse.searchPlaceholder');
+    const casesPickSearch = document.getElementById('csrx-cases-pick-search');
+    if (casesPickSearch) casesPickSearch.placeholder = csrT('cases.searchPlaceholder');
     const browseClear = document.getElementById('csrx-browse-clear');
     if (browseClear) browseClear.textContent = csrT('browse.clear');
 
@@ -5538,7 +5795,7 @@ function readInt(inp, fallback) {
     return Number.isFinite(n) ? n : fallback;
 }
 
-/** Mirrors multi auto-open loop — spend, coins, and time cap. */
+/** Mirrors multi auto-open loop — spend, coins, and time cap (cycle mode). */
 function estimateMultiAutoOpens(queue, spendLimit, coins, minutes, delayMs) {
     if (!queue.length || spendLimit <= 0) return 0;
 
@@ -5562,6 +5819,27 @@ function estimateMultiAutoOpens(queue, spendLimit, coins, minutes, delayMs) {
     return Math.min(opens, maxByTime);
 }
 
+function getEffectiveQuotaPlan(queue, quotas, coins, minutes, delayMs) {
+    let plan = buildQuotaOpenPlan(queue, quotas);
+    if (!plan.length) return [];
+    if (coins != null) {
+        let bal = coins;
+        plan = plan.filter((c) => {
+            if (c.price > bal) return false;
+            bal -= c.price;
+            return true;
+        });
+    }
+    const runMs = Math.max(1, minutes) * 60 * 1000;
+    const maxByTime = delayMs > 0 ? Math.floor(runMs / delayMs) + 1 : plan.length;
+    if (plan.length > maxByTime) plan = plan.slice(0, maxByTime);
+    return plan;
+}
+
+function estimateQuotaAutoOpens(queue, quotas, coins, minutes, delayMs) {
+    return getEffectiveQuotaPlan(queue, quotas, coins, minutes, delayMs).length;
+}
+
 function updateCasesAutoOpenSummary() {
     const sum = document.getElementById('csrx-cases-open-summary');
     const btnStart = document.getElementById('csrx-cases-open-start');
@@ -5581,6 +5859,30 @@ function updateCasesAutoOpenSummary() {
             if (btnStart) btnStart.disabled = true;
             return;
         }
+
+        if (isCasesMultiQuotaMode()) {
+            const quotas = getMultiCaseQuotasFromUi();
+            const rawPlan = buildQuotaOpenPlan(queue, quotas);
+            const plan = getEffectiveQuotaPlan(queue, quotas, cachedUserCoins, minutes, delayMs);
+            const totalCost = plan.reduce((s, c) => s + c.price, 0);
+            const totalOpens = plan.length;
+            const breakdown = formatMultiQuotaBreakdown(queue, quotas);
+            const canStart = rawPlan.length > 0 && totalOpens > 0;
+            const warn = !canStart
+                ? `<br><span style="color:#ef4444">${csrT(rawPlan.length ? 'cases.quotaTooExpensive' : 'cases.quotaEmpty')}</span>`
+                : '';
+            const opensKey = totalOpens === 1 ? 'cases.willOpenQuotaOne' : 'cases.willOpenQuotaMany';
+            sum.innerHTML = `${coinsLine}${csrT(opensKey, {
+                breakdown: `<span style="color:#d4d4d4">${escapeCasesHtml(breakdown)}</span>`,
+                opens: `<strong>${totalOpens}</strong>`,
+                cost: `<strong>${formatCoins(totalCost)}</strong>`,
+                delay: `<strong>${delayMs}ms</strong>`,
+                minutes: `<strong>${minutes}</strong>`,
+            })}${warn}<br><span style="color:#737373">${csrT('cases.autoSell', { rules: describeAutoSellRules() })}</span>`;
+            if (btnStart) btnStart.disabled = casesOpenRunning || !canStart;
+            return;
+        }
+
         const minPrice = Math.min(...queue.map(c => c.price));
         const totalOpens = estimateMultiAutoOpens(queue, spendLimit, cachedUserCoins, minutes, delayMs);
         const canStart = minPrice > 0 && minPrice <= spendLimit
@@ -5715,25 +6017,34 @@ function isCasesDropGold(name) {
     return String(name || '').includes('★');
 }
 
-async function resolveSessionDropWeaponIds(drops) {
-    const need = drops.filter(d => !d.weaponId);
-    if (!need.length) return drops;
-    const inv = await apiInv();
-    const used = new Set(drops.filter(d => d.weaponId).map(d => d.weaponId));
-    for (const d of need) {
-        const cands = inv.filter(i => {
-            if (used.has(i.weapon_id)) return false;
-            if (String(i.name || '') !== String(d.name || '')) return false;
-            if (d.rarity != null && parseInt(i.rarity, 10) !== parseInt(d.rarity, 10)) return false;
-            if (d.float != null && i.float != null) {
-                return Math.abs(parseFloat(i.float) - d.float) < 0.00001;
+async function resolveSessionDropWeaponIds(drops, options = {}) {
+    const retries = Math.max(1, options.retries ?? 4);
+    const delayMs = options.delayMs ?? 400;
+
+    for (let attempt = 0; attempt < retries; attempt++) {
+        const need = drops.filter(d => !d.weaponId && !d.sold);
+        if (!need.length) return drops;
+
+        const inv = await apiInv();
+        const used = new Set(drops.filter(d => d.weaponId).map(d => d.weaponId));
+        for (const d of need) {
+            const cands = inv.filter(i => {
+                if (used.has(i.weapon_id)) return false;
+                if (String(i.name || '') !== String(d.name || '')) return false;
+                if (d.rarity != null && parseInt(i.rarity, 10) !== parseInt(d.rarity, 10)) return false;
+                if (d.float != null && i.float != null) {
+                    return Math.abs(parseFloat(i.float) - d.float) < 0.00001;
+                }
+                return d.float == null;
+            });
+            if (cands.length === 1 && cands[0]?.weapon_id != null) {
+                d.weaponId = parseInt(cands[0].weapon_id, 10);
+                used.add(d.weaponId);
             }
-            return d.float == null;
-        });
-        if (cands.length === 1 && cands[0]?.weapon_id != null) {
-            d.weaponId = parseInt(cands[0].weapon_id, 10);
-            used.add(d.weaponId);
         }
+
+        if (!drops.some(d => !d.weaponId && !d.sold)) return drops;
+        if (attempt < retries - 1) await sleep(delayMs);
     }
     return drops;
 }
@@ -5820,6 +6131,70 @@ function clearCasesOpenResults() {
     casesSessionDrops = [];
 }
 
+function getSessionDropSellDisabledReason(drop, dropIdx) {
+    if (!drop || drop.sold) return 'sold';
+    if (casesOpenRunning) return 'busy';
+    if (casesOpenSelling) {
+        if (casesOpenSellingDropIdx == null) return 'busy';
+        if (casesOpenSellingDropIdx === dropIdx) return 'busy';
+    }
+    if (drop.weaponId && csrIsItemSellBlocked({ weapon_id: drop.weaponId })) return 'locked';
+    return null;
+}
+
+async function sellOneSessionDrop(dropIndex) {
+    if (casesOpenRunning) return;
+    if (casesOpenSelling && casesOpenSellingDropIdx == null) return;
+    const drop = casesSessionDrops[dropIndex];
+    if (!drop || drop.sold) return;
+
+    const blockBefore = getSessionDropSellDisabledReason(drop, dropIndex);
+    if (blockBefore === 'locked') {
+        toast(csrT('toast.skinLocked'), 'warn');
+        return;
+    }
+    if (blockBefore) return;
+
+    if (!drop.weaponId) await resolveSessionDropWeaponIds([drop], { retries: 3, delayMs: 300 });
+    if (!drop.weaponId) {
+        toast(csrT('cases.sellItemNoId'), 'warn');
+        return;
+    }
+    if (csrIsItemSellBlocked({ weapon_id: drop.weaponId })) {
+        toast(csrT('toast.skinLocked'), 'warn');
+        renderCasesOpenResults(casesSessionDrops);
+        return;
+    }
+
+    if (!confirm(csrT('cases.confirmSellOneItem', { name: drop.name }))) return;
+
+    casesOpenSelling = true;
+    casesOpenSellingDropIdx = dropIndex;
+    updateCasesOpenSellUi();
+    renderCasesOpenResults(casesSessionDrops);
+
+    const ok = await apiSell(drop.weaponId);
+    casesOpenSelling = false;
+    casesOpenSellingDropIdx = null;
+
+    if (ok) {
+        drop.sold = true;
+        const safeName = escapeCasesHtml(drop.name || '');
+        appendCasesOpenLog(`<span style="color:#86efac">${csrT('cases.log.soldOne')}</span> · <span style="color:#e5e7eb">${safeName}</span>`);
+        casesSessionDrops = casesSessionDrops.filter(d => !d.sold);
+        fetchUserCoins().then(() => {
+            scrapeCoinsFromPage();
+            updateCasesAutoOpenSummary();
+            updateCasesCostSummary();
+        }).catch(() => {});
+    } else {
+        toast(csrT('toast.unknownError'), 'error');
+    }
+
+    renderCasesOpenResults(casesSessionDrops);
+    updateCasesOpenSellUi();
+}
+
 function renderCasesOpenResults(drops) {
     const box = document.getElementById('csrx-cases-open-results');
     const body = document.getElementById('csrx-cases-open-results-body');
@@ -5829,6 +6204,7 @@ function renderCasesOpenResults(drops) {
         return;
     }
 
+    const manualPick = !isCasesAutoSellEnabled();
     const sorted = [...drops].sort((a, b) => {
         const fa = a.float;
         const fb = b.float;
@@ -5853,9 +6229,25 @@ function renderCasesOpenResults(drops) {
         } else {
             floatHtml = '<span class="csrx-cases-result-float" style="color:#737373">—</span>';
         }
+        const dropIdx = casesSessionDrops.indexOf(d);
+        let sellBtn = '';
+        if (manualPick) {
+            const block = getSessionDropSellDisabledReason(d, dropIdx);
+            const disabled = !!block;
+            let title = csrT('cases.sellThisItemTitle');
+            if (block === 'locked') title = csrT('toast.skinLocked');
+            else if (block === 'busy' && casesOpenSellingDropIdx === dropIdx) title = csrT('cases.sellItemBusy');
+            const label = (block === 'busy' && casesOpenSellingDropIdx === dropIdx)
+                ? csrT('cases.sellItemBusy')
+                : csrT('cases.sellThisItem');
+            sellBtn = `<button type="button" class="csrx-cases-result-sell" data-drop-idx="${dropIdx}"${disabled ? ' disabled' : ''} title="${escapeCasesHtml(title)}">${label}</button>`;
+        }
         return `<div class="csrx-cases-result-row">
-            <span class="csrx-cases-result-name" style="${nameStyle}">${safeName}</span>
-            ${floatHtml}
+            <div class="csrx-cases-result-info">
+                <span class="csrx-cases-result-name" style="${nameStyle}">${safeName}</span>
+                ${floatHtml}
+            </div>
+            ${sellBtn}
         </div>`;
     }).join('');
 
@@ -5866,6 +6258,7 @@ function renderCasesOpenResults(drops) {
 async function runCasesSessionQuickSell(filterFn, label, options = {}) {
     const silent = options.silent === true;
     if (casesOpenSelling) return { sold: 0, failed: 0 };
+    await resolveSessionDropWeaponIds(casesSessionDrops, { retries: 2, delayMs: 200 });
     const toSell = getSellableSessionDrops(filterFn);
     if (!toSell.length) {
         if (!silent) toast(csrT('toast.nothingToSell'), 'warn');
@@ -5879,7 +6272,9 @@ async function runCasesSessionQuickSell(filterFn, label, options = {}) {
     }
 
     casesOpenSelling = true;
+    casesOpenSellingDropIdx = null;
     updateCasesOpenSellUi();
+    renderCasesOpenResults(casesSessionDrops);
     const btnStart = document.getElementById('csrx-cases-open-start');
     if (btnStart) btnStart.disabled = true;
 
@@ -5905,6 +6300,7 @@ async function runCasesSessionQuickSell(filterFn, label, options = {}) {
     }
 
     casesOpenSelling = false;
+    casesOpenSellingDropIdx = null;
     if (bar && !casesOpenRunning) bar.style.width = '100%';
     if (!casesOpenRunning) {
         setTimeout(() => { if (prog) prog.style.display = 'none'; if (bar) bar.style.width = '0%'; }, 800);
@@ -5914,9 +6310,10 @@ async function runCasesSessionQuickSell(filterFn, label, options = {}) {
     casesSessionDrops = casesSessionDrops.filter(d => !d.sold);
     renderCasesOpenResults(casesSessionDrops);
     updateCasesOpenSellUi();
-    await fetchUserCoins();
-    scrapeCoinsFromPage();
-    updateCasesAutoOpenSummary();
+    fetchUserCoins().then(() => {
+        scrapeCoinsFromPage();
+        updateCasesAutoOpenSummary();
+    }).catch(() => {});
 
     if (!silent) {
         toast(
@@ -6012,20 +6409,50 @@ async function runCasesAutoOpen() {
     const runDurationMs = minutes * 60 * 1000;
 
     if (multi) {
-        const minPrice = Math.min(...queue.map(c => c.price));
-        if (minPrice <= 0 || spendLimit < minPrice) {
-            toast(csrT('toast.spendTooLow'), 'error');
-            return;
-        }
-        if (!confirm(csrT('cases.confirmOpenMulti', {
-            count: queue.length,
-            names: queue.map(c => c.name).join(', '),
-            spend: formatCoins(spendLimit),
-            minutes,
-            delay: delayMs,
-            rules: describeAutoSellRules(),
-        }))) {
-            return;
+        if (isCasesMultiQuotaMode()) {
+            const quotas = getMultiCaseQuotasFromUi();
+            const rawPlan = buildQuotaOpenPlan(queue, quotas);
+            const plan = getEffectiveQuotaPlan(queue, quotas, cachedUserCoins, minutes, delayMs);
+            if (!rawPlan.length) {
+                toast(csrT('cases.quotaEmpty'), 'warn');
+                return;
+            }
+            if (!plan.length) {
+                toast(csrT('cases.quotaTooExpensive'), 'error');
+                return;
+            }
+            const totalCost = plan.reduce((s, c) => s + c.price, 0);
+            const totalOpens = plan.length;
+            if (totalOpens <= 0) {
+                toast(csrT('cases.quotaTooExpensive'), 'error');
+                return;
+            }
+            if (!confirm(csrT('cases.confirmOpenMultiQuota', {
+                breakdown: formatMultiQuotaBreakdown(queue, quotas),
+                opens: totalOpens,
+                cost: formatCoins(totalCost),
+                minutes,
+                delay: delayMs,
+                rules: describeAutoSellRules(),
+            }))) {
+                return;
+            }
+        } else {
+            const minPrice = Math.min(...queue.map(c => c.price));
+            if (minPrice <= 0 || spendLimit < minPrice) {
+                toast(csrT('toast.spendTooLow'), 'error');
+                return;
+            }
+            if (!confirm(csrT('cases.confirmOpenMulti', {
+                count: queue.length,
+                names: queue.map(c => c.name).join(', '),
+                spend: formatCoins(spendLimit),
+                minutes,
+                delay: delayMs,
+                rules: describeAutoSellRules(),
+            }))) {
+                return;
+            }
         }
     } else {
         const picked = queue[0];
@@ -6076,29 +6503,61 @@ async function runCasesAutoOpen() {
     let multiIdx = 0;
 
     if (multi) {
-        appendCasesOpenLog(`<span style="color:#a3a3a3">${csrT('cases.log.startingMulti', { count: queue.length, minutes })}</span>`);
-        let needDelay = false;
-        while (isCasesSessionActive(sessionGen) && Date.now() < end) {
-            const next = pickNextMultiCase(queue, multiIdx, spendLimit - totalSpent, cachedUserCoins);
-            if (!next) break;
-            multiIdx = next.nextIdx;
-            const picked = next.picked;
-
-            if (needDelay) await sleep(delayMs);
-            if (!isCasesSessionActive(sessionGen)) break;
-
-            if (bar && spendLimit > 0) bar.style.width = `${Math.round(Math.min(totalSpent / spendLimit, 1) * 100)}%`;
-
-            try {
-                const data = await openCaseOnce(picked.id);
+        if (isCasesMultiQuotaMode()) {
+            const quotas = getMultiCaseQuotasFromUi();
+            const plan = getEffectiveQuotaPlan(queue, quotas, cachedUserCoins, minutes, delayMs);
+            const planTotal = plan.length;
+            appendCasesOpenLog(`<span style="color:#a3a3a3">${csrT('cases.log.startingMultiQuota', { opens: planTotal, minutes })}</span>`);
+            let needDelay = false;
+            let opened = 0;
+            for (const picked of plan) {
                 if (!isCasesSessionActive(sessionGen)) break;
-                totalSpent += picked.price;
-                await processAutoOpenDrop(sessionGen, picked, data, sessionDrops);
-                needDelay = true;
-            } catch (e) {
-                lastErr = e?.message || 'Unknown error';
-                appendCasesOpenLog(`<span style="color:#ef4444">${csrT('cases.log.error', { msg: escapeCasesHtml(lastErr) })}</span>`);
-                break;
+                if (Date.now() >= end) break;
+                if (cachedUserCoins != null && cachedUserCoins < picked.price) break;
+
+                if (needDelay) await sleep(delayMs);
+                if (!isCasesSessionActive(sessionGen)) break;
+
+                if (bar && planTotal > 0) bar.style.width = `${Math.round((opened / planTotal) * 100)}%`;
+
+                try {
+                    const data = await openCaseOnce(picked.id);
+                    if (!isCasesSessionActive(sessionGen)) break;
+                    totalSpent += picked.price;
+                    opened++;
+                    await processAutoOpenDrop(sessionGen, picked, data, sessionDrops);
+                    needDelay = true;
+                } catch (e) {
+                    lastErr = e?.message || 'Unknown error';
+                    appendCasesOpenLog(`<span style="color:#ef4444">${csrT('cases.log.error', { msg: escapeCasesHtml(lastErr) })}</span>`);
+                    break;
+                }
+            }
+        } else {
+            appendCasesOpenLog(`<span style="color:#a3a3a3">${csrT('cases.log.startingMulti', { count: queue.length, minutes })}</span>`);
+            let needDelay = false;
+            while (isCasesSessionActive(sessionGen) && Date.now() < end) {
+                const next = pickNextMultiCase(queue, multiIdx, spendLimit - totalSpent, cachedUserCoins);
+                if (!next) break;
+                multiIdx = next.nextIdx;
+                const picked = next.picked;
+
+                if (needDelay) await sleep(delayMs);
+                if (!isCasesSessionActive(sessionGen)) break;
+
+                if (bar && spendLimit > 0) bar.style.width = `${Math.round(Math.min(totalSpent / spendLimit, 1) * 100)}%`;
+
+                try {
+                    const data = await openCaseOnce(picked.id);
+                    if (!isCasesSessionActive(sessionGen)) break;
+                    totalSpent += picked.price;
+                    await processAutoOpenDrop(sessionGen, picked, data, sessionDrops);
+                    needDelay = true;
+                } catch (e) {
+                    lastErr = e?.message || 'Unknown error';
+                    appendCasesOpenLog(`<span style="color:#ef4444">${csrT('cases.log.error', { msg: escapeCasesHtml(lastErr) })}</span>`);
+                    break;
+                }
             }
         }
     } else {
@@ -6140,8 +6599,11 @@ async function runCasesAutoOpen() {
     updateCasesAutoOpenSummary();
     updateCasesCostSummary();
 
+    casesOpenRunning = false;
+    if (btnStop) btnStop.style.display = 'none';
+
     if (isCasesSessionActive(sessionGen)) {
-        await resolveSessionDropWeaponIds(sessionDrops);
+        await resolveSessionDropWeaponIds(sessionDrops, { retries: 4, delayMs: 400 });
         casesSessionDrops = sessionDrops.filter(d => !d.sold);
         if (isCasesAutoSellEnabled() && casesAutoOpenSellCfg.timing === 'end') {
             await runCasesSessionQuickSell(
@@ -6155,9 +6617,7 @@ async function runCasesAutoOpen() {
 
     if (sessionGen !== casesOpenActiveGen) return;
 
-    casesOpenRunning = false;
     casesOpenAbort = false;
-    if (btnStop) btnStop.style.display = 'none';
     setTimeout(() => { if (prog) prog.style.display = 'none'; if (bar) bar.style.width = '0%'; }, 800);
     updateCasesAutoOpenSummary();
 
@@ -6195,9 +6655,14 @@ function setupCasesBulkBuy() {
         <button type="button" id="csrx-cases-tab-open" class="csrx-cases-tab" data-i18n="cases.tab.open">${csrT('cases.tab.open')}</button>
     </div>
     <div>
+        <div id="csrx-cases-pick-search-wrap">
+            <label for="csrx-cases-pick-search" data-i18n="cases.search">${csrT('cases.search')}</label>
+            <input type="search" id="csrx-cases-pick-search" placeholder="${csrT('cases.searchPlaceholder')}" autocomplete="off" spellcheck="false">
+        </div>
         <div id="csrx-cases-select-wrap">
             <label for="csrx-cases-select" data-i18n="cases.weaponCase">${csrT('cases.weaponCase')}</label>
             <select id="csrx-cases-select" class="csrx-sel" style="margin-top:6px;width:100%;"></select>
+            <div id="csrx-cases-select-search-empty" class="csrx-cases-search-empty" hidden data-i18n="cases.searchNoResults">${csrT('cases.searchNoResults')}</div>
         </div>
         <div id="csrx-cases-open-mode-wrap" style="display:none;">
             <label data-i18n="cases.openMode">${csrT('cases.openMode')}</label>
@@ -6207,8 +6672,16 @@ function setupCasesBulkBuy() {
             </div>
         </div>
         <div id="csrx-cases-open-multi-wrap">
-            <label data-i18n="cases.multiCasePick">${csrT('cases.multiCasePick')}</label>
+            <div id="csrx-cases-multi-strategy-wrap">
+                <label data-i18n="cases.multiStrategy">${csrT('cases.multiStrategy')}</label>
+                <div class="csrx-cases-open-mode">
+                    <button type="button" id="csrx-cases-multi-strategy-cycle" class="csrx-cases-open-mode-btn" data-i18n="cases.multiStrategyCycle">${csrT('cases.multiStrategyCycle')}</button>
+                    <button type="button" id="csrx-cases-multi-strategy-quota" class="csrx-cases-open-mode-btn" data-i18n="cases.multiStrategyQuota">${csrT('cases.multiStrategyQuota')}</button>
+                </div>
+            </div>
+            <label id="csrx-cases-multi-pick-label" data-i18n="cases.multiCasePick">${csrT('cases.multiCasePick')}</label>
             <div id="csrx-cases-open-multi-list"></div>
+            <div id="csrx-cases-multi-search-empty" class="csrx-cases-search-empty" hidden data-i18n="cases.searchNoResults">${csrT('cases.searchNoResults')}</div>
             <div id="csrx-cases-open-multi-actions">
                 <button type="button" id="csrx-cases-multi-select-all" data-i18n="cases.multiSelectAll">${csrT('cases.multiSelectAll')}</button>
                 <button type="button" id="csrx-cases-multi-clear" data-i18n="cases.multiClear">${csrT('cases.multiClear')}</button>
@@ -6277,6 +6750,7 @@ function setupCasesBulkBuy() {
         resetCasesWinPosition(win);
         syncCasesPanelVisibility();
         syncCasesModeUi();
+        refreshCasesAutoOpenFromStorage().catch(() => {});
         fetchCasesCatalog();
         fetchUserCoins();
         scrapeCoinsFromPage();
@@ -6288,7 +6762,11 @@ function setupCasesBulkBuy() {
     });
 
     document.getElementById('csrx-cases-tab-bulk')?.addEventListener('click', () => { casesMode = 'bulk'; syncCasesModeUi(); });
-    document.getElementById('csrx-cases-tab-open')?.addEventListener('click', () => { casesMode = 'open'; syncCasesModeUi(); });
+    document.getElementById('csrx-cases-tab-open')?.addEventListener('click', () => {
+        casesMode = 'open';
+        syncCasesModeUi();
+        refreshCasesAutoOpenFromStorage().catch(() => {});
+    });
 
     document.getElementById('csrx-cases-open-mode-single')?.addEventListener('click', () => {
         casesAutoOpenCfg = { ...casesAutoOpenCfg, openMode: 'single' };
@@ -6302,18 +6780,41 @@ function setupCasesBulkBuy() {
         scheduleSaveCasesAutoOpenConfig(casesAutoOpenCfg);
         updateCasesAutoOpenSummary();
     });
-    document.getElementById('csrx-cases-open-multi-list')?.addEventListener('change', () => {
-        scheduleSaveCasesAutoOpenConfig({ ...casesAutoOpenCfg, multiCaseIds: getMultiSelectedCaseIds() });
+    document.getElementById('csrx-cases-multi-strategy-cycle')?.addEventListener('click', () => setCasesMultiStrategy('cycle'));
+    document.getElementById('csrx-cases-multi-strategy-quota')?.addEventListener('click', () => setCasesMultiStrategy('quota'));
+    document.getElementById('csrx-cases-pick-search')?.addEventListener('input', applyCasesPickSearch);
+    document.getElementById('csrx-cases-open-multi-list')?.addEventListener('change', (e) => {
+        const cb = e.target.closest('input[type="checkbox"][data-case-id]');
+        if (cb) {
+            const qtyInp = cb.closest('.csrx-cases-multi-row')?.querySelector('.csrx-cases-multi-qty');
+            if (qtyInp) qtyInp.disabled = !cb.checked;
+        }
+        persistMultiCaseSelection();
         updateCasesAutoOpenSummary();
     });
+    document.getElementById('csrx-cases-open-multi-list')?.addEventListener('input', (e) => {
+        if (e.target.classList.contains('csrx-cases-multi-qty')) {
+            persistMultiCaseSelection();
+            updateCasesAutoOpenSummary();
+        }
+    });
+    document.getElementById('csrx-cases-open-multi-list')?.addEventListener('blur', (e) => {
+        if (e.target.classList.contains('csrx-cases-multi-qty')) {
+            normalizeCasesQtyInput(e.target);
+            persistMultiCaseSelection();
+            updateCasesAutoOpenSummary();
+        }
+    }, true);
     document.getElementById('csrx-cases-multi-select-all')?.addEventListener('click', () => {
-        document.querySelectorAll('#csrx-cases-open-multi-list input[type="checkbox"]').forEach(inp => { inp.checked = true; });
-        scheduleSaveCasesAutoOpenConfig({ ...casesAutoOpenCfg, multiCaseIds: getMultiSelectedCaseIds() });
+        document.querySelectorAll('#csrx-cases-open-multi-list .csrx-cases-multi-row:not(.csrx-cases-multi-row-hidden) input[type="checkbox"]').forEach(inp => { inp.checked = true; });
+        document.querySelectorAll('#csrx-cases-open-multi-list .csrx-cases-multi-row:not(.csrx-cases-multi-row-hidden) .csrx-cases-multi-qty').forEach(inp => { inp.disabled = false; });
+        persistMultiCaseSelection();
         updateCasesAutoOpenSummary();
     });
     document.getElementById('csrx-cases-multi-clear')?.addEventListener('click', () => {
         document.querySelectorAll('#csrx-cases-open-multi-list input[type="checkbox"]').forEach(inp => { inp.checked = false; });
-        scheduleSaveCasesAutoOpenConfig({ ...casesAutoOpenCfg, multiCaseIds: [] });
+        document.querySelectorAll('#csrx-cases-open-multi-list .csrx-cases-multi-qty').forEach(inp => { inp.disabled = true; });
+        persistMultiCaseSelection();
         updateCasesAutoOpenSummary();
     });
 
@@ -6384,6 +6885,13 @@ function setupCasesBulkBuy() {
             csrT('cases.confirmSellNonGold')
         );
     });
+    document.getElementById('csrx-cases-open-results-body')?.addEventListener('click', (e) => {
+        const btn = e.target.closest('.csrx-cases-result-sell');
+        if (!btn || btn.disabled) return;
+        const idx = parseInt(btn.dataset.dropIdx, 10);
+        if (!Number.isFinite(idx)) return;
+        sellOneSessionDrop(idx);
+    });
 
     {
         let drag = false;
@@ -6415,6 +6923,7 @@ function setupCasesBulkBuy() {
         if (minsInp) minsInp.value = String(cfg.minutes ?? 10);
         if (spendInp) spendInp.value = String(cfg.spendLimit ?? 150000);
         populateCasesMultiList();
+        syncMultiStrategyUi();
         syncCasesOpenSubModeUi();
         updateCasesAutoOpenSummary();
     }).catch(() => {});
@@ -6427,14 +6936,18 @@ function setupCasesBulkBuy() {
                 casesAutoOpenSellCfg = normalizeCasesAutoSellCfg(changes[CASES_AUTO_OPEN_SELL_CFG_KEY]);
                 syncCasesAutoSellBatchInput();
                 updateCasesAutoOpenSummary();
+                if (casesSessionDrops.length) renderCasesOpenResults(casesSessionDrops);
                 updateCasesOpenSellUi();
             }
             if (Object.prototype.hasOwnProperty.call(changes, CASES_AUTO_OPEN_CFG_KEY)) {
+                clearTimeout(_casesCfgSaveTimer);
+                _casesCfgSaveTimer = null;
                 casesAutoOpenCfg = normalizeCasesAutoCfg(changes[CASES_AUTO_OPEN_CFG_KEY]);
                 if (delayInp) delayInp.value = String(casesAutoOpenCfg.delayMs ?? CASES_OPEN_DELAY_MIN_MS);
                 if (minsInp) minsInp.value = String(casesAutoOpenCfg.minutes ?? 10);
                 if (spendInp) spendInp.value = String(casesAutoOpenCfg.spendLimit ?? 150000);
                 populateCasesMultiList();
+                syncMultiStrategyUi();
                 syncCasesOpenSubModeUi();
                 updateCasesAutoOpenSummary();
             }

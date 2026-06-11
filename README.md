@@ -1,10 +1,10 @@
 # CS:Restored Inventory Helper
 
-Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.fun) — float and paint seed overlays, search and filters on inventory/marketplace, a quick-sell panel, **case bulk buy** and **auto case opening** (with optional **session auto-sell**) on the Cases tab, optional **toolbar settings** to turn each feature on or off, **skin lock** to avoid accidental sells, **multi-language UI** (popup + on-site panels), optional **browser sync** and **JSON backup** for settings, a **live user counter** in the popup header, and an **About** tab with release info and (on Chromium) a GitHub update checker.
+Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.fun) — float and paint seed overlays, search and filters on inventory/marketplace, a quick-sell panel, **case bulk buy** and **auto case opening** (single or **multi case**, with optional **session auto-sell** and **per-item sell**) on the Cases tab, optional **toolbar settings** to turn each feature on or off, **skin lock** to avoid accidental sells, **multi-language UI** (popup + on-site panels), optional **browser sync** and **JSON backup** for settings, a **live user counter** in the popup header, and an **About** tab with release info and (on Chromium) a GitHub update checker.
 
 Works in **Firefox**, **Microsoft Edge**, and **Chromium** browsers (Manifest V3).
 
-**Current version:** `3.7.5`
+**Current version:** `3.8.0`
 
 **Repository:** [github.com/smelbravo/CS-Restored-Inventory-Helper](https://github.com/smelbravo/CS-Restored-Inventory-Helper)
 
@@ -154,7 +154,7 @@ Popup header shows an approximate **ONLINE** count (CounterAPI, namespace `csr-i
 | **Quick Sell & Market** | Bottom-right CS:R button, helper panel, and Confirm Sale flow |
 | **Trade offer search** | Compact search bar in Send Trade Offer (My Items / Their Items) |
 | **Case bulk buy** | Floating panel on [Cases](https://csrestored.fun/app/inventory/cases) — pick case + quantity, buy to in-game inventory |
-| **Auto case opening** | Auto-open cases on [Cases](https://csrestored.fun/app/inventory/cases) — spend/time limits, session auto-sell rules, results sorted by float (**on by default**) |
+| **Auto case opening** | Auto-open cases on [Cases](https://csrestored.fun/app/inventory/cases) — single or multi case, spend/time limits, session auto-sell, per-item sell, results sorted by float (**on by default**) |
 
 #### Auto case opening — popup section (v3.5+)
 
@@ -162,16 +162,17 @@ When **Auto case opening** is enabled, the toolbar popup shows a **dedicated sub
 
 | Setting | Options | Default |
 |---------|---------|---------|
-| **Auto-sell session drops** | Manual only / Auto: all non-gold (★ kept) / Auto: selected rarities | **Manual only** |
+| **Multi case opening** | Cycle until spend limit / Fixed opens per case | **Cycle** |
+| **Auto-sell session drops** | Manual — each item or bulk / Auto: all non-gold (★ kept) / Auto: selected rarities | **Manual** |
 | **Rarity checkboxes** | Consumer → Contraband (when “selected rarities” is on) | All off |
 | **When to auto-sell** | When session ends / After each case opens | When session ends |
 | **Auto-sell batch size** | 1–20 | 5 |
 
 - Auto-sell applies **only to skins dropped in the current auto-open run** — never your full inventory.
-- **Manual only** is the default so existing users are not surprised by automatic sells after an update.
-- **Reset defaults** turns **Auto case opening** on and keeps auto-sell on **Manual only**.
+- **Manual** is the default — sell each drop with **Sell** on its row, or use bulk buttons (non-gold / by rarity).
+- **Reset defaults** turns **Auto case opening** on and keeps auto-sell on **Manual**.
 
-Saved in `storage.local` under `csrCasesAutoOpenSellConfig` (popup) plus `csrCasesAutoOpenConfig` (delay, minutes, spend limit on the Cases panel).
+Saved in `storage.local` under `csrCasesAutoOpenSellConfig` (popup) plus `csrCasesAutoOpenConfig` (delay, minutes, spend limit, open mode, multi case IDs, multi strategy, per-case quotas on the Cases panel).
 
 - Disabled features stop injecting UI and skip related work on the page (useful on large inventories or if you only want overlays).
 - Changes apply within about **0.4 seconds** on the open tab, or immediately when you change a toggle in the popup.
@@ -237,8 +238,9 @@ Use this for the “buy X cases in one click” workflow without clicking each c
 
 When **Auto case opening** is enabled, the gold **Cases** panel on [`/app/inventory/cases`](https://csrestored.fun/app/inventory/cases) shows an **Auto open** tab (toggle in the extension popup; **on by default** for new installs / Reset defaults).
 
-- Choose **weapon case** from the shop list
-- Configure **delay (ms)** (default **1000** — safer for site rate limits), **minutes** (time limit), and **spend limit (coins)** — saved in `storage.local` (`csrCasesAutoOpenConfig`)
+- **Search cases** — filter by name (bulk buy dropdown, single-case select, and multi-case list)
+- **Open mode:** **Single case** (one case type, repeat) or **Multi case** (several types in one session) — v3.8+
+- Configure **delay (ms)** (default and minimum **400**), **minutes** (time limit), and **spend limit (coins)** — saved in `storage.local` (`csrCasesAutoOpenConfig`)
 - **Start auto open** loops `POST /inventory/cases/open/{caseId}` until limits, stop, or an error
 - **Live log** during the run (rarity-colored drops, gold ★ highlighted)
 - **Results** table when the session ends: every skin with **float + wear**, sorted **best float first** (lowest → highest)
@@ -247,20 +249,36 @@ When **Auto case opening** is enabled, the gold **Cases** panel on [`/app/invent
 
 If the API omits float on a drop, that row shows `—` and sorts after items with a known float.
 
-If you see **Too Many Requests**, the CS:R server rate-limited the open request — increase **delay** (try **1000–2000 ms**), wait a minute, and retry. This is unrelated to inventory size.
+If you see **Too Many Requests**, the CS:R server rate-limited the open request — increase **delay** (try **800–1500 ms**), wait a minute, and retry. This is unrelated to inventory size.
+
+#### Multi case opening (v3.8+)
+
+On the **Auto open** tab, switch **Open mode** to **Multi case**:
+
+| Control | What it does |
+|---------|----------------|
+| **Multi open style** | **Cycle until limit** — rotate selected cases one-by-one until spend/coins/time runs out |
+| | **Fixed per case** — set opens (1–99) per selected case; spend limit hidden (plan uses quantities + your balance) |
+| **Case list** | Checkboxes for each case; quantity field on the right when **Fixed per case** is on |
+| **Select all / Clear** | Bulk select (filtered list only when search is active) |
+
+Strategy can be changed in the **toolbar popup** (Auto case opening → Multi case opening) or on the Cases panel — both stay in sync via `csrCasesAutoOpenConfig.multiStrategy`.
+
+Summary line shows estimated opens (cycle) or planned breakdown (e.g. `5× Cobblestone, 3× Bravo · 8 opens`).
 
 #### Session auto-sell (v3.5+)
 
-Configure in the **toolbar popup** under **Auto case opening** (see table above). Optional **manual sell buttons** on the Cases panel after a session:
+Configure in the **toolbar popup** under **Auto case opening** (see table above). Sell controls on the Cases panel after a session:
 
 | Popup auto-sell mode | Cases panel after session |
 |----------------------|---------------------------|
-| **Manual only** | Full **Sell session drops** block: rarity dropdown, **Quick sell this rarity**, batch size, plus **Quick sell all non-gold** |
+| **Manual** | **Sell** on each row in results + **Quick sell all non-gold** + rarity dropdown / **Quick sell this rarity** + batch size |
 | **Auto** (non-gold or selected rarities) | Only **Quick sell all non-gold (N)** for leftovers that did not match auto-sell rules |
 
-- **Quick sell all non-gold** — instant sell every ★-less drop from **this session only** (knives/gloves kept)
+- **Sell** (per item, v3.8+) — quick sell **one** drop; keep skins you like for your loadout
+- **Quick sell all non-gold** — sell every ★-less drop from **this session only** (knives/gloves kept)
 - **Quick sell this rarity** — sell one rarity tier from session drops (manual mode only)
-- Auto-sell at **session end** runs in batch without a second confirm; **manual** buttons still ask for confirmation
+- Auto-sell at **session end** runs in batch without a second confirm; **manual** actions still ask for confirmation
 - **After each case opens** recycles coins faster but sends more sell requests — use batch size **1–2** if the site is slow
 
 Uses the same `POST /inventory/sell/{weapon_id}` endpoint as Quick Sell. Locked skins (`weapon_id` in lock list) are skipped.
@@ -332,7 +350,7 @@ The **`.xpi` on GitHub** is unsigned and **does not install** on Firefox Release
 
 ## Releases
 
-Stable downloads: [GitHub Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) (latest: **v3.7.5**).
+Stable downloads: [GitHub Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) (latest: **v3.8.0**).
 
 | Browser | Install |
 |---------|---------|
@@ -422,6 +440,14 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 | `develop` | Integration branch for next release |
 
 ## Changelog
+
+### v3.8.0
+
+- **New:** **Multi case opening** — Single / Multi toggle; cycle or fixed opens per case; strategy in popup + Cases panel
+- **New:** **Case search** on Cases panel (dropdown and multi list)
+- **New:** **Per-item Sell** in manual mode — keep drops you like; bulk non-gold / by rarity still available
+- **Change:** Auto-open delay default and minimum **400 ms**
+- **Fix:** Sell buttons available immediately when session ends; ID resolution retries; smoother one-by-one selling
 
 ### v3.7.5
 

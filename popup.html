@@ -109,6 +109,19 @@
                             </div>
                         </label>
                         <div id="case-auto-open-sub" class="feature-sub">
+                            <div id="multi-case-wrap" class="sub-block">
+                                <div class="sub-title sub-title-sm" data-i18n="popup.multiCase.title">Multi case opening</div>
+                                <p class="sub-hint" data-i18n="popup.multiCase.hint">On the Cases tab, choose Multi case and select cases there. Quantity fields appear when using fixed counts.</p>
+                                <label class="sub-row">
+                                    <input type="radio" name="multiStrategy" value="cycle" checked>
+                                    <span class="sub-row-txt" data-i18n="popup.multiCase.cycle">Cycle one by one until spend limit</span>
+                                </label>
+                                <label class="sub-row">
+                                    <input type="radio" name="multiStrategy" value="quota">
+                                    <span class="sub-row-txt" data-i18n="popup.multiCase.quota">Fixed opens per case</span>
+                                </label>
+                            </div>
+
                             <div class="sub-title" data-i18n="popup.caseAutoSell.title">Auto-sell session drops</div>
                             <p class="sub-hint" data-i18n="popup.caseAutoSell.hint">Only items from the current auto-open run — never your full inventory. Default is manual.</p>
 

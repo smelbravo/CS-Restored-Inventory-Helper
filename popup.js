@@ -5,6 +5,7 @@
 const FEATURES_KEY = 'csrFeatureSettings';
 const LOCKS_KEY = 'csrLockedWeaponIds';
 const SELL_CFG_KEY = 'csrCasesAutoOpenSellConfig';
+const CASES_AUTO_CFG_KEY = 'csrCasesAutoOpenConfig';
 const AUTO_UPDATE_KEY = 'csrAutoUpdateCheck';
 
 const REPO = 'smelbravo/CS-Restored-Inventory-Helper';
@@ -127,6 +128,7 @@ function normalizeLocks(raw) {
 
 let featureState = { ...DEFAULTS };
 let sellState = normalizeSellConfig(null);
+let casesOpenUi = { multiStrategy: 'cycle' };
 let lockIds = [];
 let autoUpdateEnabled = true;
 
@@ -272,6 +274,33 @@ function updateLockCount() {
     }
 }
 
+function readMultiStrategyUi() {
+    const el = document.querySelector('input[name="multiStrategy"]:checked');
+    return el?.value === 'quota' ? 'quota' : 'cycle';
+}
+
+async function loadCasesOpenUiState() {
+    if (typeof csrPrefsGet !== 'function') return;
+    try {
+        const data = await csrPrefsGet([CASES_AUTO_CFG_KEY]);
+        const raw = data?.[CASES_AUTO_CFG_KEY];
+        casesOpenUi.multiStrategy = raw?.multiStrategy === 'quota' ? 'quota' : 'cycle';
+    } catch (_) { /* ignore */ }
+}
+
+async function persistCasesOpenUi() {
+    if (typeof csrPrefsGet !== 'function' || typeof csrPrefsSet !== 'function') return;
+    try {
+        const data = await csrPrefsGet([CASES_AUTO_CFG_KEY]);
+        const cur = data?.[CASES_AUTO_CFG_KEY] && typeof data[CASES_AUTO_CFG_KEY] === 'object'
+            ? data[CASES_AUTO_CFG_KEY]
+            : {};
+        await csrPrefsSet({
+            [CASES_AUTO_CFG_KEY]: { ...cur, multiStrategy: casesOpenUi.multiStrategy },
+        });
+    } catch (_) { /* ignore */ }
+}
+
 function readSellUi() {
     const modeEl = document.querySelector('input[name="sellMode"]:checked');
     const timingEl = document.querySelector('input[name="sellTiming"]:checked');
@@ -322,6 +351,10 @@ function syncCheckboxes() {
     });
     const batchInp = document.getElementById('sell-batch');
     if (batchInp) batchInp.value = String(sellState.batchSize);
+
+    document.querySelectorAll('input[name="multiStrategy"]').forEach(inp => {
+        inp.checked = inp.value === casesOpenUi.multiStrategy;
+    });
 
     syncSellSubVisibility();
     updateLockCount();
@@ -390,6 +423,14 @@ document.querySelectorAll('input[name="sellTiming"]').forEach(inp => {
         if (!inp.checked) return;
         sellState = readSellUi();
         persist();
+    });
+});
+
+document.querySelectorAll('input[name="multiStrategy"]').forEach(inp => {
+    inp.addEventListener('change', async () => {
+        if (!inp.checked) return;
+        casesOpenUi.multiStrategy = readMultiStrategyUi();
+        await persistCasesOpenUi();
     });
 });
 
@@ -718,6 +759,13 @@ async function bindSettingsAccountUi() {
                 featureState = normalizeFeatures(changes[FEATURES_KEY]);
                 syncCheckboxes();
             }
+            if (Object.prototype.hasOwnProperty.call(changes, CASES_AUTO_CFG_KEY)) {
+                const raw = changes[CASES_AUTO_CFG_KEY];
+                casesOpenUi.multiStrategy = raw?.multiStrategy === 'quota' ? 'quota' : 'cycle';
+                document.querySelectorAll('input[name="multiStrategy"]').forEach(inp => {
+                    inp.checked = inp.value === casesOpenUi.multiStrategy;
+                });
+            }
             if (Object.prototype.hasOwnProperty.call(changes, SELL_CFG_KEY)) {
                 sellState = normalizeSellConfig(changes[SELL_CFG_KEY]);
                 syncCheckboxes();
@@ -756,5 +804,6 @@ setTimeout(() => {
         syncCheckboxes();
         bootAbout();
         bindSettingsAccountUi();
+        loadCasesOpenUiState().then(() => syncCheckboxes());
     });
 }, 0);
