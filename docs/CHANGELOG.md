@@ -1,11 +1,14 @@
 # Changelog
 
-## Unreleased
+## 3.8.3
 
 **New — trade partner inventory overlays**
-- **Send Trade Offer → Their Items:** active fetch `GET /users/{id}/inventory` (float, seed, `skin_index`, CH tier) when you pick a friend — same badges as your inventory
-- **Trade detail** (Your offer / Their offer): loads partner inventory from trade `initiator_id` / `recipient_id` and enriches their side
-- Caches per user ID; still hooks passive site fetches; friends list from `/users/friends` for name → ID matching
+- **Send Trade Offer → Their Items:** active fetch `GET /users/{id}/inventory` — float, seed, **`skin_index`** (Doppler/Gamma phase), and Case Hardened tier on the trade partner's items (same badges as your inventory)
+- **Trade detail** (Your offer / Their offer): loads partner inventory from trade `initiator_id` / `recipient_id` and overlays **Their offer**
+- Per-user session cache; passive hook when the site fetches the same endpoint; `/users/friends` for name → user ID
+
+**Credits**
+- **[CSR+](https://github.com/queryery/CSR-PLUS)** / **query (9uery)** — documented the `/users/{id}/inventory` API and trade-inventory approach in CSR+ Trades; this feature was implemented with his guidance and permission
 
 ## 3.8.2
 

@@ -4,7 +4,7 @@ Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.f
 
 Works in **Firefox**, **Microsoft Edge**, and **Chromium** browsers (Manifest V3).
 
-**Current version:** `3.8.2`
+**Current version:** `3.8.3`
 
 **Repository:** [github.com/smelbravo/CS-Restored-Inventory-Helper](https://github.com/smelbravo/CS-Restored-Inventory-Helper)
 
@@ -31,8 +31,8 @@ On **Doppler / Gamma Doppler** and **Case Hardened** skins, extra badges show **
 |------|-------|-------|
 | **Inventory** | `/app/inventory` | Badges in the bottom-right corner of each card |
 | **Marketplace** | `/app/inventory/marketplace` | Float/seed top-right; phase badge beside wear when known (see [Marketplace Doppler phases](#marketplace-doppler--gamma-doppler-phases)) |
-| **Trade views** | `/app/play`, `/app/inventory/trade-up` | Float/seed for **your** items when inventory data is available; disable in popup **Trades** → **Trade float & seed overlays** to reduce lag |
-| **Send Trade Offer** | Modal on site | Search on item grid (My Items / Their Items); filters on Inventory, Marketplace, Create Offer; trade float/seed toggle applies here too; **Their Items** float/seed depends on site API (see limitations) |
+| **Trade views** | `/app/play`, `/app/inventory/trade-up` | Float/seed/pattern for **your** items; **trade detail** loads partner inventory for **Their offer** (v3.8.3+) |
+| **Send Trade Offer** | Modal on site | **My Items** — your inventory; **Their Items** — partner float, seed, Doppler phase, CH tier via `GET /users/{id}/inventory` (v3.8.3+); search + trade float toggle |
 
 Data is matched by offer ID, skin image, wear, StatTrak, and name. The extension reads data from the site's own API responses in your browser session — it does not send data to external servers or spam duplicate API calls.
 
@@ -138,7 +138,7 @@ Skin lock is listed before Quick Sell so you protect items before using bulk sel
 
 Manual Chromium install: download the release `.zip` from GitHub → `chrome://extensions` → Developer mode → **Load unpacked** (or replace files and **Reload**).
 
-Update checker inspired by [CSR+](https://github.com/queryery/CSR-PLUS) (used with permission) — adapted for this repo (`smelbravo/CS-Restored-Inventory-Helper`).
+Update checker inspired by [CSR+](https://github.com/queryery/CSR-PLUS) (used with permission) — adapted for this repo (`smelbravo/CS-Restored-Inventory-Helper`). Trade partner inventory overlays (v3.8.3) use the same API pattern as CSR+ Trades — see [Credits](#credits--acknowledgments).
 
 #### Language (v3.5+)
 
@@ -347,8 +347,12 @@ Compact **search bar** inside the trade modal (My Items and Their Items):
 
 ## Trade overlay behaviour
 
-- **Your offer / My items**: float + seed from your inventory (`GET /inventory/`)
-- **Their offer / Other player's items**: float, seed, and pattern badges load from **`GET /users/{id}/inventory`** (active fetch when you pick a friend or open trade detail). Same Doppler/CH rules as inventory when `skin_index` / `seed` are in the response.
+- **Your offer / My items**: float + seed + pattern badges from your inventory (`GET /inventory/`)
+- **Their offer / Their Items (trade partner)**: active fetch **`GET /users/{id}/inventory`** when you pick a friend in **Send Trade Offer** or open **trade detail** (Your offer / Their offer). Shows float, seed, **`skin_index`** (Doppler/Gamma phase), and Case Hardened tier when the API returns them — same badge rules as your inventory.
+- Partner ID comes from the selected friend, `/users/friends` name match, or trade `initiator_id` / `recipient_id`. Inventory is cached per user for the session.
+- Disable trade overlays in popup **Trades** → **Trade float & seed overlays** to reduce lag on large inventories (500+ skins).
+
+Thanks to **query** ([CSR+](https://github.com/queryery/CSR-PLUS)) for documenting the `/users/{id}/inventory` endpoint and the trade-inventory approach used in CSR+ Trades — this feature was built with his guidance and permission. See [Credits](#credits--acknowledgments).
 
 ## Installation
 
@@ -387,7 +391,7 @@ The **`.xpi` on GitHub** is unsigned and **does not install** on Firefox Release
 
 ## Releases
 
-Stable downloads: [GitHub Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) (latest: **v3.8.2**).
+Stable downloads: [GitHub Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) (latest: **v3.8.3**).
 
 | Browser | Install |
 |---------|---------|
@@ -437,7 +441,8 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 | `GET /inventory/` | Your inventory (float, seed, weapon_id, **skin_index** on phased skins) |
 | `GET /inventory/marketplace/` | Marketplace listings (`skin_float`, `skin_seed`, price; **no `skin_index`**) |
 | `GET /api/trades` | Trade offers (intercepted from site; not fetched by extension) |
-| `GET /users/{id}/inventory` | Friend inventory for Send Trade Offer (Their Items) |
+| `GET /users/{id}/inventory` | Friend / trade partner inventory (float, seed, `skin_index` — Send Trade Offer Their Items, trade detail) |
+| `GET /users/friends` | Friends list (name → user ID for trade partner fetch) |
 | `GET /api/user/{id}/inventory` | Site inventory route (intercepted; may include quick sell prices) |
 | `POST /inventory/sell/{weapon_id}` | Instant quick sell from Confirm Sale |
 | `POST /inventory/marketplace/add` | List item on marketplace (`weapon_id`, `price`) |
@@ -487,6 +492,12 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 ## Changelog
 
 ### Unreleased (develop)
+
+### v3.8.3
+
+- **New:** **Trade partner overlays** — float, seed, Doppler/Gamma phase, and CH tier on **Send Trade Offer → Their Items** and **trade detail (Their offer)** via `GET /users/{id}/inventory`
+- **New:** Active partner fetch + per-user cache; friends list from `/users/friends` for name → ID
+- **Credits:** [CSR+](https://github.com/queryery/CSR-PLUS) / **query (9uery)** — API approach and permission for trade partner inventory
 
 ### v3.8.2
 
@@ -807,6 +818,14 @@ With **50+** item cards, float/seed badges load in **batches of 50** (visible ca
 
 This extension is **not affiliated** with Valve Corporation or the CS:Restored team. Use at your own risk. Selling items is irreversible — always review the confirmation modal.
 
+## Credits & acknowledgments
+
+| Contributor | What |
+|-------------|------|
+| **[query (9uery)](https://github.com/queryery)** — [CSR+](https://github.com/queryery/CSR-PLUS) | **v3.8.3** — trade partner float/seed/pattern overlays: documented `GET /users/{id}/inventory` and the trade-inventory workflow used in CSR+ Trades; implementation adapted with permission |
+| **query / CSR+** | **v3.6+** — GitHub update checker pattern (About tab) |
+| **query / CSR+** | **v3.7.1** — live user counter pattern (CounterAPI) |
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
@@ -842,6 +861,7 @@ WHAT IT DOES
 • Auto case opening — Auto open tab on Cases: delay (default 1000 ms), time limit, spend limit; live log; results sorted by float; optional session auto-sell (manual default, non-gold, or by rarity) configured in toolbar popup; Quick sell session drops after a run
 • Multi-language UI — popup Settings tab: English (US/UK), Portuguese (PT/BR), German, Russian, Spanish; rarity names stay English
 • Batched overlays on large grids — float/seed badges load 50 at a time (50+ cards) to reduce lag; scroll to load more
+• Trade partner overlays (v3.8.3) — float, seed, Doppler phase, CH tier on Send Trade Offer Their Items and trade detail via GET /users/{id}/inventory (thanks to query / CSR+ for the API approach)
 • Trade float & seed overlays — toggle float/seed on trade pages and Send Trade Offer (disable to reduce lag)
 • Trade offer search — compact search bar in Send Trade Offer (My Items / Their Items)
 • Toolbar settings popup — Features tab (toggles) + Settings tab (language); preferences saved in extension storage
