@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+**New — trade partner inventory overlays**
+- **Send Trade Offer → Their Items:** active fetch `GET /users/{id}/inventory` (float, seed, `skin_index`, CH tier) when you pick a friend — same badges as your inventory
+- **Trade detail** (Your offer / Their offer): loads partner inventory from trade `initiator_id` / `recipient_id` and enriches their side
+- Caches per user ID; still hooks passive site fetches; friends list from `/users/friends` for name → ID matching
+
 ## 3.8.2
 
 **New — Doppler / Gamma Doppler phase & Case Hardened tier badges**

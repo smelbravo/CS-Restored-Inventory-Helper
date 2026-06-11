@@ -348,7 +348,7 @@ Compact **search bar** inside the trade modal (My Items and Their Items):
 ## Trade overlay behaviour
 
 - **Your offer / My items**: float + seed from your inventory (`GET /inventory/`)
-- **Their offer / Other player's items**: **not supported** — site API does not expose float/seed for other players' trade items (see limitations)
+- **Their offer / Other player's items**: float, seed, and pattern badges load from **`GET /users/{id}/inventory`** (active fetch when you pick a friend or open trade detail). Same Doppler/CH rules as inventory when `skin_index` / `seed` are in the response.
 
 ## Installation
 
@@ -799,7 +799,7 @@ With **50+** item cards, float/seed badges load in **batches of 50** (visible ca
 ## Known limitations
 
 - **Marketplace Doppler/Gamma phases:** listing API has no `skin_index`. Phase badges on marketplace grid only when **`item_id` → paint index** is known (you owned that Doppler type, trades/case opens, or bundled map). Otherwise listings show float/seed only. Phase **browse filter** is not on marketplace for this reason.
-- **Other player's items** in trades / Their Items: CS:R API does not expose `float`, `seed`, and `weapon_id` for the other player's items. Third-party tools cannot show accurate values until the site adds these fields to `/api/trades` and `/users/{id}/inventory`.
+- **Other player's items** in trades / Their Items: uses `GET /users/{id}/inventory` when you open **Send Trade Offer → Their Items** or view a trade detail (float, seed, Doppler phase, CH tier when the API returns them). Requires you to be logged in; the API must allow viewing that player's inventory. Trade list rows without opening detail may still lack overlays until partner inventory is loaded.
 - **Case open / bulk sell rate limits:** CS:R may return **Too Many Requests** when many players open cases or quick-sell at once, or when delay/batch size is too aggressive. Lower delay between opens, use auto-sell batch size 1–2, or wait and retry — not caused by large inventory overlays.
 - **Pin images** missing on the site are a **CS:R website** issue (assets not uploaded yet), not the extension.
 

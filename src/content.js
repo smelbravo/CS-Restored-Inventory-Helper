@@ -2088,6 +2088,12 @@ let marketplaceCache = [];
 let tradeItemsCache      = [];
 let tradesListCache      = [];
 let friendInventoryCache = [];
+let friendsListCache = [];
+let loggedInUserId = null;
+let tradePartnerUserId = null;
+const friendInventoryByUserId = new Map();
+const friendInvFetchInflight = new Map();
+const FRIEND_INV_API = (id) => `https://api.csrestored.fun/users/${encodeURIComponent(id)}/inventory`;
 let overlayRunning       = false;
 let overlayTimer     = null;
 let overlayPageKind  = null;
@@ -2153,6 +2159,210 @@ function rebuildFriendItemIndex() {
         if (item.item_id == null) continue;
         if (!friendIndexByItemId.has(item.item_id)) friendIndexByItemId.set(item.item_id, []);
         friendIndexByItemId.get(item.item_id).push(item);
+    }
+}
+
+function parseUserInventoryUrlUserId(url) {
+    const m = String(url || '').match(/\/users\/([^/?#]+)\/inventory/i);
+    if (!m) return null;
+    const id = m[1];
+    if (!id || id === '@me' || /^friends$/i.test(id)) return null;
+    return id;
+}
+
+function normalizeFriendRecord(f) {
+    if (!f || typeof f !== 'object') return null;
+    const id = f.id ?? f.user_id ?? f.discord_id;
+    if (id == null) return null;
+    const name = (f.name || f.username || '').trim();
+    return { id: String(id), name, username: (f.username || f.name || '').trim() };
+}
+
+function resolveFriendIdByName(name) {
+    const want = String(name || '').trim().toLowerCase();
+    if (!want || !friendsListCache.length) return null;
+    for (const raw of friendsListCache) {
+        const f = normalizeFriendRecord(raw);
+        if (!f) continue;
+        const names = [f.name, f.username].filter(Boolean).map((s) => s.toLowerCase());
+        if (names.some((n) => n === want || want.includes(n) || n.includes(want))) return f.id;
+    }
+    return null;
+}
+
+function detectTradePickerPartnerId() {
+    const root = findTradePickerModalRoot();
+    if (!root) return tradePartnerUserId;
+    for (const a of root.querySelectorAll('a[href]')) {
+        const href = a.getAttribute('href') || '';
+        const um = href.match(/\/(?:users|profile|player)\/(\d{8,})/i);
+        if (um && String(um[1]) !== String(loggedInUserId || '')) return um[1];
+    }
+    for (const el of root.querySelectorAll('[data-user-id], [data-userid], [data-id]')) {
+        const raw = el.getAttribute('data-user-id')
+            || el.getAttribute('data-userid')
+            || el.getAttribute('data-id');
+        if (raw && /^\d{8,}$/.test(String(raw).trim()) && String(raw) !== String(loggedInUserId || '')) {
+            return String(raw).trim();
+        }
+    }
+    const text = root.innerText || '';
+    const m = text.match(/trading with\s+([^\n]+)/i);
+    if (m) {
+        const name = m[1].trim().split('\n')[0].replace(/\s*·.*$/, '').trim();
+        const id = resolveFriendIdByName(name);
+        if (id) return id;
+    }
+    return tradePartnerUserId;
+}
+
+function getTradeDetailPartnerId(trade) {
+    if (!trade) return tradePartnerUserId;
+    const ini = trade.initiator_id ?? trade.initiatorId;
+    const rec = trade.recipient_id ?? trade.recipientId;
+    const myId = loggedInUserId || cachedSiteUserId;
+    if (ini != null && rec != null && myId) {
+        if (String(ini) === String(myId)) return String(rec);
+        if (String(rec) === String(myId)) return String(ini);
+    }
+    if (trade._viewerRole === 'initiator' && rec != null) return String(rec);
+    if (trade._viewerRole === 'recipient' && ini != null) return String(ini);
+    if (rec != null && ini != null && myId) return String(rec);
+    return tradePartnerUserId;
+}
+
+function applyFriendInventoryData(userId, rawArr) {
+    if (!userId || !Array.isArray(rawArr) || !rawArr.length) return;
+    maybeLearnDopplerItemIds(rawArr);
+    const norm = rawArr.map(normalizeInventoryEntry).filter(Boolean);
+    const key = String(userId);
+    friendInventoryByUserId.set(key, norm);
+    tradePartnerUserId = key;
+    friendInventoryCache = norm;
+    rebuildFriendItemIndex();
+    refreshMarketplaceFinishCatalogs();
+}
+
+function getPartnerInventoryEntries(userId) {
+    const key = userId ? String(userId) : tradePartnerUserId;
+    if (key && friendInventoryByUserId.has(key)) return friendInventoryByUserId.get(key) || [];
+    return friendInventoryCache;
+}
+
+function findFullInventoryEntry(tradeStub, fullInv) {
+    if (!tradeStub || !fullInv?.length) return null;
+    const inst = tradeStub.weapon_id ?? csrInstanceWeaponId(tradeStub);
+    if (inst != null) {
+        const hit = fullInv.find((i) => i.weapon_id != null && String(i.weapon_id) === String(inst));
+        if (hit) return hit;
+    }
+    const skinId = tradeStub.item_id ?? csrSkinDefId(tradeStub);
+    if (skinId != null && tradeStub.seed != null) {
+        const hit = fullInv.find((i) => i.item_id === skinId && i.seed === tradeStub.seed);
+        if (hit) return hit;
+    }
+    return null;
+}
+
+function matchTheirOverlayItem(cardEl, fullInv, tradeStubs, used) {
+    if (fullInv?.length) {
+        const hit = matchOverlayItem(cardEl, fullInv, used);
+        if (hit) return hit;
+    }
+    if (!tradeStubs?.length || !fullInv?.length) return null;
+    const stubUsed = new Set();
+    const stub = matchOverlayItem(cardEl, tradeStubs, stubUsed);
+    if (!stub) return null;
+    const full = findFullInventoryEntry(stub, fullInv);
+    if (full && !used.has(itemCacheKey(full))) {
+        used.add(itemCacheKey(full));
+        return full;
+    }
+    return null;
+}
+
+async function fetchLoggedInUserId() {
+    if (loggedInUserId) return loggedInUserId;
+    if (cachedSiteUserId) {
+        loggedInUserId = String(cachedSiteUserId);
+        return loggedInUserId;
+    }
+    try {
+        const r = await _nativeFetch('https://api.csrestored.fun/users/@me', { credentials: 'include' });
+        if (!r.ok) return null;
+        const data = await r.json();
+        const uid = data?.id ?? data?.user_id ?? data?.discord_id;
+        if (uid != null) loggedInUserId = String(uid);
+        return loggedInUserId;
+    } catch (_) {
+        return null;
+    }
+}
+
+async function fetchFriendsList() {
+    if (friendsListCache.length) return friendsListCache;
+    try {
+        const r = await _nativeFetch('https://api.csrestored.fun/users/friends', { credentials: 'include' });
+        if (!r.ok) return [];
+        const data = await r.json();
+        friendsListCache = Array.isArray(data) ? data : (data.friends || data.data || []);
+        return friendsListCache;
+    } catch (_) {
+        return [];
+    }
+}
+
+async function fetchFriendInventory(userId, opts = {}) {
+    if (!userId || userId === '@me') return [];
+    const key = String(userId);
+    if (String(key) === String(loggedInUserId || '')) return [];
+    if (!opts.force) {
+        const cached = friendInventoryByUserId.get(key);
+        if (cached?.length) return cached;
+    }
+    if (friendInvFetchInflight.has(key)) return friendInvFetchInflight.get(key);
+    const p = (async () => {
+        try {
+            const r = await _nativeFetch(FRIEND_INV_API(key), { credentials: 'include' });
+            if (!r.ok) throw new Error(String(r.status));
+            const data = await r.json();
+            const arr = Array.isArray(data) ? data : (data.items || data.inventory || data.data || []);
+            if (Array.isArray(arr) && arr.length) applyFriendInventoryData(key, arr);
+            return friendInventoryByUserId.get(key) || [];
+        } catch (_) {
+            return friendInventoryByUserId.get(key) || [];
+        } finally {
+            friendInvFetchInflight.delete(key);
+        }
+    })();
+    friendInvFetchInflight.set(key, p);
+    return p;
+}
+
+async function ensureTradePartnerInventory() {
+    if (!overlayRunning || !csrFloatOverlaysEnabledHere()) return;
+    if (!isTradePickerModal() && !isTradeDetailView()) return;
+    await fetchLoggedInUserId();
+    let partnerId = null;
+    if (isTradePickerModal()) {
+        await fetchFriendsList();
+        partnerId = detectTradePickerPartnerId();
+    } else if (isTradeDetailView()) {
+        partnerId = getTradeDetailPartnerId(getCurrentTrade());
+    }
+    if (!partnerId || String(partnerId) === String(loggedInUserId || '')) return;
+    tradePartnerUserId = String(partnerId);
+    const cached = friendInventoryByUserId.get(tradePartnerUserId);
+    if (cached?.length) {
+        friendInventoryCache = cached;
+        rebuildFriendItemIndex();
+        scheduleApplyOverlays(true);
+        return;
+    }
+    await fetchFriendInventory(partnerId);
+    if (overlayRunning) {
+        scheduleApplyOverlays(true);
+        scheduleOverlayBootstrap();
     }
 }
 
@@ -2990,6 +3200,8 @@ function getOverlayCache() {
     if (isMarketplacePage()) return marketplaceCache;
     if (isTradePickerModal()) return getPickerCache();
     if (isTradeDetailView()) {
+        const partnerInv = getPartnerInventoryEntries(tradePartnerUserId);
+        if (partnerInv.length) return partnerInv;
         const active = getActiveTradeItems();
         if (active.length) return active;
         return tradeItemsCache;
@@ -3121,22 +3333,37 @@ function ingestApiPayload(url, data) {
     if (/\/users\/@me\/?(?:\?|$)/i.test(url) && data && typeof data === 'object') {
         const coins = parseCoinVal(data.coins ?? data.coin_balance ?? data.balance);
         if (coins != null) cachedUserCoins = coins;
+        const uid = data.id ?? data.user_id ?? data.discord_id;
+        if (uid != null) loggedInUserId = String(uid);
         updateCasesCostSummary();
+        return;
+    }
+    if (/\/users\/friends/i.test(url)) {
+        const arr = Array.isArray(data) ? data : (data.friends || data.data || []);
+        if (Array.isArray(arr) && arr.length) friendsListCache = arr;
         return;
     }
     if (TRADE_API_RE.test(url) || (looksLikeTradePayload(data) && !Array.isArray(data))) {
         maybeLearnDopplerItemIds(data);
         parseTradesResponse(data);
-        if ((isTradePage() || isTradeDetailView()) && overlayRunning) scheduleApplyOverlays(true);
+        if ((isTradePage() || isTradeDetailView()) && overlayRunning) {
+            scheduleApplyOverlays(true);
+            ensureTradePartnerInventory();
+        }
         return;
     }
     if (/\/users\/[^/]+\/inventory/i.test(url)) {
         const arr = Array.isArray(data) ? data : (data.items || data.inventory || data.data || []);
+        const userId = parseUserInventoryUrlUserId(url);
         if (Array.isArray(arr) && arr.length) {
             maybeLearnDopplerItemIds(arr);
-            friendInventoryCache = arr.map(normalizeInventoryEntry).filter(Boolean);
-            rebuildFriendItemIndex();
-            refreshMarketplaceFinishCatalogs();
+            if (userId && String(userId) !== String(loggedInUserId || '')) {
+                applyFriendInventoryData(userId, arr);
+            } else {
+                friendInventoryCache = arr.map(normalizeInventoryEntry).filter(Boolean);
+                rebuildFriendItemIndex();
+                refreshMarketplaceFinishCatalogs();
+            }
             if (overlayRunning) {
                 scheduleApplyOverlays(true);
                 scheduleOverlayBootstrap();
@@ -3274,6 +3501,9 @@ function getOfferSectionCards(which) {
 }
 
 function applyTradeDetailOverlays() {
+    if (!getPartnerInventoryEntries(tradePartnerUserId).length) {
+        ensureTradePartnerInventory();
+    }
     clearSkinOverlays();
     stopOverlayLazyScroll();
     const yourCards  = getOfferSectionCards('your');
@@ -3282,6 +3512,8 @@ function applyTradeDetailOverlays() {
     const trade      = getCurrentTrade();
     const yourItems  = trade ? getTradeSideItems(trade, 'your') : [];
     const theirItems = trade ? getTradeSideItems(trade, 'their') : [];
+    const partnerId  = getTradeDetailPartnerId(trade);
+    const theirInv   = getPartnerInventoryEntries(partnerId);
     const yourSet    = new Set(yourCards);
 
     const applyYourBatch = (list, used) => {
@@ -3295,7 +3527,7 @@ function applyTradeDetailOverlays() {
 
     const applyTheirBatch = (list, used) => {
         for (const card of list) {
-            let item = theirItems.length ? matchOverlayItem(card, theirItems, used) : null;
+            let item = matchTheirOverlayItem(card, theirInv, theirItems, used);
             if (!item && tradeItemsCache.length) item = matchOverlayItem(card, tradeItemsCache, used);
             if (item) injectCardOverlay(card, item);
         }
@@ -4975,6 +5207,7 @@ function applyOverlaysToAll(opts) {
     const cache = getOverlayCache();
     if (!cache.length) {
         if (!urgent) pruneOrphanOverlays(cardSet);
+        if (isTradePickerModal() || isTradeDetailView()) ensureTradePartnerInventory();
         return;
     }
 
@@ -5010,6 +5243,9 @@ async function startAlwaysOnOverlay() {
         await Promise.all([fetchMarketplace(), fetchInventory()]);
     } else {
         await fetchInventory();
+    }
+    if (isTradePickerModal() || isTradeDetailView()) {
+        await ensureTradePartnerInventory();
     }
     applyOverlaysToAll({ urgent: true });
     scheduleOverlayBootstrap();
@@ -5086,6 +5322,7 @@ function checkPageAndRun() {
             scheduleBrowseInit();
         }
         _lastTradeTheirTab = their;
+        ensureTradePartnerInventory();
     } else if (!pickerOpen) {
         _lastTradeTheirTab = null;
     }
@@ -5096,6 +5333,9 @@ function checkPageAndRun() {
     if (!pickerOpen && _tradeModalWasOpen) {
         if (isMarketplacePage()) resetPickerBrowseSideEffects();
         else if (!isInventoryPage()) stopBrowseTools();
+        friendInventoryCache = [];
+        tradePartnerUserId = null;
+        rebuildFriendItemIndex();
     }
     _tradeModalWasOpen = pickerOpen;
 
@@ -5113,6 +5353,8 @@ function checkPageAndRun() {
             applyOverlaysToAll({ urgent: true });
             scheduleOverlayBootstrap();
         });
+    } else if (kind === 'trade' && (isTradePickerModal() || isTradeDetailView())) {
+        ensureTradePartnerInventory();
     }
 }
 
@@ -5122,6 +5364,7 @@ document.addEventListener('click', e => {
         resetTradePickerBrowseOnTabSwitch();
         scheduleApplyOverlays(true);
         scheduleOverlayBootstrap();
+        ensureTradePartnerInventory();
         setTimeout(scheduleBrowseInit, 50);
     }
 }, true);
