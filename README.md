@@ -4,7 +4,7 @@ Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.f
 
 Works in **Firefox**, **Microsoft Edge**, and **Chromium** browsers (Manifest V3).
 
-**Current version:** `3.8.0`
+**Current version:** `3.8.1`
 
 **Repository:** [github.com/smelbravo/CS-Restored-Inventory-Helper](https://github.com/smelbravo/CS-Restored-Inventory-Helper)
 
@@ -29,8 +29,8 @@ Shows **wear abbreviation** (FN, MW, FT, WW, BS), **float value** (e.g. `0.1962`
 |------|-------|-------|
 | **Inventory** | `/app/inventory` | Badges in the bottom-right corner of each card |
 | **Marketplace** | `/app/inventory/marketplace` | Badges below the price (top-right) |
-| **Trade views** | `/app/play`, `/app/inventory/trade-up` | Float/seed for **your** items when inventory data is available |
-| **Send Trade Offer** | Modal on site | Search on item grid (My Items / Their Items); filters on Inventory, Marketplace, Create Offer; **Their Items** float/seed depends on site API (see limitations) |
+| **Trade views** | `/app/play`, `/app/inventory/trade-up` | Float/seed for **your** items when inventory data is available; disable in popup **Trades** → **Trade float & seed overlays** to reduce lag |
+| **Send Trade Offer** | Modal on site | Search on item grid (My Items / Their Items); filters on Inventory, Marketplace, Create Offer; trade float/seed toggle applies here too; **Their Items** float/seed depends on site API (see limitations) |
 
 Data is matched by offer ID, skin image, wear, StatTrak, and name. The extension reads data from the site's own API responses in your browser session — it does not send data to external servers or spam duplicate API calls.
 
@@ -85,7 +85,7 @@ Each feature can be turned on or off; preferences are saved in **`storage.local`
 |-------|-------------------------|
 | **Inventory & browse** | Float & seed overlays → Search & filters |
 | **Sell & protect** | Skin lock → Quick Sell & Market |
-| **Trades** | Trade offer search |
+| **Trades** | Trade float & seed overlays → Trade offer search |
 | **Cases** | Case bulk buy → Auto case opening (+ auto-sell rules) |
 
 Skin lock is listed before Quick Sell so you protect items before using bulk sell tools. Case tools stay together at the bottom.
@@ -149,6 +149,7 @@ Popup header shows an approximate **ONLINE** count (CounterAPI, namespace `csr-i
 | **Search & filters** | Browse bar on inventory, marketplace, and Create Offer |
 | **Skin lock** | Padlock on inventory cards (see table below) |
 | **Quick Sell & Market** | Bottom-right CS:R button, helper panel, and Confirm Sale flow |
+| **Trade float & seed overlays** | Float/seed on trade pages and Send Trade Offer (turn off to reduce lag; requires **Float & seed overlays** on) |
 | **Trade offer search** | Compact search bar in Send Trade Offer (My Items / Their Items) |
 | **Case bulk buy** | Floating panel on [Cases](https://csrestored.fun/app/inventory/cases) — pick case + quantity, buy to in-game inventory |
 | **Auto case opening** | Auto-open cases on [Cases](https://csrestored.fun/app/inventory/cases) — single or multi case, spend/time limits, session auto-sell, per-item sell, results sorted by float (**on by default**) |
@@ -347,7 +348,7 @@ The **`.xpi` on GitHub** is unsigned and **does not install** on Firefox Release
 
 ## Releases
 
-Stable downloads: [GitHub Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) (latest: **v3.8.0**).
+Stable downloads: [GitHub Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) (latest: **v3.8.1**).
 
 | Browser | Install |
 |---------|---------|
@@ -440,6 +441,9 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 
 ### Unreleased (develop)
 
+### v3.8.1
+
+- **New:** **Trade float & seed overlays** toggle — disable float/seed on trade pages and Send Trade Offer (inventory unchanged)
 - **Perf:** All float/seed overlays use unified **50-item batches** on scroll (inventory, marketplace, trades, modals)
 
 ### v3.8.0
@@ -781,6 +785,7 @@ WHAT IT DOES
 • Auto case opening — Auto open tab on Cases: delay (default 1000 ms), time limit, spend limit; live log; results sorted by float; optional session auto-sell (manual default, non-gold, or by rarity) configured in toolbar popup; Quick sell session drops after a run
 • Multi-language UI — popup Settings tab: English (US/UK), Portuguese (PT/BR), German, Russian, Spanish; rarity names stay English
 • Batched overlays on large grids — float/seed badges load 50 at a time (50+ cards) to reduce lag; scroll to load more
+• Trade float & seed overlays — toggle float/seed on trade pages and Send Trade Offer (disable to reduce lag)
 • Trade offer search — compact search bar in Send Trade Offer (My Items / Their Items)
 • Toolbar settings popup — Features tab (toggles) + Settings tab (language); preferences saved in extension storage
 • Skin lock — padlock on inventory cards to block accidental quick sell from the extension (does not block the site’s own Weapon Details button)

@@ -22,6 +22,7 @@ const DEFAULTS = { ...(globalThis.CSR_SETTINGS_DEFAULTS || {
     caseBulkBuy: true,
     caseAutoOpen: true,
     tradeSearch: true,
+    tradeFloatOverlays: true,
     skinLock: true,
 }) };
 
@@ -333,6 +334,15 @@ function syncSellSubVisibility() {
     if (batchWrap) batchWrap.hidden = !autoOn || !sellAuto;
 }
 
+function syncTradeFloatVisibility() {
+    const masterOff = !featureState.floatOverlays;
+    document.querySelectorAll('[data-key="tradeFloatOverlays"]').forEach((row) => {
+        row.classList.toggle('is-off', masterOff);
+        const inp = row.querySelector('input[type="checkbox"]');
+        if (inp) inp.disabled = masterOff;
+    });
+}
+
 function syncCheckboxes() {
     document.querySelectorAll('#feature-list input[type="checkbox"][data-key]').forEach(inp => {
         const key = inp.dataset.key;
@@ -357,6 +367,7 @@ function syncCheckboxes() {
     });
 
     syncSellSubVisibility();
+    syncTradeFloatVisibility();
     updateLockCount();
 }
 
@@ -405,6 +416,7 @@ document.querySelectorAll('#feature-list input[type="checkbox"][data-key]').forE
         if (!key || !(key in DEFAULTS)) return;
         featureState = { ...featureState, [key]: inp.checked };
         syncSellSubVisibility();
+        syncTradeFloatVisibility();
         persist();
     });
 });

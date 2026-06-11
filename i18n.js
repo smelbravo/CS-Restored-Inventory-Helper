@@ -105,6 +105,8 @@
         'feature.caseBulkBuy.desc': 'Buy cases in bulk on /app/inventory/cases',
         'feature.caseAutoOpen.label': 'Auto case opening',
         'feature.caseAutoOpen.desc': 'Auto-open on /app/inventory/cases',
+        'feature.tradeFloatOverlays.label': 'Trade float & seed overlays',
+        'feature.tradeFloatOverlays.desc': 'Wear, float, and pattern on trade pages and Send Trade Offer',
         'feature.tradeSearch.label': 'Trade offer search',
         'feature.tradeSearch.desc': 'Search bar in Send Trade Offer modal',
         'feature.skinLock.label': 'Skin lock',

@@ -93,6 +93,7 @@
         caseBulkBuy: true,
         caseAutoOpen: true,
         tradeSearch: true,
+        tradeFloatOverlays: true,
         skinLock: true,
     };
 

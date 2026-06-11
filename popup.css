@@ -352,7 +352,8 @@ body {
     background: rgba(0, 0, 0, 0.25);
 }
 
-.feature-sub.is-off {
+.feature-sub.is-off,
+.feature-row.is-off {
     opacity: 0.45;
     pointer-events: none;
 }

@@ -93,6 +93,8 @@
             'feature.caseBulkBuy.desc': 'Comprar caixas em /app/inventory/cases',
             'feature.caseAutoOpen.label': 'Abertura automática de caixas',
             'feature.caseAutoOpen.desc': 'Abrir caixas em /app/inventory/cases',
+            'feature.tradeFloatOverlays.label': 'Float/seed em trades',
+            'feature.tradeFloatOverlays.desc': 'Desgaste, float e pattern em trades e Send Trade Offer',
             'feature.tradeSearch.label': 'Pesquisa em trade offer',
             'feature.tradeSearch.desc': 'Barra de pesquisa no modal Send Trade Offer',
             'feature.skinLock.label': 'Bloqueio de skins',

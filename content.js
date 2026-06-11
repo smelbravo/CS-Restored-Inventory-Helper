@@ -2272,9 +2272,19 @@ function updateLocksBelowSiteSidebar() {
     });
 }
 
+function isTradeFloatOverlayContext() {
+    return isTradePage() || isTradeDetailView() || isTradePickerModal();
+}
+
+function csrFloatOverlaysEnabledHere() {
+    if (!csrIsFeatureEnabled('floatOverlays')) return false;
+    if (isTradeFloatOverlayContext() && !csrIsFeatureEnabled('tradeFloatOverlays')) return false;
+    return true;
+}
+
 function isOverlayPage() {
     if (isInventoryPage() && csrIsFeatureEnabled('skinLock') && !isMarketplacePage()) return true;
-    if (!csrIsFeatureEnabled('floatOverlays')) return false;
+    if (!csrFloatOverlaysEnabledHere()) return false;
     return isInventoryPage() || isMarketplacePage() || isTradePage()
         || isTradePickerModal() || isTradeDetailView();
 }
@@ -3171,7 +3181,7 @@ function overlaySignature(item) {
 
 function injectCardOverlay(cardEl, item) {
     if (!item) return;
-    const wantOverlay = csrIsFeatureEnabled('floatOverlays');
+    const wantOverlay = csrFloatOverlaysEnabledHere();
     const wantLock = csrIsFeatureEnabled('skinLock') && isInventoryPage() && item.weapon_id != null;
     if (!wantOverlay && !wantLock) return;
 
@@ -3953,7 +3963,7 @@ function isLazyOverlayGridPage() {
 function shouldUseBatchedOverlays(cardCount) {
     if (cardCount < OVERLAY_BATCH_MIN_CARDS) return false;
     if (!isLazyOverlayGridPage()) return false;
-    if (csrIsFeatureEnabled('floatOverlays')) return true;
+    if (csrFloatOverlaysEnabledHere()) return true;
     return csrIsFeatureEnabled('skinLock') && isInventoryPage() && !isMarketplacePage();
 }
 

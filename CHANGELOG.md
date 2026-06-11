@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 3.8.1
+
+**New — Trade float/seed toggle**
+- Popup **Trades** → disable float & seed overlays on trade pages and Send Trade Offer (inventory unchanged)
+
 **Perf — unified batched float/seed overlays**
 - **Every** grid with **50+** cards uses the same batching: inventory, marketplace, trades, trade detail, **Send Trade Offer**, Create Offer
 - First **50** cards get overlays; more load on scroll (visible cards first, then **+50** near scroll bottom)
