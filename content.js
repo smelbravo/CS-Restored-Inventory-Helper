@@ -466,6 +466,10 @@ S.textContent = `
 .csrx-pattern-ch1 { color: #bfdbfe !important; background: rgba(30, 64, 175, 0.85) !important; }
 .csrx-pattern-ch2 { color: #93c5fd !important; background: rgba(30, 58, 138, 0.75) !important; }
 .csrx-pattern-ch3 { color: #7dd3fc !important; background: rgba(15, 23, 42, 0.78) !important; border: 1px solid rgba(56, 189, 248, 0.25) !important; }
+.csrx-pattern-gold0 { color: #fef3c7 !important; background: rgba(146, 64, 14, 0.9) !important; border: 1px solid rgba(251, 191, 36, 0.55) !important; }
+.csrx-pattern-gold1 { color: #fde68a !important; background: rgba(120, 53, 15, 0.82) !important; }
+.csrx-pattern-gold2 { color: #fcd34d !important; background: rgba(69, 26, 3, 0.78) !important; border: 1px solid rgba(245, 158, 11, 0.3) !important; }
+.csrx-pattern-gold3 { color: #fbbf24 !important; background: rgba(41, 37, 36, 0.78) !important; }
 
 @keyframes csrxPulse {
     0%   { box-shadow: 0 0 0 0 rgba(239,68,68,0.4); }

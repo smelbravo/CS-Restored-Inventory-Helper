@@ -62,7 +62,15 @@ With **200+** items you may still see some site slowness, but the extension shou
 
 **Doppler:** phase is **not** derived from seed — it needs `finish_catalog` / `paint_index` (or equivalent) in `GET /inventory/` or marketplace payloads. If CS:R does not send it yet, badges will not appear for Dopplers; open DevTools (F12) → Console after loading inventory — the extension logs once which keys exist on your first Doppler item.
 
-**Case Hardened:** works today when `seed` is present (same as float overlays). Lists included for **AK-47**, **Karambit** (your tiers), **M9** (tier 0–1 community list), and **#1 Blue Gem** seeds for Butterfly / Bayonet. More weapons can be added over time.
+**Case Hardened:** works today when `seed` is present (same as float overlays). Seed lists are **bundled offline** (no calls to third-party sites) and cross-checked against community databases:
+
+- [BlueGemLab](https://bluegemlab.com/) — 25 Case Hardened skins, ~25k patterns
+- [CSGOBlueGem.com](https://csgobluegem.com/) — collector reference
+- [SteamAnalyst Blue Gem Guide](https://www.steamanalyst.com/guides/blue-gem) — #1 seeds per knife
+- [isitabluegem.com](https://www.isitabluegem.com/) — pattern tiers
+- [CSFloat](https://csfloat.com/) — marketplace pattern filters (reference)
+
+**Coverage today:** full T1–T3 for **AK-47** and **Karambit**; T0–T1 for **M9**, **Five-SeveN**, **MAC-10**; **#1 Blue Gem** for all 20 CH knives; **#1 Gold Gem** started (e.g. Flip `#731`). Full T1–T4 for every knife can be added in future releases as bundled data grows.
 
 ### Search & filters (inventory + marketplace)
 
