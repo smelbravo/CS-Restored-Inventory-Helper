@@ -1,10 +1,19 @@
 # Changelog
 
+## Unreleased
+
+**New — Multi case opening** (Auto open tab)
+- **Single case** / **Multi case** toggle — cycle several different cases one by one in the same session
+- Full auto-open features: auto-sell rules, results table, stop, spend/time limits, session quick sell
+
+**Change**
+- Auto open **default and minimum delay: 400 ms** (API rate limit)
+
 ## 3.7.5
 
 **Fix — Quick Sell manual picking**
-- Clicking duplicate skins (same weapon/skin + wear, e.g. multiple AK-47 Nightwish BS) no longer shows `ID: null` / Not matched in Confirm Sale
-- Card matching now uses overlay `weapon_id`, float/seed hints, and the same logic as float overlays — not the old index-only matcher that failed on duplicates
+- Clicking duplicate skins (same weapon/skin + wear) no longer shows `ID: null` / Not matched in Confirm Sale
+- Card matching uses overlay `weapon_id`, float/seed hints, and overlay matching logic
 
 ## 3.7.4
 
