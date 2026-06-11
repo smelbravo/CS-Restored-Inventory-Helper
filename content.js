@@ -470,6 +470,23 @@ S.textContent = `
 .csrx-pattern-gold1 { color: #fde68a !important; background: rgba(120, 53, 15, 0.82) !important; }
 .csrx-pattern-gold2 { color: #fcd34d !important; background: rgba(69, 26, 3, 0.78) !important; border: 1px solid rgba(245, 158, 11, 0.3) !important; }
 .csrx-pattern-gold3 { color: #fbbf24 !important; background: rgba(41, 37, 36, 0.78) !important; }
+.csrx-mp-offer-pattern-col {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 4px !important;
+    min-width: 0 !important;
+}
+.csrx-mp-offer-pattern-label {
+    font-size: 11px !important;
+    font-weight: 500 !important;
+    color: rgba(255,255,255,0.45) !important;
+    letter-spacing: 0.02em !important;
+}
+.csrx-mp-offer-pattern-col .csrx-pattern-badge {
+    font-size: 11px !important;
+    padding: 3px 8px !important;
+}
 
 @keyframes csrxPulse {
     0%   { box-shadow: 0 0 0 0 rgba(239,68,68,0.4); }
@@ -2112,6 +2129,147 @@ function stopOverlayDomObserver() {
 function isMarketplacePage() {
     return window.location.pathname.includes('/marketplace');
 }
+
+function isMarketplaceOfferDetailPage() {
+    return /\/marketplace\/offer\/\d+/i.test(window.location.pathname);
+}
+
+function getMarketplaceOfferIdFromUrl() {
+    const m = window.location.pathname.match(/\/offer\/(\d+)/i);
+    return m ? parseInt(m[1], 10) : null;
+}
+
+const MP_OFFER_PATTERN_COL_ID = 'csrx-mp-offer-pattern-col';
+
+function parseDomNumber(raw) {
+    if (raw == null || raw === '') return null;
+    const m = String(raw).match(/-?\d+(?:\.\d+)?/);
+    if (!m) return null;
+    const n = m[0].includes('.') ? parseFloat(m[0]) : parseInt(m[0], 10);
+    return Number.isFinite(n) ? n : null;
+}
+
+function scrapeMpOfferDetailLabelValue(label) {
+    const want = label.toLowerCase();
+    for (const el of document.querySelectorAll('p, span, div, dt, th')) {
+        const t = (el.textContent || '').trim();
+        if (t.toLowerCase() !== want) continue;
+        const col = el.parentElement;
+        if (!col) continue;
+        const kids = [...col.children];
+        const idx = kids.indexOf(el);
+        if (idx >= 0) {
+            for (let i = idx + 1; i < kids.length; i++) {
+                const v = (kids[i].textContent || '').trim();
+                if (v && v.toLowerCase() !== want) return kids[i];
+            }
+        }
+        const sib = el.nextElementSibling;
+        if (sib) return sib;
+    }
+    return null;
+}
+
+function scrapeMarketplaceOfferDetail() {
+    let name = '';
+    for (const h of document.querySelectorAll('h1, h2')) {
+        const t = (h.textContent || '').replace(/\s+/g, ' ').trim();
+        if (t.includes(' | ')) {
+            name = t.replace(/^stattrak™?\s*/i, '').trim();
+            break;
+        }
+    }
+    const patternEl = scrapeMpOfferDetailLabelValue('Pattern');
+    const floatEl = scrapeMpOfferDetailLabelValue('Float');
+    const seed = patternEl ? parseDomNumber(patternEl.textContent) : null;
+    const fl = floatEl ? parseDomNumber(floatEl.textContent) : null;
+    return { name, seed, float: fl };
+}
+
+function getMarketplaceOfferDetailItem() {
+    const offerId = getMarketplaceOfferIdFromUrl();
+    const cached = offerId != null ? mpIndexByOfferId.get(offerId) : null;
+    const scraped = scrapeMarketplaceOfferDetail();
+    const finishCatalog = cached && typeof CSR_extractFinishCatalog === 'function'
+        ? CSR_extractFinishCatalog(cached) : null;
+    const name = cached?.name || scraped.name || '';
+    const seed = cached?.seed != null ? cached.seed : scraped.seed;
+    const float = cached?.float != null ? cached.float : scraped.float;
+    return {
+        offer_id: offerId,
+        name,
+        seed,
+        float,
+        finish_catalog: cached?.finish_catalog != null ? cached.finish_catalog : finishCatalog,
+    };
+}
+
+function removeMarketplaceOfferDetailPattern() {
+    document.getElementById(MP_OFFER_PATTERN_COL_ID)?.remove();
+}
+
+function findMpOfferStatsRow() {
+    const patternLabel = [...document.querySelectorAll('p, span, div, dt, th')]
+        .find(el => (el.textContent || '').trim().toLowerCase() === 'pattern');
+    if (!patternLabel) return null;
+    let row = patternLabel.parentElement;
+    for (let i = 0; i < 4 && row; i++) {
+        const text = (row.textContent || '').toLowerCase();
+        if (text.includes('wear') && text.includes('float') && text.includes('pattern')) return row;
+        row = row.parentElement;
+    }
+    return patternLabel.parentElement?.parentElement || patternLabel.parentElement;
+}
+
+function injectMarketplaceOfferDetailPattern() {
+    if (!isMarketplaceOfferDetailPage()) {
+        removeMarketplaceOfferDetailPattern();
+        return;
+    }
+    if (!csrFloatOverlaysEnabledHere()) {
+        removeMarketplaceOfferDetailPattern();
+        return;
+    }
+    if (typeof CSR_resolveSkinPattern !== 'function') return;
+
+    const item = getMarketplaceOfferDetailItem();
+    if (!item.name && item.seed == null && item.finish_catalog == null) return;
+
+    const pattern = CSR_resolveSkinPattern(item);
+    if (!pattern) {
+        removeMarketplaceOfferDetailPattern();
+        return;
+    }
+
+    const sig = typeof CSR_patternSignature === 'function' ? CSR_patternSignature(pattern) : pattern.short;
+    let col = document.getElementById(MP_OFFER_PATTERN_COL_ID);
+    if (col?.dataset.csrxSig === sig) return;
+
+    removeMarketplaceOfferDetailPattern();
+    const row = findMpOfferStatsRow();
+    const patternLabel = [...document.querySelectorAll('p, span, div, dt, th')]
+        .find(el => (el.textContent || '').trim().toLowerCase() === 'pattern');
+    const mount = row || patternLabel?.parentElement?.parentElement || patternLabel?.parentElement;
+    if (!mount) return;
+
+    col = document.createElement('div');
+    col.id = MP_OFFER_PATTERN_COL_ID;
+    col.className = 'csrx-mp-offer-pattern-col';
+    col.dataset.csrxSig = sig;
+
+    const label = document.createElement('span');
+    label.className = 'csrx-mp-offer-pattern-label';
+    label.textContent = pattern.type === 'doppler' ? 'Phase' : (pattern.gemKind === 'gold' ? 'Gold gem' : 'Blue gem');
+
+    const badge = document.createElement('span');
+    badge.className = 'csrx-pattern-badge ' + (pattern.css || '');
+    badge.textContent = pattern.short || pattern.label;
+    badge.title = pattern.label;
+
+    col.appendChild(label);
+    col.appendChild(badge);
+    mount.appendChild(col);
+}
 function isTradePage() {
     const p = window.location.pathname;
     return p.includes('/trade-up') || p.includes('/play') || /\/trades(\/|$)/i.test(p);
@@ -2592,8 +2750,12 @@ function ingestApiPayload(url, data) {
         }
         return;
     }
-    if (MP_API_RE.test(url) || /\/inventory\/marketplace/i.test(url) || looksLikeMarketplacePayload(data)) {
-        const items = normalizeOfferList(data);
+    if (MP_API_RE.test(url) || /\/inventory\/marketplace/i.test(url) || /\/marketplace\/offer/i.test(url) || looksLikeMarketplacePayload(data)) {
+        let items = normalizeOfferList(data);
+        if (!items.length && /\/marketplace\/offer/i.test(url) && data && typeof data === 'object' && !Array.isArray(data)) {
+            const one = normalizeOfferEntry(data);
+            if (one) items = [one];
+        }
         if (items.length) {
             marketplaceCache = mergeMarketplaceCache(marketplaceCache, items);
             rebuildMpItemIndex();
@@ -2601,6 +2763,7 @@ function ingestApiPayload(url, data) {
                 scheduleApplyOverlays(true);
                 scheduleOverlayBootstrap();
             }
+            if (isMarketplaceOfferDetailPage()) injectMarketplaceOfferDetailPattern();
             if (isBrowsePage()) scheduleBrowseInit();
             if (browseToolsActive) scheduleBrowseFilters();
         }
@@ -4160,6 +4323,10 @@ function applyOverlaysToAll(opts) {
         applyTradeDetailOverlays();
         return;
     }
+    if (isMarketplaceOfferDetailPage()) {
+        injectMarketplaceOfferDetailPattern();
+        return;
+    }
 
     const cards = getAllCards();
     if (isBrowsePage() && (!document.getElementById('csrx-browse') || isBrowseBarMisplaced())) {
@@ -4235,6 +4402,7 @@ function stopAlwaysOnOverlay() {
     stopOverlayLazyScroll();
     stopOverlayDomObserver();
     document.querySelectorAll('.csrx-card-wrap').forEach(el => el.remove());
+    removeMarketplaceOfferDetailPattern();
 }
 
 function checkPageAndRun() {

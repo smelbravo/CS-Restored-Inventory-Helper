@@ -60,7 +60,7 @@ With **200+** items you may still see some site slowness, but the extension shou
 | **Gamma Doppler** | Finish Catalog **568–572** (Emerald, Phase 1–4) | `Emerald`, `P3` |
 | **Case Hardened** | Paint **seed** (community tier lists) | `#1`, `T1`, `T2`, `T3` |
 
-**Where badges appear:** same places and toggles as float/seed — **inventory**, **marketplace**, **trades**, **Send Trade Offer**, **Create Offer** (not the Cases shop panel). Respects **Float & seed overlays** and **Trade float & seed overlays**.
+**Where badges appear:** same places and toggles as float/seed — **inventory**, **marketplace** (grid + **offer detail** `/marketplace/offer/{id}`), **trades**, **Send Trade Offer**, **Create Offer** (not the Cases shop panel). Respects **Float & seed overlays** and **Trade float & seed overlays**.
 
 **Doppler:** phase is **not** derived from seed — it needs `finish_catalog` / `paint_index` (or equivalent) in `GET /inventory/` or marketplace payloads. If CS:R does not send it yet, badges will not appear for Dopplers; open DevTools (F12) → Console after loading inventory — the extension logs once which keys exist on your first Doppler item.
 
