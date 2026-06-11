@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+**Perf — trade overlay incremental load**
+- Trades, trade detail, and **Send Trade Offer** pickers load float/seed overlays in **batches of 50** (not all at once)
+- More batches load when you scroll near the bottom of the item grid
+- Inventory and marketplace keep the existing viewport-based lazy loading (80+ cards)
+
 ## 3.8.0
 
 **New — Multi case opening** (Auto open tab)

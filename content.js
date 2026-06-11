@@ -1972,10 +1972,14 @@ const LARGE_INV_WARN     = 200;
 const OVERLAY_LAZY_MIN_CARDS = 80;
 const OVERLAY_LAZY_VIEW_MARGIN = 400;
 const OVERLAY_LAZY_BATCH = 45;
+const OVERLAY_INCREMENTAL_MIN_CARDS = 50;
+const OVERLAY_INCREMENTAL_BATCH = 50;
+const OVERLAY_INCREMENTAL_BOTTOM_MARGIN = 280;
 let _overlayLazyScroll = null;
 let _overlayLazyScrollTarget = null;
 let _overlayLazyCards = null;
 let _overlayLazyTick = null;
+let _overlayLazyMode = null;
 
 function rebuildInvItemIndex() {
     invIndexByItemId = new Map();
@@ -2020,12 +2024,16 @@ function maybeWarnLargeInventory() {
     if (_largeInvWarned) return;
     const count = isMarketplacePage()
         ? marketplaceCache.length
+        : (isTradePage() || isItemPickerModal()) ? getAllCards().length
         : inventoryCache.length;
     if (count < LARGE_INV_WARN) return;
-    if (!isInventoryPage() && !isMarketplacePage() && !isItemPickerModal()) return;
+    if (!isInventoryPage() && !isMarketplacePage() && !isItemPickerModal() && !isTradePage()) return;
     _largeInvWarned = true;
+    const labelKey = isMarketplacePage() ? 'toast.largeInventory.marketplace'
+        : (isTradePage() || isItemPickerModal()) ? 'toast.largeInventory.trade'
+        : 'toast.largeInventory.inventory';
     toast(csrT('toast.largeInventory', {
-        label: csrT(isMarketplacePage() ? 'toast.largeInventory.marketplace' : 'toast.largeInventory.inventory'),
+        label: csrT(labelKey),
         count,
     }), 'info');
 }
@@ -2044,6 +2052,7 @@ function scheduleOverlayBootstrap() {
             && cards.some(c => !c.querySelector('.csrx-card-wrap'));
         step++;
         if (missing && step < delays.length) {
+            if (_overlayLazyMode === 'incremental') maybeLoadIncrementalOverlayBatch(true);
             _overlayBootTimer = setTimeout(tick, delays[step]);
         }
     };
@@ -2748,7 +2757,9 @@ function applyTradeDetailOverlays() {
         return;
     }
 
-    if (shouldUseLazyOverlays(allCards.length)) {
+    if (shouldUseIncrementalOverlays(allCards.length)) {
+        runIncrementalOverlayPass(allCards, applyBatch);
+    } else if (shouldUseLazyOverlays(allCards.length)) {
         runLazyOverlayPass(allCards, applyBatch);
     } else {
         const usedYour = new Set();
@@ -2900,14 +2911,17 @@ function findCardForTradeItem(item, cards, usedCards) {
 }
 
 function applyTradeOverlays() {
-    const items = getActiveTradeItems();
-    if (!items.length) return;
+    const cache = getOverlayCache();
+    if (!cache.length) return;
     const cards = getAllCards();
     if (!cards.length) return;
-    const usedCards = new Set();
-    for (const item of items) {
-        const card = findCardForTradeItem(item, cards, usedCards);
-        if (card) injectCardOverlay(card, item);
+    const stamp = (batch) => applyOverlaysToCardList(batch, cache);
+    if (shouldUseIncrementalOverlays(cards.length)) {
+        runIncrementalOverlayPass(cards, stamp);
+    } else if (shouldUseLazyOverlays(cards.length)) {
+        runLazyOverlayPass(cards, stamp);
+    } else {
+        applyOverlaysToCardList(cards, cache);
     }
 }
 
@@ -3941,11 +3955,72 @@ function isLazyOverlayGridPage() {
     return false;
 }
 
+function isIncrementalOverlayContext() {
+    return isTradePage() || isTradeDetailView() || isItemPickerModal();
+}
+
+function shouldUseIncrementalOverlays(cardCount) {
+    if (cardCount < OVERLAY_INCREMENTAL_MIN_CARDS) return false;
+    if (!isIncrementalOverlayContext()) return false;
+    return csrIsFeatureEnabled('floatOverlays');
+}
+
 function shouldUseLazyOverlays(cardCount) {
+    if (shouldUseIncrementalOverlays(cardCount)) return false;
     if (cardCount < OVERLAY_LAZY_MIN_CARDS) return false;
     if (!isLazyOverlayGridPage()) return false;
     if (csrIsFeatureEnabled('floatOverlays')) return true;
     return csrIsFeatureEnabled('skinLock') && isInventoryPage() && !isMarketplacePage();
+}
+
+function getPendingOverlayCards() {
+    if (!_overlayLazyCards) return [];
+    return _overlayLazyCards.filter((c) =>
+        c.isConnected && !c.querySelector('.csrx-card-wrap')
+    );
+}
+
+function canOverlayScrollContainer() {
+    const root = _overlayLazyScrollTarget;
+    if (root) return root.scrollHeight > root.clientHeight + 8;
+    return document.documentElement.scrollHeight > window.innerHeight + 8;
+}
+
+function isOverlayScrollNearBottom(margin = OVERLAY_INCREMENTAL_BOTTOM_MARGIN) {
+    const root = _overlayLazyScrollTarget;
+    if (root) {
+        return root.scrollTop + root.clientHeight >= root.scrollHeight - margin;
+    }
+    const doc = document.documentElement;
+    return window.innerHeight + window.scrollY >= doc.scrollHeight - margin;
+}
+
+function loadIncrementalOverlayBatch() {
+    if (!_overlayLazyTick || !_overlayLazyCards) return 0;
+    const pending = getPendingOverlayCards();
+    if (!pending.length) return 0;
+    _overlayLazyTick(pending.slice(0, OVERLAY_INCREMENTAL_BATCH));
+    return Math.min(pending.length, OVERLAY_INCREMENTAL_BATCH);
+}
+
+function primeIncrementalOverlayBatches() {
+    let guard = 0;
+    while (guard++ < 24) {
+        if (!loadIncrementalOverlayBatch()) break;
+        if (canOverlayScrollContainer()) break;
+    }
+}
+
+function maybeLoadIncrementalOverlayBatch(aggressive = false) {
+    if (_overlayLazyMode !== 'incremental' || !_overlayLazyTick) return;
+    if (!getPendingOverlayCards().length) return;
+    if (aggressive) {
+        primeIncrementalOverlayBatches();
+        return;
+    }
+    if (isOverlayScrollNearBottom() || !canOverlayScrollContainer()) {
+        loadIncrementalOverlayBatch();
+    }
 }
 
 function applyOverlaysToCardList(cards, cache) {
@@ -3987,6 +4062,40 @@ function stopOverlayLazyScroll() {
     _overlayLazyScrollTarget = null;
     _overlayLazyCards = null;
     _overlayLazyTick = null;
+    _overlayLazyMode = null;
+}
+
+function bindOverlayIncrementalScrollListener() {
+    if (_overlayLazyScroll && _overlayLazyScrollTarget) {
+        _overlayLazyScrollTarget.removeEventListener('scroll', _overlayLazyScroll);
+    }
+    if (_overlayLazyScroll) {
+        window.removeEventListener('scroll', _overlayLazyScroll);
+    }
+    let ticking = false;
+    const onScroll = () => {
+        if (!overlayRunning || ticking || _overlayLazyMode !== 'incremental') return;
+        ticking = true;
+        requestAnimationFrame(() => {
+            ticking = false;
+            maybeLoadIncrementalOverlayBatch(false);
+        });
+    };
+    _overlayLazyScroll = onScroll;
+    const root = findOverlayScrollRoot();
+    _overlayLazyScrollTarget = root;
+    if (root) root.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('scroll', onScroll, { passive: true });
+}
+
+function runIncrementalOverlayPass(allCards, applyBatch) {
+    stopOverlayLazyScroll();
+    _overlayLazyCards = allCards;
+    _overlayLazyTick = applyBatch;
+    _overlayLazyMode = 'incremental';
+    _overlayLazyScrollTarget = findOverlayScrollRoot();
+    primeIncrementalOverlayBatches();
+    bindOverlayIncrementalScrollListener();
 }
 
 function bindOverlayLazyScrollListener() {
@@ -3998,11 +4107,11 @@ function bindOverlayLazyScrollListener() {
     }
     let ticking = false;
     const onScroll = () => {
-        if (!overlayRunning || ticking || !_overlayLazyTick || !_overlayLazyCards) return;
+        if (!overlayRunning || ticking || _overlayLazyMode !== 'viewport' || !_overlayLazyTick || !_overlayLazyCards) return;
         ticking = true;
         requestAnimationFrame(() => {
             ticking = false;
-            if (!overlayRunning || !_overlayLazyTick || !_overlayLazyCards) return;
+            if (!overlayRunning || _overlayLazyMode !== 'viewport' || !_overlayLazyTick || !_overlayLazyCards) return;
             const pending = _overlayLazyCards.filter((c) =>
                 c.isConnected && isCardNearViewport(c) && !c.querySelector('.csrx-card-wrap')
             );
@@ -4021,6 +4130,7 @@ function runLazyOverlayPass(allCards, applyBatch) {
     stopOverlayLazyScroll();
     _overlayLazyCards = allCards;
     _overlayLazyTick = applyBatch;
+    _overlayLazyMode = 'viewport';
     const visible = allCards.filter((c) => isCardNearViewport(c));
     const firstBatch = visible.length ? visible : allCards.slice(0, OVERLAY_LAZY_BATCH);
     applyBatch(firstBatch);
@@ -4054,7 +4164,9 @@ function applyOverlaysToAll(opts) {
 
     _currentOverlayCards = cards;
     try {
-        if (shouldUseLazyOverlays(cards.length)) {
+        if (shouldUseIncrementalOverlays(cards.length)) {
+            runIncrementalOverlayPass(cards, (batch) => applyOverlaysToCardList(batch, cache));
+        } else if (shouldUseLazyOverlays(cards.length)) {
             runLazyOverlayPass(cards, (batch) => applyOverlaysToCardList(batch, cache));
         } else {
             stopOverlayLazyScroll();
@@ -4093,7 +4205,8 @@ async function startAlwaysOnOverlay() {
         const cache = getOverlayCache();
         if (!cards.length || !cache.length) return;
         if (cards.some(c => !c.querySelector('.csrx-card-wrap'))) {
-            applyOverlaysToAll({ urgent: true });
+            if (_overlayLazyMode === 'incremental') maybeLoadIncrementalOverlayBatch(true);
+            else applyOverlaysToAll({ urgent: true });
         }
     }, 6000);
 }

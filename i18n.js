@@ -160,6 +160,7 @@
         'toast.largeInventory': 'Large {label} ({count}+ items): float/seed load in batches as you scroll.',
         'toast.largeInventory.inventory': 'inventory',
         'toast.largeInventory.marketplace': 'marketplace',
+        'toast.largeInventory.trade': 'trade list',
         'lock.unlock': 'Unlock — blocked from extension Quick Sell',
         'lock.lock': 'Lock — blocks extension Quick Sell (panel + confirm modal)',
         'qs.fabTitle': 'CS:R Quick Sell & Market — pick skins, list or instant sell',

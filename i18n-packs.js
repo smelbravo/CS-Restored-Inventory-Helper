@@ -134,6 +134,7 @@
             'toast.largeInventory': 'Inventário grande ({count}+ itens): float/seed carregam ao fazer scroll.',
             'toast.largeInventory.inventory': 'inventário',
             'toast.largeInventory.marketplace': 'marketplace',
+            'toast.largeInventory.trade': 'lista de trade',
             'lock.unlock': 'Desbloquear — bloqueado do Quick Sell da extensão',
             'lock.lock': 'Bloquear — impede Quick Sell da extensão',
             'qs.fabTitle': 'CS:R Quick Sell & Market',
