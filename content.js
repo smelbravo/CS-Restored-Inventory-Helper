@@ -2140,6 +2140,9 @@ function getMarketplaceOfferIdFromUrl() {
 }
 
 const MP_OFFER_PATTERN_COL_ID = 'csrx-mp-offer-pattern-col';
+let _mpOfferPatternTimer = null;
+let _mpOfferPatternObs = null;
+let _mpOfferPatternAttempts = 0;
 
 function parseDomNumber(raw) {
     if (raw == null || raw === '') return null;
@@ -2149,40 +2152,66 @@ function parseDomNumber(raw) {
     return Number.isFinite(n) ? n : null;
 }
 
-function scrapeMpOfferDetailLabelValue(label) {
+function findMpOfferExactLabel(label) {
     const want = label.toLowerCase();
-    for (const el of document.querySelectorAll('p, span, div, dt, th')) {
+    const cands = [...document.querySelectorAll('span, p, div, dt, dd, th, td, label')];
+    let best = null;
+    for (const el of cands) {
         const t = (el.textContent || '').trim();
         if (t.toLowerCase() !== want) continue;
-        const col = el.parentElement;
-        if (!col) continue;
-        const kids = [...col.children];
-        const idx = kids.indexOf(el);
-        if (idx >= 0) {
-            for (let i = idx + 1; i < kids.length; i++) {
-                const v = (kids[i].textContent || '').trim();
-                if (v && v.toLowerCase() !== want) return kids[i];
+        if (!el.children.length) return el;
+        if (!best || el.children.length < best.children.length) best = el;
+    }
+    return best;
+}
+
+function scrapeMpOfferStatValue(label) {
+    const labelEl = findMpOfferExactLabel(label);
+    if (labelEl) {
+        const col = labelEl.parentElement;
+        if (col) {
+            for (const sib of col.children) {
+                if (sib === labelEl) continue;
+                const v = (sib.textContent || '').trim();
+                if (v && v.toLowerCase() !== label.toLowerCase()) {
+                    return parseDomNumber(v);
+                }
             }
         }
-        const sib = el.nextElementSibling;
-        if (sib) return sib;
+        const next = labelEl.nextElementSibling;
+        if (next) {
+            const v = parseDomNumber(next.textContent);
+            if (v != null) return v;
+        }
     }
-    return null;
+    const block = (document.body?.innerText || '').replace(/\r/g, '');
+    const re = new RegExp(`${label}\\s*[:\\n]?\\s*(\\d+(?:\\.\\d+)?)`, 'i');
+    const m = block.match(re);
+    return m ? parseDomNumber(m[1]) : null;
+}
+
+function scrapeOfferSkinName() {
+    const pick = (t) => t.replace(/^stattrak™?\s*/i, '').replace(/\s+/g, ' ').trim();
+    for (const sel of ['h1', 'h2', 'h3', '[class*="text-2xl"]', '[class*="text-3xl"]', 'p', 'span', 'div']) {
+        for (const el of document.querySelectorAll(sel)) {
+            const t = pick(el.textContent || '');
+            if (t.includes(' | ') && t.length >= 5 && t.length < 140 && !/^classified$|^rifle$/i.test(t)) {
+                return t;
+            }
+        }
+    }
+    const body = document.body?.innerText || '';
+    const m = body.match(/(★\s*[\w\s-]+|\b[A-Z0-9][\w-]*)\s*\|\s*[^|\n]{2,60}/);
+    if (m) return pick(m[0]);
+    const title = (document.title || '').split(/[-–|]/)[0];
+    if (title && title.includes(' | ')) return pick(title);
+    return '';
 }
 
 function scrapeMarketplaceOfferDetail() {
-    let name = '';
-    for (const h of document.querySelectorAll('h1, h2')) {
-        const t = (h.textContent || '').replace(/\s+/g, ' ').trim();
-        if (t.includes(' | ')) {
-            name = t.replace(/^stattrak™?\s*/i, '').trim();
-            break;
-        }
-    }
-    const patternEl = scrapeMpOfferDetailLabelValue('Pattern');
-    const floatEl = scrapeMpOfferDetailLabelValue('Float');
-    const seed = patternEl ? parseDomNumber(patternEl.textContent) : null;
-    const fl = floatEl ? parseDomNumber(floatEl.textContent) : null;
+    const name = scrapeOfferSkinName();
+    const seed = scrapeMpOfferStatValue('Pattern');
+    const fl = scrapeMpOfferStatValue('Float');
     return { name, seed, float: fl };
 }
 
@@ -2208,51 +2237,32 @@ function removeMarketplaceOfferDetailPattern() {
     document.getElementById(MP_OFFER_PATTERN_COL_ID)?.remove();
 }
 
+function onMarketplaceOfferRouteChange() {
+    if (isMarketplaceOfferDetailPage()) {
+        ensureMpOfferPatternWatch();
+        if (!marketplaceCache.length) fetchMarketplace();
+    } else {
+        stopMpOfferPatternWatch();
+        removeMarketplaceOfferDetailPattern();
+    }
+}
+
 function findMpOfferStatsRow() {
-    const patternLabel = [...document.querySelectorAll('p, span, div, dt, th')]
-        .find(el => (el.textContent || '').trim().toLowerCase() === 'pattern');
+    const patternLabel = findMpOfferExactLabel('Pattern');
     if (!patternLabel) return null;
     let row = patternLabel.parentElement;
-    for (let i = 0; i < 4 && row; i++) {
+    for (let i = 0; i < 6 && row; i++) {
         const text = (row.textContent || '').toLowerCase();
-        if (text.includes('wear') && text.includes('float') && text.includes('pattern')) return row;
+        if (text.includes('wear') && text.includes('float') && (text.includes('pattern') || text.includes('stattrak'))) {
+            return row;
+        }
         row = row.parentElement;
     }
     return patternLabel.parentElement?.parentElement || patternLabel.parentElement;
 }
 
-function injectMarketplaceOfferDetailPattern() {
-    if (!isMarketplaceOfferDetailPage()) {
-        removeMarketplaceOfferDetailPattern();
-        return;
-    }
-    if (!csrFloatOverlaysEnabledHere()) {
-        removeMarketplaceOfferDetailPattern();
-        return;
-    }
-    if (typeof CSR_resolveSkinPattern !== 'function') return;
-
-    const item = getMarketplaceOfferDetailItem();
-    if (!item.name && item.seed == null && item.finish_catalog == null) return;
-
-    const pattern = CSR_resolveSkinPattern(item);
-    if (!pattern) {
-        removeMarketplaceOfferDetailPattern();
-        return;
-    }
-
-    const sig = typeof CSR_patternSignature === 'function' ? CSR_patternSignature(pattern) : pattern.short;
-    let col = document.getElementById(MP_OFFER_PATTERN_COL_ID);
-    if (col?.dataset.csrxSig === sig) return;
-
-    removeMarketplaceOfferDetailPattern();
-    const row = findMpOfferStatsRow();
-    const patternLabel = [...document.querySelectorAll('p, span, div, dt, th')]
-        .find(el => (el.textContent || '').trim().toLowerCase() === 'pattern');
-    const mount = row || patternLabel?.parentElement?.parentElement || patternLabel?.parentElement;
-    if (!mount) return;
-
-    col = document.createElement('div');
+function buildMpOfferPatternColumn(pattern, sig) {
+    const col = document.createElement('div');
     col.id = MP_OFFER_PATTERN_COL_ID;
     col.className = 'csrx-mp-offer-pattern-col';
     col.dataset.csrxSig = sig;
@@ -2268,7 +2278,80 @@ function injectMarketplaceOfferDetailPattern() {
 
     col.appendChild(label);
     col.appendChild(badge);
-    mount.appendChild(col);
+    return col;
+}
+
+function stopMpOfferPatternWatch() {
+    clearTimeout(_mpOfferPatternTimer);
+    _mpOfferPatternTimer = null;
+    _mpOfferPatternObs?.disconnect();
+    _mpOfferPatternObs = null;
+    _mpOfferPatternAttempts = 0;
+}
+
+function scheduleMpOfferDetailPattern(urgent) {
+    if (!isMarketplaceOfferDetailPage()) {
+        stopMpOfferPatternWatch();
+        removeMarketplaceOfferDetailPattern();
+        return;
+    }
+    clearTimeout(_mpOfferPatternTimer);
+    _mpOfferPatternTimer = setTimeout(() => injectMarketplaceOfferDetailPattern(), urgent ? 50 : 250);
+}
+
+function ensureMpOfferPatternWatch() {
+    if (!isMarketplaceOfferDetailPage()) {
+        stopMpOfferPatternWatch();
+        return;
+    }
+    if (_mpOfferPatternObs) return;
+    _mpOfferPatternObs = new MutationObserver(() => scheduleMpOfferDetailPattern(true));
+    const root = document.querySelector('main') || document.body;
+    if (root) _mpOfferPatternObs.observe(root, { childList: true, subtree: true });
+    scheduleMpOfferDetailPattern(true);
+}
+
+function injectMarketplaceOfferDetailPattern() {
+    if (!isMarketplaceOfferDetailPage()) {
+        stopMpOfferPatternWatch();
+        removeMarketplaceOfferDetailPattern();
+        return;
+    }
+    if (!csrFloatOverlaysEnabledHere()) {
+        removeMarketplaceOfferDetailPattern();
+        return;
+    }
+    if (typeof CSR_resolveSkinPattern !== 'function') return;
+
+    const item = getMarketplaceOfferDetailItem();
+    if (!item.name && item.seed == null && item.finish_catalog == null) {
+        if (_mpOfferPatternAttempts++ < 24) scheduleMpOfferDetailPattern(false);
+        return;
+    }
+    _mpOfferPatternAttempts = 0;
+
+    const pattern = CSR_resolveSkinPattern(item);
+    if (!pattern) {
+        removeMarketplaceOfferDetailPattern();
+        return;
+    }
+
+    const sig = typeof CSR_patternSignature === 'function' ? CSR_patternSignature(pattern) : pattern.short;
+    const existing = document.getElementById(MP_OFFER_PATTERN_COL_ID);
+    if (existing?.dataset.csrxSig === sig) return;
+
+    removeMarketplaceOfferDetailPattern();
+
+    const row = findMpOfferStatsRow();
+    const patternLabel = findMpOfferExactLabel('Pattern');
+    const mount = row || patternLabel?.parentElement?.parentElement || patternLabel?.parentElement;
+    if (!mount) {
+        if (_mpOfferPatternAttempts++ < 24) scheduleMpOfferDetailPattern(false);
+        return;
+    }
+
+    mount.appendChild(buildMpOfferPatternColumn(pattern, sig));
+    _mpOfferPatternAttempts = 0;
 }
 function isTradePage() {
     const p = window.location.pathname;
@@ -4402,7 +4485,10 @@ function stopAlwaysOnOverlay() {
     stopOverlayLazyScroll();
     stopOverlayDomObserver();
     document.querySelectorAll('.csrx-card-wrap').forEach(el => el.remove());
-    removeMarketplaceOfferDetailPattern();
+    if (!isMarketplaceOfferDetailPage()) {
+        stopMpOfferPatternWatch();
+        removeMarketplaceOfferDetailPattern();
+    }
 }
 
 function checkPageAndRun() {
@@ -4462,6 +4548,8 @@ function checkPageAndRun() {
         else if (!isInventoryPage()) stopBrowseTools();
     }
     _tradeModalWasOpen = pickerOpen;
+
+    onMarketplaceOfferRouteChange();
 
     if (!onOverlay) return;
 
@@ -7293,7 +7381,24 @@ async function bootstrapCsrExtension() {
     setInterval(() => {
         checkPageAndRun();
         syncCasesPanelVisibility();
+        if (isMarketplaceOfferDetailPage()) scheduleMpOfferDetailPattern(false);
     }, 1500);
+
+    const _pushState = history.pushState;
+    const _replaceState = history.replaceState;
+    history.pushState = function (...args) {
+        const r = _pushState.apply(this, args);
+        setTimeout(() => { checkPageAndRun(); onMarketplaceOfferRouteChange(); }, 0);
+        return r;
+    };
+    history.replaceState = function (...args) {
+        const r = _replaceState.apply(this, args);
+        setTimeout(() => { checkPageAndRun(); onMarketplaceOfferRouteChange(); }, 0);
+        return r;
+    };
+    window.addEventListener('popstate', () => {
+        setTimeout(() => { checkPageAndRun(); onMarketplaceOfferRouteChange(); }, 0);
+    });
 }
 
 bootstrapCsrExtension();
