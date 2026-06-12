@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.8.5
+
+**New — inventory browse filters**
+- **Gems only** in Doppler phase dropdown — Ruby, Sapphire, Black Pearl, Emerald (no P1–P4)
+- **Skin lock** filter — all / locked only / unlocked only (inventory page)
+
 ## 3.8.4
 
 **Fix — duplicate skin overlay matching (Case Hardened / same item_id)**

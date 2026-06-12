@@ -4,7 +4,7 @@ Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.f
 
 Works in **Firefox**, **Microsoft Edge**, and **Chromium** browsers (Manifest V3).
 
-**Current version:** `3.8.4`
+**Current version:** `3.8.5`
 
 **Repository:** [github.com/smelbravo/CS-Restored-Inventory-Helper](https://github.com/smelbravo/CS-Restored-Inventory-Helper)
 
@@ -96,8 +96,9 @@ Horizontal bar above the item grid (same layout on both pages):
 | **Search** | Weapon or skin name | Weapon or skin name (uses API `item_name`) |
 | **Rarity** | Consumer → Covert / Knives / Gloves → Contraband | Same |
 | **Wear** | FN, MW, FT, WW, BS | Same |
-| **Phase** | Phased only, Ruby/Sapphire/BP/Emerald, P1–P4 | — (not on marketplace; API has no `skin_index` per listing) |
+| **Phase** | Phased only, **Gems only**, Ruby/Sapphire/BP/Emerald, P1–P4 | — (not on marketplace; API has no `skin_index` per listing) |
 | **CH tier** | Tiered only, #1 / T1–T3 blue, #1 / G1–G3 gold | Same (seed tier lists) |
+| **Lock** | All / locked only / unlocked only | — |
 | **Float order** | Low → High / High → Low | Same |
 | **Price order** | — | Cheapest / Most expensive (coins) |
 | **Clear** | Reset all filters | Reset all filters |

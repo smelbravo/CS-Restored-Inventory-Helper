@@ -2042,6 +2042,10 @@ input[type=range].csrx-range:hover::-moz-range-thumb { transform: scale(1.2); }
     min-width: 128px;
     max-width: 148px;
 }
+#csrx-browse-lock {
+    min-width: 108px;
+    max-width: 128px;
+}
 #csrx-browse-ch {
     min-width: 128px;
     max-width: 148px;
@@ -4256,6 +4260,7 @@ function injectCardOverlay(cardEl, item) {
             await csrToggleWeaponLock(item.weapon_id);
             injectCardOverlay(cardEl, item);
             scheduleLockSidebarClip();
+            if (document.getElementById('csrx-browse-lock')?.value) scheduleBrowseFilters();
         });
         cardEl.appendChild(btn);
     } else {
@@ -4755,14 +4760,38 @@ function restoreCardOrder(cards, grid) {
 }
 
 const BROWSE_PHASE_ANY = '__phase__';
+const BROWSE_GEMS_ONLY = '__gems__';
 const BROWSE_CH_ANY = '__ch__';
+const BROWSE_LOCK_LOCKED = 'locked';
+const BROWSE_LOCK_UNLOCKED = 'unlocked';
 
-function browseDopplerFilterKey(item, card) {
+function browseDopplerPattern(item, card) {
     if (!item || typeof CSR_resolveSkinPattern !== 'function') return null;
     const enriched = card ? enrichItemWithCardSeed(card, item) : item;
     const pattern = CSR_resolveSkinPattern(enriched);
     if (!pattern || pattern.type !== 'doppler') return null;
+    return pattern;
+}
+
+function browseDopplerFilterKey(item, card) {
+    const pattern = browseDopplerPattern(item, card);
+    if (!pattern) return null;
     return (pattern.short || '').toLowerCase().replace(/\s+/g, '');
+}
+
+function browseDopplerIsGem(item, card) {
+    const pattern = browseDopplerPattern(item, card);
+    return !!(pattern && pattern.kind === 'gem');
+}
+
+function cardIsLockedForBrowse(card, item) {
+    if (!csrIsFeatureEnabled('skinLock')) return false;
+    const wid = item?.weapon_id != null ? parseInt(item.weapon_id, 10) : null;
+    if (wid != null && Number.isFinite(wid)) return csrIsWeaponLocked(wid);
+    const key = card?.querySelector('.csrx-card-wrap')?.dataset?.csrxKey;
+    const fromKey = weaponIdFromCsrxKey(key);
+    if (fromKey != null) return csrIsWeaponLocked(fromKey);
+    return !!card?.classList.contains('csrx-locked-card');
 }
 
 function browseChFilterKey(item, card) {
@@ -4784,6 +4813,7 @@ function readBrowseFilters() {
         wear: bar.querySelector('#csrx-browse-wear')?.value || '',
         phase: bar.querySelector('#csrx-browse-phase')?.value || '',
         chTier: bar.querySelector('#csrx-browse-ch')?.value || '',
+        lock: bar.querySelector('#csrx-browse-lock')?.value || '',
         floatSort: bar.querySelector('#csrx-browse-float')?.value || '',
         priceSort: bar.querySelector('#csrx-browse-price')?.value || '',
     };
@@ -4809,11 +4839,15 @@ function cardPassesBrowseFilters(card, item, f) {
 
     if (f.phase && !isMarketplacePage()) {
         if (!item) return false;
-        const phaseKey = browseDopplerFilterKey(item, card);
-        if (f.phase === BROWSE_PHASE_ANY) {
-            if (!phaseKey) return false;
-        } else if (phaseKey !== f.phase) {
-            return false;
+        if (f.phase === BROWSE_GEMS_ONLY) {
+            if (!browseDopplerIsGem(item, card)) return false;
+        } else {
+            const phaseKey = browseDopplerFilterKey(item, card);
+            if (f.phase === BROWSE_PHASE_ANY) {
+                if (!phaseKey) return false;
+            } else if (phaseKey !== f.phase) {
+                return false;
+            }
         }
     }
 
@@ -4825,6 +4859,12 @@ function cardPassesBrowseFilters(card, item, f) {
         } else if (chKey !== f.chTier) {
             return false;
         }
+    }
+
+    if (f.lock && isInventoryPage() && !isCreateOfferModal()) {
+        const locked = cardIsLockedForBrowse(card, item);
+        if (f.lock === BROWSE_LOCK_LOCKED && !locked) return false;
+        if (f.lock === BROWSE_LOCK_UNLOCKED && locked) return false;
     }
 
     return true;
@@ -4910,14 +4950,17 @@ function clearBrowseFilters() {
     if (price) price.value = '';
     const phase = bar.querySelector('#csrx-browse-phase');
     const ch = bar.querySelector('#csrx-browse-ch');
+    const lock = bar.querySelector('#csrx-browse-lock');
     if (phase) phase.value = '';
     if (ch) ch.value = '';
+    if (lock) lock.value = '';
     if (isTradePickerModal()) resetTradePickerBrowseClasses();
     applyBrowseFilters();
 }
 
 function buildBrowseBar() {
     const mp = isMarketplacePage();
+    const invOnly = isInventoryPage() && !isCreateOfferModal();
     const tradeCompact = isTradePickerModal();
     const wrap = document.createElement('div');
     wrap.id = 'csrx-browse';
@@ -4965,6 +5008,7 @@ function buildBrowseBar() {
         const phaseOpts = [
             `<option value="">${csrT('browse.allPhases')}</option>`,
             `<option value="${BROWSE_PHASE_ANY}">${csrT('browse.anyPhase')}</option>`,
+            `<option value="${BROWSE_GEMS_ONLY}">${csrT('browse.gemsOnly')}</option>`,
             `<option value="ruby">${csrT('pattern.ruby')}</option>`,
             `<option value="sapphire">${csrT('pattern.sapphire')}</option>`,
             `<option value="bp">${csrT('pattern.bp')}</option>`,
@@ -4975,6 +5019,16 @@ function buildBrowseBar() {
             `<option value="p4">${csrT('pattern.p4')}</option>`,
         ].join('');
         phaseSelect = `<select id="csrx-browse-phase" title="${csrT('browse.filterPhase')}">${phaseOpts}</select>`;
+    }
+
+    let lockSelect = '';
+    if (invOnly) {
+        const lockOpts = [
+            `<option value="">${csrT('browse.allLocks')}</option>`,
+            `<option value="${BROWSE_LOCK_LOCKED}">${csrT('browse.lockedOnly')}</option>`,
+            `<option value="${BROWSE_LOCK_UNLOCKED}">${csrT('browse.unlockedOnly')}</option>`,
+        ].join('');
+        lockSelect = `<select id="csrx-browse-lock" title="${csrT('browse.filterLock')}">${lockOpts}</select>`;
     }
 
     const chOpts = [
@@ -4998,6 +5052,7 @@ function buildBrowseBar() {
         <select id="csrx-browse-wear" title="${csrT('browse.filterWear')}">${wearOpts}</select>
         ${phaseSelect}
         <select id="csrx-browse-ch" title="${csrT('browse.filterCh')}">${chOpts}</select>
+        ${lockSelect}
         <select id="csrx-browse-float" title="${csrT('browse.sortFloat')}">${floatOpts}</select>
         ${priceOpts}
         <button type="button" id="csrx-browse-clear" data-i18n="browse.clear">${csrT('browse.clear')}</button>
