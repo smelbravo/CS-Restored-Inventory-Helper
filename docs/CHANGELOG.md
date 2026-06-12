@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.8.6
+
+No functional changes — version bump only (AMO does not allow re-uploading a deleted **3.8.5** submission). Same build as **3.8.5**.
+
 ## 3.8.5
 
 **New — inventory browse filters**

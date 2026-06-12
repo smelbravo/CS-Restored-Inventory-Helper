@@ -4,7 +4,7 @@ Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.f
 
 Works in **Firefox**, **Microsoft Edge**, and **Chromium** browsers (Manifest V3).
 
-**Current version:** `3.8.5`
+**Current version:** `3.8.6`
 
 **Repository:** [github.com/smelbravo/CS-Restored-Inventory-Helper](https://github.com/smelbravo/CS-Restored-Inventory-Helper)
 
@@ -392,7 +392,7 @@ The **`.xpi` on GitHub** is unsigned and **does not install** on Firefox Release
 
 ## Releases
 
-Stable downloads: [GitHub Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) (latest: **v3.8.5**).
+Stable downloads: [GitHub Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) (latest: **v3.8.6**).
 
 | Browser | Install |
 |---------|---------|
@@ -493,6 +493,10 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 ## Changelog
 
 ### Unreleased (develop)
+
+### v3.8.6
+
+- **Note:** Same build as **v3.8.5** — version bump for AMO (deleted 3.8.5 test upload cannot be re-submitted)
 
 ### v3.8.5
 
