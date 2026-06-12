@@ -4,7 +4,7 @@ Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.f
 
 Works in **Firefox**, **Microsoft Edge**, and **Chromium** browsers (Manifest V3).
 
-**Current version:** `3.8.7`
+**Current version:** `3.8.8`
 
 **Repository:** [github.com/smelbravo/CS-Restored-Inventory-Helper](https://github.com/smelbravo/CS-Restored-Inventory-Helper)
 
@@ -75,7 +75,9 @@ The **marketplace listing API does not send `skin_index`**. On marketplace **gri
 | You **never had** that knife/skin in your inventory | Usually **float + seed only** — **no phase label** |
 | **Offer detail** (`/marketplace/offer/{id}`) | Same rule — phase when `item_id` is in the map |
 
-**Inventory** always shows phase when the site API includes `skin_index` (your items and other players’ inventories when the API is accessible). This is why the **Phase browse filter** is on **inventory** and **Create Offer** only — **not** on marketplace (filtering by phase there would be unreliable without per-listing `skin_index`).
+**Inventory** always shows phase when the site API includes `skin_index` (your items and other players’ inventories when the API is accessible). On **marketplace**, the **Phase browse filter** (v3.8.8+) only matches listings whose **`item_id` is already in the map** — unknown Doppler listings are hidden when a phase filter is active (same limitation as phase badges).
+
+**Doppler map (v3.8.8+):** Popup **Settings → Doppler map** — **Export map** / **Import map** (`item_id → skin_index` JSON). The extension learns mappings from your inventory, trades, and case opens; import merges community or shared maps so marketplace badges and filters work for more listings.
 
 **Case Hardened:** works when `seed` is present (same as float overlays). Seed lists are **bundled offline** (no calls to third-party sites) and cross-checked against community databases:
 
@@ -96,7 +98,7 @@ Horizontal bar above the item grid (same layout on both pages):
 | **Search** | Weapon or skin name | Weapon or skin name (uses API `item_name`) |
 | **Rarity** | Consumer → Covert / Knives / Gloves → Contraband | Same |
 | **Wear** | FN, MW, FT, WW, BS | Same |
-| **Phase** | Phased only, **Gems only**, Ruby/Sapphire/BP/Emerald, P1–P4 | — (not on marketplace; API has no `skin_index` per listing) |
+| **Phase** | Phased only, **Gems only**, Ruby/Sapphire/BP/Emerald, P1–P4 | Same options — **known `item_id` only** (see [Marketplace Doppler phases](#marketplace-doppler--gamma-doppler-phases)) |
 | **CH tier** | Tiered only, #1 / T1–T3 blue, #1 / G1–G3 gold | Same (seed tier lists) |
 | **Lock** | All / locked only / unlocked only | — |
 | **Float order** | Low → High / High → Low | Same |
@@ -278,7 +280,7 @@ When **Auto case opening** is enabled, the gold **Cases** panel on [`/app/invent
 
 - **Search cases** — filter by name (bulk buy dropdown, single-case select, and multi-case list)
 - **Open mode:** **Single case** (one case type, repeat) or **Multi case** (several types in one session) — v3.8+
-- Configure **delay (ms)** (default and minimum **400**), **minutes** (time limit), and **spend limit (coins)** — saved in `storage.local` (`csrCasesAutoOpenConfig`)
+- Configure **delay (ms)** (default and minimum **400**; editable field + **400 / 800 / 1500 ms** presets), **minutes** (time limit), and **spend limit (coins)** — saved in `storage.local` (`csrCasesAutoOpenConfig`)
 - **Start auto open** loops `POST /inventory/cases/open/{caseId}` until limits, stop, or an error
 - **Live log** during the run (rarity-colored drops, gold ★ highlighted)
 - **Results** table when the session ends: every skin with **float + wear**, sorted **best float first** (lowest → highest)
@@ -392,7 +394,7 @@ The **`.xpi` on GitHub** is unsigned and **does not install** on Firefox Release
 
 ## Releases
 
-Stable downloads: [GitHub Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) (latest: **v3.8.7**).
+Stable downloads: [GitHub Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) (latest: **v3.8.8**).
 
 | Browser | Install |
 |---------|---------|
@@ -493,6 +495,12 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 ## Changelog
 
 ### Unreleased (develop)
+
+### v3.8.8
+
+- **Fix:** Auto-open **delay** field — clear and retype; min **400 ms**; presets **400 / 800 / 1500** (thanks **holme**)
+- **New:** **Doppler map** export / import in popup Settings
+- **New:** **Marketplace** Doppler phase browse filter (known `item_id` only)
 
 ### v3.8.7
 
@@ -828,7 +836,7 @@ With **50+** item cards, float/seed badges load in **batches of 50** (visible ca
 
 ## Known limitations
 
-- **Marketplace Doppler/Gamma phases:** listing API has no `skin_index`. Phase badges on marketplace grid only when **`item_id` → paint index** is known (you owned that Doppler type, trades/case opens, or bundled map). Otherwise listings show float/seed only. Phase **browse filter** is not on marketplace for this reason.
+- **Marketplace Doppler/Gamma phases:** listing API has no `skin_index`. Phase badges and **phase browse filter** only when **`item_id` → paint index** is known (inventory learning, import map, or bundled `data/csr-doppler-item-map.json`). Otherwise listings show float/seed only and are hidden when a phase filter is active.
 - **Other player's items** in trades / Their Items: uses `GET /users/{id}/inventory` when you open **Send Trade Offer → Their Items** or view a trade detail (float, seed, Doppler phase, CH tier when the API returns them). Requires you to be logged in; the API must allow viewing that player's inventory. Trade list rows without opening detail may still lack overlays until partner inventory is loaded.
 - **Case open / bulk sell rate limits:** CS:R may return **Too Many Requests** when many players open cases or quick-sell at once, or when delay/batch size is too aggressive. Lower delay between opens, use auto-sell batch size 1–2, or wait and retry — not caused by large inventory overlays.
 - **Pin images** missing on the site are a **CS:R website** issue (assets not uploaded yet), not the extension.

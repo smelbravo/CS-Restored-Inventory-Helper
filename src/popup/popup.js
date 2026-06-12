@@ -217,6 +217,48 @@ async function notifySiteTabsSettingsReload() {
     return n;
 }
 
+async function notifySiteTabsDopplerReload() {
+    const tabsApi = runtime.tabs;
+    if (!tabsApi?.query) return 0;
+    let tabs = [];
+    try {
+        tabs = await tabsApi.query({ url: ['*://*.csrestored.fun/*', '*://csrestored.fun/*'] });
+    } catch (_) {
+        return 0;
+    }
+    let n = 0;
+    for (const tab of tabs) {
+        try {
+            await tabsApi.sendMessage(tab.id, { type: 'csr:reloadDopplerMap' });
+            n++;
+        } catch (_) { /* tab without content script */ }
+    }
+    return n;
+}
+
+function setDopplerMapStatus(kind, message, persist = true) {
+    const el = document.getElementById('doppler-map-status');
+    if (!el) return;
+    el.hidden = false;
+    el.className = `settings-backup-status settings-backup-${kind === 'err' ? 'err' : 'ok'}`;
+    el.textContent = message;
+    if (persist) {
+        clearTimeout(setDopplerMapStatus._t);
+        setDopplerMapStatus._t = setTimeout(() => { el.hidden = true; }, 8000);
+    }
+}
+
+async function importDopplerMapFromText(text) {
+    const result = await csrImportDopplerMap(text);
+    const tabs = await notifySiteTabsDopplerReload();
+    const msg = tabs > 0
+        ? csrT('popup.settings.dopplerImportDoneLive', { imported: result.imported, total: result.total, tabs })
+        : csrT('popup.settings.dopplerImportDone', { imported: result.imported, total: result.total });
+    setDopplerMapStatus('ok', msg);
+    switchTab('settings');
+    return result;
+}
+
 function importDoneMessage(imported, tabsNotified) {
     const locks = Array.isArray(imported?.csrLockedWeaponIds) ? imported.csrLockedWeaponIds.length : 0;
     if (tabsNotified > 0) {
@@ -763,6 +805,55 @@ async function bindSettingsAccountUi() {
             return;
         }
         showImportModal(text);
+    });
+
+    document.getElementById('btn-export-doppler-map')?.addEventListener('click', async () => {
+        try {
+            const blob = await csrExportDopplerMap();
+            const entries = Object.keys(blob).filter((k) => !k.startsWith('_') && k !== 'version' && k !== 'exportedAt').length;
+            const json = JSON.stringify(blob, null, 2);
+            const filename = `csr-doppler-item-map-${new Date().toISOString().slice(0, 10)}.json`;
+            setDopplerMapStatus('ok', csrT('popup.settings.dopplerExportDone', { entries }));
+            switchTab('settings');
+            await downloadSettingsJson(json, filename);
+        } catch (_) {
+            setDopplerMapStatus('err', csrT('popup.settings.dopplerExportError'));
+            switchTab('settings');
+        }
+    });
+
+    document.getElementById('btn-import-doppler-map')?.addEventListener('click', () => {
+        document.getElementById('doppler-map-file')?.click();
+    });
+
+    document.getElementById('doppler-map-file')?.addEventListener('change', async (e) => {
+        const file = e.target.files?.[0];
+        e.target.value = '';
+        if (!file) return;
+        try {
+            const text = await file.text();
+            await importDopplerMapFromText(text);
+        } catch (_) {
+            setDopplerMapStatus('err', csrT('popup.settings.dopplerImportError'));
+            switchTab('settings');
+        }
+    });
+
+    document.getElementById('btn-import-doppler-paste')?.addEventListener('click', async () => {
+        const text = document.getElementById('doppler-map-paste')?.value?.trim();
+        if (!text) {
+            setDopplerMapStatus('err', csrT('popup.settings.dopplerImportError'));
+            switchTab('settings');
+            return;
+        }
+        try {
+            await importDopplerMapFromText(text);
+            const paste = document.getElementById('doppler-map-paste');
+            if (paste) paste.value = '';
+        } catch (_) {
+            setDopplerMapStatus('err', csrT('popup.settings.dopplerImportError'));
+            switchTab('settings');
+        }
     });
 
     if (typeof csrWatchPrefsChanges === 'function') {

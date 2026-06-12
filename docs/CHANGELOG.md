@@ -1,5 +1,19 @@
 # Changelog
 
+## 3.8.8
+
+### Fix — auto-open delay field (reported by holme)
+- **Delay (ms)** can be cleared and typed freely; minimum **400** applied on blur / Start (toast when clamped)
+- **Quick presets:** **400 / 800 / 1500 ms** under the delay field
+
+### New — Doppler map export / import
+- Popup **Settings → Doppler map** — export / import `item_id → skin_index` JSON (learned from inventory + bundled entries)
+- Import merges entries and refreshes open csrestored.fun tabs
+
+### New — marketplace Doppler phase filter
+- **Phase** browse filter on marketplace (same options as inventory) — only listings with a **known** `item_id` map match
+- Counter note when filtering: marketplace shows known phases only
+
 ## 3.8.7
 
 **Hotfix** — critical bugs reported right after the v3.8.x big update.

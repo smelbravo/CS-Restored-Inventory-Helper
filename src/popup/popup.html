@@ -222,6 +222,28 @@
                     </button>
                 </details>
             </div>
+
+            <div class="settings-block">
+                <div class="settings-section-label" data-i18n="popup.settings.dopplerMapSection">Doppler map</div>
+                <div class="settings-btn-row">
+                    <button type="button" id="btn-export-doppler-map" class="btn btn-sm">
+                        <span class="btn-tx" data-i18n="popup.settings.exportDopplerMap">Export map</span>
+                    </button>
+                    <button type="button" id="btn-import-doppler-map" class="btn btn-sm btn-ghost">
+                        <span class="btn-tx" data-i18n="popup.settings.importDopplerMap">Import map</span>
+                    </button>
+                </div>
+                <p class="settings-hint" data-i18n="popup.settings.dopplerMapHint">item_id → skin_index learned from your inventory. Share JSON to help others or restore on a new browser.</p>
+                <p id="doppler-map-status" class="settings-backup-status" hidden></p>
+                <details class="settings-paste">
+                    <summary data-i18n="popup.settings.dopplerPasteToggle">Import map from pasted JSON</summary>
+                    <textarea id="doppler-map-paste" class="settings-paste-input" rows="4" spellcheck="false" data-i18n-placeholder="popup.settings.dopplerPastePlaceholder" placeholder='{"2024":619}'></textarea>
+                    <button type="button" id="btn-import-doppler-paste" class="btn btn-sm btn-ghost">
+                        <span class="btn-tx" data-i18n="popup.settings.dopplerPasteImport">Import pasted map</span>
+                    </button>
+                </details>
+                <input type="file" id="doppler-map-file" accept=".json,application/json" hidden>
+            </div>
         </section>
 
         <section id="panel-about" class="popup-panel" data-tab="about" role="tabpanel" aria-labelledby="tab-about">

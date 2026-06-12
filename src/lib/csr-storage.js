@@ -286,6 +286,63 @@
         return /Firefox\//i.test(ua) && !/Seamonkey/i.test(ua);
     }
 
+    const DOPPLER_MAP_STORAGE_KEY = 'csrItemIdFinishMap';
+    const DOPPLER_MAP_FINISH_IDS = new Set([
+        415, 416, 417, 418, 419, 420, 421,
+        617, 618, 619, 852, 853, 854, 855,
+        568, 569, 570, 571, 572,
+        1119, 1120, 1121, 1122, 1123,
+    ]);
+
+    function normalizeDopplerMapEntries(raw) {
+        let map = raw;
+        if (raw && typeof raw === 'object' && raw.map && typeof raw.map === 'object') {
+            map = raw.map;
+        }
+        if (!map || typeof map !== 'object') return {};
+        const out = {};
+        for (const [k, v] of Object.entries(map)) {
+            if (k.startsWith('_')) continue;
+            const fc = parseInt(v, 10);
+            if (!Number.isFinite(fc) || !DOPPLER_MAP_FINISH_IDS.has(fc)) continue;
+            out[String(k)] = fc;
+        }
+        return out;
+    }
+
+    async function csrExportDopplerMap() {
+        const data = await storageGet('local', [DOPPLER_MAP_STORAGE_KEY]);
+        const stored = normalizeDopplerMapEntries(data[DOPPLER_MAP_STORAGE_KEY] || {});
+        return {
+            version: 1,
+            exportedAt: new Date().toISOString(),
+            _comment: 'CS:R CDN item_id → skin_index (Doppler/Gamma). Learned by extension or merged from community map.',
+            ...stored,
+        };
+    }
+
+    async function csrImportDopplerMap(raw, opts) {
+        const merge = opts?.merge !== false;
+        let blob = raw;
+        if (typeof raw === 'string') {
+            try {
+                blob = JSON.parse(raw);
+            } catch (_) {
+                throw new Error('invalid_json');
+            }
+        }
+        const incoming = normalizeDopplerMapEntries(blob);
+        if (!Object.keys(incoming).length) throw new Error('empty');
+        const data = await storageGet('local', [DOPPLER_MAP_STORAGE_KEY]);
+        const existing = normalizeDopplerMapEntries(data[DOPPLER_MAP_STORAGE_KEY] || {});
+        const next = merge ? { ...existing, ...incoming } : { ...incoming };
+        await storageSet('local', { [DOPPLER_MAP_STORAGE_KEY]: next });
+        return {
+            imported: Object.keys(incoming).length,
+            total: Object.keys(next).length,
+        };
+    }
+
     global.CSR_SYNCABLE_KEYS = SYNCABLE_KEYS;
     global.CSR_SYNC_TOGGLE_KEY = SYNC_TOGGLE_KEY;
     global.CSR_MAX_LOCKED_IDS = MAX_LOCKED_IDS;
@@ -296,6 +353,8 @@
     global.csrWatchPrefsChanges = csrWatchPrefsChanges;
     global.csrExportSettings = csrExportSettings;
     global.csrImportSettings = csrImportSettings;
+    global.csrExportDopplerMap = csrExportDopplerMap;
+    global.csrImportDopplerMap = csrImportDopplerMap;
     global.csrIsFirefoxBrowser = csrIsFirefoxBrowser;
 
 })(typeof globalThis !== 'undefined' ? globalThis : window);

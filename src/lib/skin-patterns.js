@@ -221,6 +221,23 @@
         return itemIdFinishMapReady;
     }
 
+    function reloadItemIdFinishMapFromStorage() {
+        for (const k of Object.keys(itemIdFinishMap)) delete itemIdFinishMap[k];
+        itemIdFinishMapLoaded = false;
+        itemIdFinishMapReady = null;
+        return loadItemIdFinishMap();
+    }
+
+    function getItemIdFinishMapSnapshot() {
+        const out = Object.create(null);
+        for (const [k, v] of Object.entries(itemIdFinishMap)) {
+            if (k.startsWith('_')) continue;
+            const fc = toInt(v);
+            if (fc != null && DOPPLER_FINISH[fc]) out[k] = fc;
+        }
+        return out;
+    }
+
     function learnItemIdFinishBatch(items) {
         if (!Array.isArray(items)) return false;
         let changed = false;
@@ -595,6 +612,9 @@
     global.CSR_learnItemIdFinishBatch = learnItemIdFinishBatch;
     global.CSR_learnItemIdFinishFromPayload = learnItemIdFinishFromPayload;
     global.CSR_loadItemIdFinishMap = loadItemIdFinishMap;
+    global.CSR_reloadItemIdFinishMapFromStorage = reloadItemIdFinishMapFromStorage;
+    global.CSR_getItemIdFinishMapSnapshot = getItemIdFinishMapSnapshot;
+    global.CSR_ITEM_ID_FINISH_STORAGE_KEY = ITEM_ID_FINISH_STORAGE_KEY;
     global.CSR_resolveSkinPattern = resolveSkinPattern;
     global.CSR_patternSignature = patternSignature;
     global.CSR_probePatternApiFields = probePatternApiFields;
