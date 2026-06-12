@@ -392,7 +392,7 @@ The **`.xpi` on GitHub** is unsigned and **does not install** on Firefox Release
 
 ## Releases
 
-Stable downloads: [GitHub Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) (latest: **v3.8.4**).
+Stable downloads: [GitHub Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) (latest: **v3.8.5**).
 
 | Browser | Install |
 |---------|---------|
@@ -493,6 +493,11 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 ## Changelog
 
 ### Unreleased (develop)
+
+### v3.8.5
+
+- **New:** **Gems only** Doppler browse filter (Ruby, Sapphire, Black Pearl, Emerald)
+- **New:** **Skin lock** browse filter — all / locked only / unlocked only (inventory)
 
 ### v3.8.4
 
