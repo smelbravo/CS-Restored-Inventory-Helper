@@ -3534,10 +3534,9 @@ function applyTradeDetailOverlays() {
     };
 
     const applyBatch = (batch) => {
-        const usedYour = new Set();
-        const usedTheir = new Set();
-        applyYourBatch(batch.filter((c) => yourSet.has(c)), usedYour);
-        applyTheirBatch(batch.filter((c) => !yourSet.has(c)), usedTheir);
+        const used = buildOverlayUsedSet(batch);
+        applyYourBatch(batch.filter((c) => yourSet.has(c)), used);
+        applyTheirBatch(batch.filter((c) => !yourSet.has(c)), used);
     };
 
     const allCards = [...yourCards, ...theirCards];
@@ -3549,10 +3548,9 @@ function applyTradeDetailOverlays() {
     if (shouldUseBatchedOverlays(allCards.length)) {
         runBatchedOverlayPass(allCards, applyBatch);
     } else {
-        const usedYour = new Set();
-        const usedTheir = new Set();
-        applyYourBatch(yourCards, usedYour);
-        applyTheirBatch(theirCards, usedTheir);
+        const used = buildOverlayUsedSet(allCards);
+        applyYourBatch(yourCards, used);
+        applyTheirBatch(theirCards, used);
     }
 }
 
@@ -3635,8 +3633,9 @@ function getCardSeedHint(cardEl) {
 
 function enrichItemWithCardSeed(cardEl, item) {
     if (!item || !cardEl) return item;
+    if (item.seed != null) return item;
     const hint = getCardSeedHint(cardEl);
-    if (hint == null || item.seed === hint) return item;
+    if (hint == null) return item;
     return { ...item, seed: hint };
 }
 
@@ -3664,6 +3663,54 @@ function disambiguateOverlayCandidates(cands, cardEl) {
     return list;
 }
 
+function pickOverlayCandidate(cands, cardEl) {
+    if (!cands.length) return null;
+    if (cands.length === 1) return cands[0];
+    let list = disambiguateOverlayCandidates(cands, cardEl);
+    if (list.length === 1) return list[0];
+
+    const existingKey = cardEl.querySelector('.csrx-card-wrap')?.dataset?.csrxKey;
+    if (existingKey) {
+        const kept = list.find((i) => itemCacheKey(i) === existingKey);
+        if (kept) return kept;
+    }
+
+    const { float: sigFloat, seed: sigSeed } = parseOverlaySig(cardEl);
+    if (sigFloat != null && list.length > 1) {
+        const byFloat = list.filter((i) =>
+            i.float != null && Math.abs(i.float - sigFloat) < 0.00005
+        );
+        if (byFloat.length) list = byFloat;
+    }
+    if (sigSeed != null && list.length > 1) {
+        const bySeed = list.filter((i) => i.seed === sigSeed);
+        if (bySeed.length) list = bySeed;
+    }
+
+    const domFloat = getCardFloat(cardEl, null);
+    if (domFloat != null && list.length > 1) {
+        const byDom = list.filter((i) =>
+            i.float != null && Math.abs(i.float - domFloat) < 0.00005
+        );
+        if (byDom.length) list = byDom;
+    }
+
+    return list[0];
+}
+
+function buildOverlayUsedSet(cardsBeingProcessed) {
+    const used = new Set();
+    for (const wrap of document.querySelectorAll('.csrx-card-wrap')) {
+        const key = wrap?.dataset?.csrxKey;
+        if (key) used.add(key);
+    }
+    for (const card of cardsBeingProcessed || []) {
+        const key = card.querySelector('.csrx-card-wrap')?.dataset?.csrxKey;
+        if (key) used.delete(key);
+    }
+    return used;
+}
+
 function matchMarketplaceCardItem(cardEl, cache, used) {
     const names = getCardSkinNames(cardEl);
     if (!names) return null;
@@ -3673,8 +3720,8 @@ function matchMarketplaceCardItem(cardEl, cache, used) {
         return itemMatchesNames(i, names.weapon, names.skin, hasSt);
     });
     cands = disambiguateOverlayCandidates(cands, cardEl);
-    if (!cands.length) return null;
-    const item = cands[0];
+    const item = pickOverlayCandidate(cands, cardEl);
+    if (!item) return null;
     used.add(itemCacheKey(item));
     return item;
 }
@@ -3789,9 +3836,11 @@ function matchItemByName(cardEl, cache, used) {
         return itemMatchesNames(i, names.weapon, names.skin, hasSt);
     });
     if (cands.length >= 1) {
-        const item = cands[0];
-        used.add(itemCacheKey(item));
-        return item;
+        const item = pickOverlayCandidate(cands, cardEl);
+        if (item) {
+            used.add(itemCacheKey(item));
+            return item;
+        }
     }
     return null;
 }
@@ -3860,14 +3909,14 @@ function matchOverlayItem(cardEl, cache, used) {
                 !used.has(itemCacheKey(i)) &&
                 (i.stattrak === hasSt || i.stattrak == null)
             );
-            cands = disambiguateOverlayCandidates(cands, cardEl);
         }
-        if (cands.length >= 1) {
-            const item = cands[0];
+        cands = disambiguateOverlayCandidates(cands, cardEl);
+        const item = pickOverlayCandidate(cands, cardEl);
+        if (item) {
             used.add(itemCacheKey(item));
             return item;
         }
-        if (isTradePickerModal() && isTheirItemsTabActive() && cands.length === 0 && imgId != null) {
+        if (isTradePickerModal() && isTheirItemsTabActive() && imgId != null) {
             return null;
         }
     }
@@ -3882,22 +3931,13 @@ function matchOverlayItem(cardEl, cache, used) {
 
     if (isMarketplacePage() && _currentOverlayCards) {
         const idx = _currentOverlayCards.indexOf(cardEl);
-        if (idx >= 0 && idx < cache.length) {
+        if (idx >= 0 && idx < cache.length && cache[idx].item_id === imgId) {
             const item = cache[idx];
             const key = itemCacheKey(item);
             if (!used.has(key)) {
                 used.add(key);
                 return item;
             }
-        }
-    }
-
-    if (!isMarketplacePage() && !isTradeDetailView() && _currentOverlayCards) {
-        const idx = _currentOverlayCards.indexOf(cardEl);
-        if (idx >= 0 && idx < cache.length && cache[idx].item_id === imgId) {
-            const item = cache[idx];
-            const key = itemCacheKey(item);
-            if (!used.has(key)) { used.add(key); return item; }
         }
     }
 
@@ -5108,11 +5148,12 @@ function maybeLoadBatchedOverlayBatch(aggressive = false) {
 
 function applyOverlaysToCardList(cards, cache) {
     if (!cards.length || !cache.length) return;
-    const used = new Set();
+    const used = buildOverlayUsedSet(cards);
     for (const cardEl of cards) {
         const item = matchOverlayItem(cardEl, cache, used);
         if (!item) {
             cardEl.querySelector('.csrx-card-wrap')?.remove();
+            removeWearPatternBadge(cardEl);
             continue;
         }
         injectCardOverlay(cardEl, item);

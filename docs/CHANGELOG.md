@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.8.4
+
+**Fix — duplicate skin overlay matching (Case Hardened / same item_id)**
+- Multiple inventory cards with the same skin image (e.g. several AK-47 Case Hardened) no longer copy float/seed from another card
+- Batched overlay loading (50+ cards) now reserves already-stamped `weapon_id`s across scroll batches
+- Better disambiguation when several candidates share wear: existing overlay sig, float, and seed
+- Removed unsafe inventory index→cache fallback that could assign wrong items
+- API `seed` is no longer overwritten by DOM hints when already present
+
 ## 3.8.3
 
 **New — trade partner inventory overlays**

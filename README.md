@@ -4,7 +4,7 @@ Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.f
 
 Works in **Firefox**, **Microsoft Edge**, and **Chromium** browsers (Manifest V3).
 
-**Current version:** `3.8.3`
+**Current version:** `3.8.4`
 
 **Repository:** [github.com/smelbravo/CS-Restored-Inventory-Helper](https://github.com/smelbravo/CS-Restored-Inventory-Helper)
 
@@ -492,6 +492,10 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 ## Changelog
 
 ### Unreleased (develop)
+
+### v3.8.4
+
+- **Fix:** Duplicate Case Hardened (and same-skin) inventory cards no longer reuse the same float/seed — batched overlay passes now track already-stamped items across batches; improved candidate disambiguation by wear/float/seed
 
 ### v3.8.3
 
