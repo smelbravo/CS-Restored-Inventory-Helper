@@ -4,7 +4,7 @@ Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.f
 
 Works in **Firefox**, **Microsoft Edge**, and **Chromium** browsers (Manifest V3).
 
-**Current version:** `3.8.6`
+**Current version:** `3.8.7`
 
 **Repository:** [github.com/smelbravo/CS-Restored-Inventory-Helper](https://github.com/smelbravo/CS-Restored-Inventory-Helper)
 
@@ -56,14 +56,14 @@ With **200+** items you may still see some site slowness, but the extension shou
 
 | Skin family | Identified by | Badge examples |
 |-------------|---------------|----------------|
-| **Doppler** | Finish Catalog **415–421** (Ruby, Sapphire, Black Pearl, Phase 1–4) | `Ruby · 415`, `P2 · 419` |
+| **Doppler** | Finish Catalog **415–421** (Ruby, Sapphire, Black Pearl, Phase 1–4); **CS:R alt** **617–619** / **852–855** on some knives (e.g. Kukri Sapphire = **619**) | `Ruby · 415`, `Sapphire · 619`, `P2 · 419` |
 | **Gamma Doppler** (knives) | Finish Catalog **568–572** (Emerald, Phase 1–4) | `Emerald · 568`, `P3 · 571` |
 | **Glock-18 Gamma Doppler** | Paint index **1119–1123** (CS:R-specific, not 568–572) | `Emerald · 1119`, `P2 · 1121` |
 | **Case Hardened** | Paint **seed** (community tier lists) | `#1`, `T1`, `T2`, `T3` |
 
 **Where badges appear:** same places and toggles as float/seed — **inventory**, **marketplace** (grid + **offer detail** `/marketplace/offer/{id}`), **trades**, **Send Trade Offer**, **Create Offer** (not the Cases shop panel). Respects **Float & seed overlays** and **Trade float & seed overlays**.
 
-**Doppler:** phase is **not** derived from seed — CS:R exposes it as **`skin_index`** (paint index) on inventory items. Knives use **415–421** / **568–572**; **Glock-18 Gamma Doppler** uses **1119–1123**. Badges show **phase + paint index** (e.g. `Emerald · 1119`) anywhere float/seed overlays run when the paint index is known.
+**Doppler:** phase is **not** derived from seed — CS:R exposes it as **`skin_index`** (paint index) on inventory items. Most knives use **415–421**; **Kukri / Butterfly / Shadow Daggers** (and similar) may use **617–619** for gems (Sapphire = **619**) and **852–855** for phases. Gamma uses **568–572**; **Glock-18 Gamma Doppler** uses **1119–1123**. Badges show **phase + paint index** (e.g. `Sapphire · 619`, `Emerald · 1119`) when known.
 
 #### Marketplace Doppler / Gamma Doppler phases
 
@@ -392,7 +392,7 @@ The **`.xpi` on GitHub** is unsigned and **does not install** on Firefox Release
 
 ## Releases
 
-Stable downloads: [GitHub Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) (latest: **v3.8.6**).
+Stable downloads: [GitHub Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) (latest: **v3.8.7**).
 
 | Browser | Install |
 |---------|---------|
@@ -493,6 +493,11 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 ## Changelog
 
 ### Unreleased (develop)
+
+### v3.8.7
+
+- **Fix:** About tab logo (wrong icon path in popup)
+- **Fix:** Doppler **Sapphire** on Kukri / Butterfly / Shadow Daggers — CS:R uses `skin_index` **619** (not **416**); Gems-only filter and phase badges restored (thanks **Ametx**)
 
 ### v3.8.6
 

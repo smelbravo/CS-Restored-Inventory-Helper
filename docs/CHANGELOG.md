@@ -1,5 +1,18 @@
 # Changelog
 
+## 3.8.7
+
+**Hotfix** — critical bugs reported right after the v3.8.x big update.
+
+### Fix — About tab logo (reported by smelbravo)
+- Popup **About** icon used wrong image path (`icons/` instead of `../../icons/`)
+
+### Fix — Doppler Sapphire missing on some knives (reported by Ametx)
+- **CS:R alt `skin_index`:** gems **617–619** (Sapphire = **619**, not CS:GO **416**) and phases **852–855** on Kukri, Butterfly, Shadow Daggers, and similar
+- `skin_index` no longer confused with paint **seed** on phased knives
+- Finish catalog lookup uses all CDN/item ids and card image id; **Gems only** filter fixed for affected knives
+- Bundled map: Kukri Sapphire CDN id **2024 → 619**
+
 ## 3.8.6
 
 No functional changes — version bump only (AMO does not allow re-uploading a deleted **3.8.5** submission). Same build as **3.8.5**.

@@ -29,6 +29,15 @@
         419: { label: 'Phase 2', short: 'P2', kind: 'phase', family: 'doppler' },
         420: { label: 'Phase 3', short: 'P3', kind: 'phase', family: 'doppler' },
         421: { label: 'Phase 4', short: 'P4', kind: 'phase', family: 'doppler' },
+        /* CS:R alt Doppler gems (Kukri, Butterfly, Shadow Daggers, etc.) — not CS:GO 415–417 */
+        617: { label: 'Ruby', short: 'Ruby', kind: 'gem', family: 'doppler' },
+        618: { label: 'Black Pearl', short: 'BP', kind: 'gem', family: 'doppler' },
+        619: { label: 'Sapphire', short: 'Sapphire', kind: 'gem', family: 'doppler' },
+        /* CS:R alt Doppler phases on some newer knives */
+        852: { label: 'Phase 1', short: 'P1', kind: 'phase', family: 'doppler' },
+        853: { label: 'Phase 2', short: 'P2', kind: 'phase', family: 'doppler' },
+        854: { label: 'Phase 3', short: 'P3', kind: 'phase', family: 'doppler' },
+        855: { label: 'Phase 4', short: 'P4', kind: 'phase', family: 'doppler' },
         568: { label: 'Emerald', short: 'Emerald', kind: 'gem', family: 'gamma' },
         569: { label: 'Phase 1', short: 'P1', kind: 'phase', family: 'gamma' },
         570: { label: 'Phase 2', short: 'P2', kind: 'phase', family: 'gamma' },
@@ -219,9 +228,11 @@
             if (!raw || typeof raw !== 'object') continue;
             const item = raw.item || raw.weapon || raw.skin;
             const name = raw.name ?? raw.item_name ?? item?.name ?? '';
-            const itemId = skinDefinitionId(raw);
             const fc = extractFinishCatalog(raw);
-            if (fc != null && learnItemIdFinish(itemId, fc, name)) changed = true;
+            if (fc == null) continue;
+            for (const id of catalogIdsFromRaw(raw)) {
+                if (learnItemIdFinish(id, fc, name)) changed = true;
+            }
         }
         return changed;
     }
@@ -247,18 +258,64 @@
         return changed;
     }
 
+    function paintSeedFromRaw(raw) {
+        if (!raw || typeof raw !== 'object') return null;
+        const item = raw.item || raw.weapon || raw.skin;
+        for (const k of ['seed', 'skin_seed', 'paint_seed']) {
+            const n = toInt(raw[k] ?? item?.[k]);
+            if (n != null) return n;
+        }
+        return null;
+    }
+
+    /** skin_index is finish catalog on CS:R — but can duplicate paint seed on phased knives (418–421). */
+    function skinIndexLooksLikePaintSeed(skinIndex, seed) {
+        if (skinIndex == null || seed == null || skinIndex !== seed) return false;
+        const info = DOPPLER_FINISH[skinIndex];
+        return !!(info && info.kind === 'phase');
+    }
+
     function extractFinishCatalog(raw) {
         if (!raw || typeof raw !== 'object') return null;
         const item = raw.item || raw.weapon || raw.skin;
         const name = raw.name ?? raw.item_name ?? item?.name ?? '';
+        const seed = paintSeedFromRaw(raw);
         const sources = [raw, item].filter(Boolean);
         for (const src of sources) {
             for (const k of FINISH_CATALOG_KEYS) {
                 const n = toInt(src[k]);
                 if (n == null || !DOPPLER_FINISH[n]) continue;
                 if (k === 'skin_index' && !isDopplerFamilyName(name)) continue;
+                if (k === 'skin_index' && skinIndexLooksLikePaintSeed(n, seed)) continue;
                 return n;
             }
+        }
+        return null;
+    }
+
+    function catalogIdsFromRaw(raw) {
+        if (!raw || typeof raw !== 'object') return [];
+        const item = raw.item || raw.weapon || raw.skin;
+        const ids = new Set();
+        const add = (v) => {
+            const n = toInt(v);
+            if (n != null) ids.add(n);
+        };
+        add(skinDefinitionId(raw));
+        add(raw.item_id);
+        add(raw.weapon_id);
+        add(raw.skin_id);
+        add(item?.item_id);
+        add(item?.weapon_id);
+        add(item?.skin_id);
+        return [...ids];
+    }
+
+    function finishFromItemIds(raw, name) {
+        if (!isDopplerFamilyName(name)) return null;
+        for (const id of catalogIdsFromRaw(raw)) {
+            const fc = finishFromItemId(id, name);
+            if (fc != null) return fc;
         }
         return null;
     }
@@ -269,8 +326,7 @@
         if (!raw || typeof raw !== 'object') return null;
         const item = raw.item || raw.weapon || raw.skin;
         const name = raw.name ?? raw.item_name ?? item?.name ?? '';
-        const itemId = toInt(raw.item_id ?? item?.item_id ?? raw.skin_id ?? item?.skin_id);
-        const mapped = finishFromItemId(itemId, name);
+        const mapped = finishFromItemIds(raw, name);
         if (mapped != null) return mapped;
         const cached = toInt(raw.finish_catalog);
         if (cached != null && finishCatalogMatchesName(cached, name)) return cached;
@@ -534,6 +590,8 @@
     global.CSR_formatDopplerPatternText = formatDopplerPatternText;
     global.CSR_formatDopplerPatternTitle = formatDopplerPatternTitle;
     global.CSR_finishFromItemId = finishFromItemId;
+    global.CSR_finishFromItemIds = finishFromItemIds;
+    global.CSR_catalogIdsFromRaw = catalogIdsFromRaw;
     global.CSR_learnItemIdFinishBatch = learnItemIdFinishBatch;
     global.CSR_learnItemIdFinishFromPayload = learnItemIdFinishFromPayload;
     global.CSR_loadItemIdFinishMap = loadItemIdFinishMap;

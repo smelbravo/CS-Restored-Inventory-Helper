@@ -2422,17 +2422,63 @@ function finishCatalogFromLocalIndexes(itemId, name) {
     return null;
 }
 
-function resolveEntryFinishCatalog(raw, itemId, name) {
+function resolveEntryFinishCatalog(raw, itemId, name, imgId) {
     const existing = raw?.finish_catalog != null ? parseInt(raw.finish_catalog, 10) : null;
     if (existing != null && !Number.isNaN(existing)) return existing;
+    const label = name || raw?.name || raw?.item_name || '';
     if (typeof CSR_resolveFinishCatalog === 'function') {
         const probe = raw && typeof raw === 'object'
-            ? { ...raw, item_id: itemId ?? raw.item_id, name: name || raw.name || raw.item_name }
-            : { item_id: itemId, name };
-        const fc = CSR_resolveFinishCatalog(probe);
+            ? { ...raw, item_id: itemId ?? raw.item_id, name: label }
+            : { item_id: itemId, name: label };
+        let fc = CSR_resolveFinishCatalog(probe);
+        if (fc == null && typeof CSR_finishFromItemIds === 'function') {
+            fc = CSR_finishFromItemIds(probe, label);
+        }
+        if (fc == null && imgId != null && typeof CSR_finishFromItemId === 'function') {
+            fc = CSR_finishFromItemId(imgId, label);
+        }
         if (fc != null) return fc;
     }
-    return finishCatalogFromLocalIndexes(itemId, name);
+    return finishCatalogFromLocalIndexes(itemId ?? imgId, label);
+}
+
+function dopplerNameFromCard(card) {
+    if (!card) return '';
+    const names = getCardSkinNames(card);
+    if (!names) return '';
+    const weapon = (names.weapon || '').replace(/^★\s*/, '').trim();
+    const skin = (names.skin || '').trim();
+    if (weapon && skin) return `★ ${weapon} | ${skin}`;
+    return weapon || skin || '';
+}
+
+function resolveDopplerPatternForEntry(item, card) {
+    if (typeof CSR_resolveSkinPattern !== 'function') return null;
+    if (!item && !card) return null;
+    const enriched = item ? (card ? enrichItemWithCardSeed(card, item) : item) : null;
+    if (enriched) {
+        const direct = CSR_resolveSkinPattern(enriched);
+        if (direct?.type === 'doppler') return direct;
+    }
+    const name = enriched?.name || item?.name || dopplerNameFromCard(card);
+    if (!/doppler/i.test(name)) return null;
+    const imgId = card ? getImgItemId(card) : null;
+    const base = enriched || item || { name, item_id: imgId };
+    let fc = base.finish_catalog != null ? parseInt(base.finish_catalog, 10) : null;
+    if (fc == null && typeof CSR_finishFromItemIds === 'function') {
+        fc = CSR_finishFromItemIds({ ...base, item_id: imgId ?? base.item_id }, name);
+    }
+    if (fc == null && imgId != null && typeof CSR_finishFromItemId === 'function') {
+        fc = CSR_finishFromItemId(imgId, name);
+    }
+    if (fc == null) return null;
+    const pattern = CSR_resolveSkinPattern({
+        ...base,
+        name,
+        finish_catalog: fc,
+        item_id: imgId ?? base.item_id,
+    });
+    return pattern?.type === 'doppler' ? pattern : null;
 }
 
 function refreshMarketplaceFinishCatalogs() {
@@ -4210,8 +4256,10 @@ function injectCardOverlay(cardEl, item) {
 
     const existing = cardEl.querySelector('.csrx-card-wrap');
     const enrichedItem = enrichItemWithCardOverlay(cardEl, item);
-    const patternForSig = wantOverlay && typeof CSR_resolveSkinPattern === 'function'
-        ? CSR_resolveSkinPattern(enrichedItem) : null;
+    const patternForSig = wantOverlay
+        ? resolveDopplerPatternForEntry(enrichedItem, cardEl)
+            || (typeof CSR_resolveSkinPattern === 'function' ? CSR_resolveSkinPattern(enrichedItem) : null)
+        : null;
     const patternSig = wantOverlay && typeof CSR_patternSignature === 'function'
         ? CSR_patternSignature(patternForSig) : '';
     const lockSig = wantLock
@@ -4766,11 +4814,7 @@ const BROWSE_LOCK_LOCKED = 'locked';
 const BROWSE_LOCK_UNLOCKED = 'unlocked';
 
 function browseDopplerPattern(item, card) {
-    if (!item || typeof CSR_resolveSkinPattern !== 'function') return null;
-    const enriched = card ? enrichItemWithCardSeed(card, item) : item;
-    const pattern = CSR_resolveSkinPattern(enriched);
-    if (!pattern || pattern.type !== 'doppler') return null;
-    return pattern;
+    return resolveDopplerPatternForEntry(item, card);
 }
 
 function browseDopplerFilterKey(item, card) {
@@ -4838,10 +4882,10 @@ function cardPassesBrowseFilters(card, item, f) {
     }
 
     if (f.phase && !isMarketplacePage()) {
-        if (!item) return false;
         if (f.phase === BROWSE_GEMS_ONLY) {
             if (!browseDopplerIsGem(item, card)) return false;
         } else {
+            if (!item && !browseDopplerFilterKey(null, card)) return false;
             const phaseKey = browseDopplerFilterKey(item, card);
             if (f.phase === BROWSE_PHASE_ANY) {
                 if (!phaseKey) return false;
