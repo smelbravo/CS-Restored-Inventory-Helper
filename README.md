@@ -391,7 +391,7 @@ The **`.xpi` on GitHub** is unsigned and **does not install** on Firefox Release
 
 ## Releases
 
-Stable downloads: [GitHub Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) (latest: **v3.8.3**).
+Stable downloads: [GitHub Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) (latest: **v3.8.4**).
 
 | Browser | Install |
 |---------|---------|
