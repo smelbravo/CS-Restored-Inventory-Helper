@@ -1,5 +1,25 @@
 # Changelog
 
+## 3.8.9
+
+### Fix — CS:R alt Doppler Black Pearl (skin_index 617)
+- **Kukri / Butterfly / Shadow Daggers** (and similar alt-gem knives): `skin_index` **617** is **Black Pearl**, not Ruby; **618** is **Ruby** (was swapped in v3.8.7)
+- Fixes wrong **Ruby · 617** badges and browse filters on Black Pearl alt Doppler knives
+
+### New — Fade % badges
+- **`| Fade`** knives and guns show **fade percentage** from paint **seed** (Valve rotation algorithm; bundled offline — no external API)
+- **All** fade items show a badge (e.g. `83.8%`, `99.9%`); **≥ 95%** uses stronger gradient styling; **90–94%** and **80–89%** use discreet badges
+- Works on inventory, marketplace, trades, Create Offer (when `seed` is present)
+
+### New — Marble Fade pattern badges
+- **Fire & Ice** — Karambit, Bayonet, Flip Knife, Gut Knife (community tier lists; badge `F&I`, `2nd`, …)
+- **Max Red Tip** — all Marble Fade knife types (Butterfly, M9, Talon, Huntsman, Ursus, Falchion, Bowie, Stiletto, Nomad, Navaja, Skeleton, Shadow Daggers, Paracord, Survival, Classic, Kukri)
+- Seed lists bundled from korenevskiy Steam guides + community references (pattern.wiki, SteamAnalyst, CSFloat)
+
+### New — browse filters (Fade / Marble Fade)
+- **Fade ≥ 95%**, **Fire & Ice**, **Red Tip** in the pattern dropdown (inventory, marketplace, Create Offer)
+- Requires paint **seed** on the item (same as Case Hardened tier filter)
+
 ## 3.8.8
 
 ### Fix — auto-open delay field (reported by holme)
@@ -22,7 +42,7 @@
 - Popup **About** icon used wrong image path (`icons/` instead of `../../icons/`)
 
 ### Fix — Doppler Sapphire missing on some knives (reported by Ametx)
-- **CS:R alt `skin_index`:** gems **617–619** (Sapphire = **619**, not CS:GO **416**) and phases **852–855** on Kukri, Butterfly, Shadow Daggers, and similar
+- **CS:R alt `skin_index`:** gems **617–619** (Black Pearl = **617**, Ruby = **618**, Sapphire = **619**, not CS:GO **415–417**) and phases **852–855** on Kukri, Butterfly, Shadow Daggers, and similar
 - `skin_index` no longer confused with paint **seed** on phased knives
 - Finish catalog lookup uses all CDN/item ids and card image id; **Gems only** filter fixed for affected knives
 - Bundled map: Kukri Sapphire CDN id **2024 → 619**

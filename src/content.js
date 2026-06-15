@@ -536,6 +536,17 @@ S.textContent = `
 .csrx-pattern-gold1 { color: #fde68a !important; background: rgba(120, 53, 15, 0.82) !important; }
 .csrx-pattern-gold2 { color: #fcd34d !important; background: rgba(69, 26, 3, 0.78) !important; border: 1px solid rgba(245, 158, 11, 0.3) !important; }
 .csrx-pattern-gold3 { color: #fbbf24 !important; background: rgba(41, 37, 36, 0.78) !important; }
+.csrx-pattern-fade100 { color: #fef9c3 !important; background: linear-gradient(90deg, rgba(220, 38, 38, 0.9), rgba(236, 72, 153, 0.9), rgba(147, 51, 234, 0.9)) !important; border: 1px solid rgba(250, 204, 21, 0.5) !important; }
+.csrx-pattern-fade99 { color: #fff !important; background: linear-gradient(90deg, rgba(239, 68, 68, 0.88), rgba(217, 70, 239, 0.88), rgba(99, 102, 241, 0.88)) !important; }
+.csrx-pattern-fade97 { color: #fce7f3 !important; background: linear-gradient(90deg, rgba(190, 24, 93, 0.82), rgba(126, 34, 206, 0.82)) !important; }
+.csrx-pattern-fade95 { color: #fbcfe8 !important; background: rgba(88, 28, 135, 0.78) !important; border: 1px solid rgba(236, 72, 153, 0.35) !important; }
+.csrx-pattern-fade-mid { color: rgba(255,255,255,0.58) !important; background: rgba(15, 15, 20, 0.72) !important; border: 1px solid rgba(255,255,255,0.1) !important; }
+.csrx-pattern-fade-low { color: rgba(255,255,255,0.45) !important; background: rgba(0,0,0,0.55) !important; border: 1px solid rgba(255,255,255,0.06) !important; }
+.csrx-pattern-mf-fi0 { color: #fef2f2 !important; background: linear-gradient(90deg, rgba(220, 38, 38, 0.92), rgba(37, 99, 235, 0.92)) !important; border: 1px solid rgba(248, 113, 113, 0.45) !important; }
+.csrx-pattern-mf-fi1 { color: #fecaca !important; background: linear-gradient(90deg, rgba(185, 28, 28, 0.85), rgba(29, 78, 216, 0.85)) !important; }
+.csrx-pattern-mf-fi2 { color: #fed7aa !important; background: linear-gradient(90deg, rgba(154, 52, 18, 0.8), rgba(30, 64, 175, 0.8)) !important; }
+.csrx-pattern-mf-fi3 { color: #fde68a !important; background: rgba(67, 20, 90, 0.82) !important; border: 1px solid rgba(251, 191, 36, 0.3) !important; }
+.csrx-pattern-mf-red { color: #fecaca !important; background: linear-gradient(135deg, rgba(185, 28, 28, 0.9), rgba(127, 29, 29, 0.88)) !important; border: 1px solid rgba(248, 113, 113, 0.4) !important; }
 .csrx-mp-offer-pattern-col {
     display: flex !important;
     flex-direction: column !important;
@@ -572,7 +583,9 @@ S.textContent = `
 .csrx-mp-offer-pattern-value.csrx-pattern-ch3 { color: #7dd3fc !important; }
 .csrx-mp-offer-pattern-value.csrx-pattern-phase { color: rgba(255,255,255,0.9) !important; }
 .csrx-mp-offer-pattern-value.csrx-pattern-ch0,
-.csrx-mp-offer-pattern-value.csrx-pattern-gem {
+.csrx-mp-offer-pattern-value.csrx-pattern-gem,
+.csrx-mp-offer-pattern-value.csrx-pattern-fade100,
+.csrx-mp-offer-pattern-value.csrx-pattern-mf-fi0 {
     display: inline-flex !important;
     align-items: center !important;
     font-size: 0.8125rem !important;
@@ -2809,7 +2822,13 @@ function buildMpOfferPatternColumn(pattern, sig) {
             if (!cls.startsWith('csrx')) label.classList.add(cls);
         }
     }
-    label.textContent = pattern.type === 'doppler' ? 'Phase' : (pattern.gemKind === 'gold' ? 'Gold' : 'Tier');
+    label.textContent = pattern.type === 'doppler'
+        ? 'Phase'
+        : pattern.type === 'fade'
+            ? 'Fade'
+            : pattern.type === 'marble-fade'
+                ? (pattern.kind === 'red-tip' ? 'Pattern' : 'Fire & Ice')
+                : (pattern.gemKind === 'gold' ? 'Gold' : 'Tier');
 
     const value = document.createElement('span');
     value.className = 'csrx-mp-offer-pattern-value ' + (pattern.css || '');
@@ -4852,6 +4871,9 @@ function restoreCardOrder(cards, grid) {
 const BROWSE_PHASE_ANY = '__phase__';
 const BROWSE_GEMS_ONLY = '__gems__';
 const BROWSE_CH_ANY = '__ch__';
+const BROWSE_FADE_95 = 'fade95';
+const BROWSE_MF_FI = 'mf-fi';
+const BROWSE_MF_RED = 'mf-red';
 const BROWSE_LOCK_LOCKED = 'locked';
 const BROWSE_LOCK_UNLOCKED = 'unlocked';
 
@@ -4890,6 +4912,16 @@ function browseChFilterKey(item, card) {
     return gold ? `gold${pattern.tier}` : `ch${pattern.tier}`;
 }
 
+function browsePatternKey(item, card) {
+    if (typeof CSR_browsePatternFilterKey !== 'function') return null;
+    const enriched = card && item ? enrichItemWithCardSeed(card, item) : item;
+    const name = enriched?.name || item?.name || dopplerNameFromCard(card) || '';
+    const seedRaw = enriched?.seed ?? item?.seed;
+    const seed = seedRaw != null ? parseInt(seedRaw, 10) : null;
+    if (seed == null || !Number.isFinite(seed)) return null;
+    return CSR_browsePatternFilterKey(name, seed);
+}
+
 function readBrowseFilters() {
     const bar = document.getElementById('csrx-browse');
     if (!bar) return null;
@@ -4898,6 +4930,7 @@ function readBrowseFilters() {
         rarity: bar.querySelector('#csrx-browse-rarity')?.value || '',
         wear: bar.querySelector('#csrx-browse-wear')?.value || '',
         phase: bar.querySelector('#csrx-browse-phase')?.value || '',
+        pattern: bar.querySelector('#csrx-browse-pattern')?.value || '',
         chTier: bar.querySelector('#csrx-browse-ch')?.value || '',
         lock: bar.querySelector('#csrx-browse-lock')?.value || '',
         floatSort: bar.querySelector('#csrx-browse-float')?.value || '',
@@ -4945,6 +4978,12 @@ function cardPassesBrowseFilters(card, item, f) {
         } else if (chKey !== f.chTier) {
             return false;
         }
+    }
+
+    if (f.pattern) {
+        if (!item) return false;
+        const patKey = browsePatternKey(item, card);
+        if (patKey !== f.pattern) return false;
     }
 
     if (f.lock && isInventoryPage() && !isCreateOfferModal()) {
@@ -5039,9 +5078,11 @@ function clearBrowseFilters() {
     const price = bar.querySelector('#csrx-browse-price');
     if (price) price.value = '';
     const phase = bar.querySelector('#csrx-browse-phase');
+    const pattern = bar.querySelector('#csrx-browse-pattern');
     const ch = bar.querySelector('#csrx-browse-ch');
     const lock = bar.querySelector('#csrx-browse-lock');
     if (phase) phase.value = '';
+    if (pattern) pattern.value = '';
     if (ch) ch.value = '';
     if (lock) lock.value = '';
     if (isTradePickerModal()) resetTradePickerBrowseClasses();
@@ -5133,6 +5174,13 @@ function buildBrowseBar() {
         `<option value="gold3">${csrT('browse.chGoldT3')}</option>`,
     ].join('');
 
+    const patternOpts = [
+        `<option value="">${csrT('browse.allPatterns')}</option>`,
+        `<option value="${BROWSE_FADE_95}">${csrT('browse.fade95')}</option>`,
+        `<option value="${BROWSE_MF_FI}">${csrT('browse.mfFireIce')}</option>`,
+        `<option value="${BROWSE_MF_RED}">${csrT('browse.mfRedTip')}</option>`,
+    ].join('');
+
     wrap.innerHTML = `
 <div class="csrx-browse-row">
     <input id="csrx-browse-search" type="search" placeholder="${csrT('browse.searchPlaceholder')}" autocomplete="off" spellcheck="false">
@@ -5140,6 +5188,7 @@ function buildBrowseBar() {
         <select id="csrx-browse-rarity" title="${csrT('browse.filterRarity')}">${rarityOpts}</select>
         <select id="csrx-browse-wear" title="${csrT('browse.filterWear')}">${wearOpts}</select>
         ${phaseSelect}
+        <select id="csrx-browse-pattern" title="${csrT('browse.filterPattern')}">${patternOpts}</select>
         <select id="csrx-browse-ch" title="${csrT('browse.filterCh')}">${chOpts}</select>
         ${lockSelect}
         <select id="csrx-browse-float" title="${csrT('browse.sortFloat')}">${floatOpts}</select>

@@ -1,10 +1,10 @@
 # CS:Restored Inventory Helper
 
-Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.fun) — float and paint seed overlays, **Doppler/Gamma phase** and **Case Hardened tier** badges, search and filters on inventory/marketplace, a quick-sell panel, **case bulk buy** and **auto case opening** (single or **multi case**, with optional **session auto-sell** and **per-item sell**) on the Cases tab, optional **toolbar settings** to turn each feature on or off, **skin lock** to avoid accidental sells, **multi-language UI** (popup + on-site panels), optional **browser sync** and **JSON backup** for settings, a **live user counter** in the popup header, and an **About** tab with release info and (on Chromium) a GitHub update checker.
+Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.fun) — float and paint seed overlays, **Doppler/Gamma phase**, **Fade %**, **Marble Fade** (Fire & Ice / Red Tip), and **Case Hardened tier** badges, search and filters on inventory/marketplace, a quick-sell panel, **case bulk buy** and **auto case opening** (single or **multi case**, with optional **session auto-sell** and **per-item sell**) on the Cases tab, optional **toolbar settings** to turn each feature on or off, **skin lock** to avoid accidental sells, **multi-language UI** (popup + on-site panels), optional **browser sync** and **JSON backup** for settings, a **live user counter** in the popup header, and an **About** tab with release info and (on Chromium) a GitHub update checker.
 
 Works in **Firefox**, **Microsoft Edge**, and **Chromium** browsers (Manifest V3).
 
-**Current version:** `3.8.8`
+**Current version:** `3.8.9`
 
 **Repository:** [github.com/smelbravo/CS-Restored-Inventory-Helper](https://github.com/smelbravo/CS-Restored-Inventory-Helper)
 
@@ -25,7 +25,7 @@ Log in with Discord on the website after meeting these requirements.
 
 Shows **wear abbreviation** (FN, MW, FT, WW, BS), **float value** (e.g. `0.1962`), and **paint seed** (`#640`) on item cards. Color-coded float dot (green → yellow → red by wear).
 
-On **Doppler / Gamma Doppler** and **Case Hardened** skins, extra badges show **phase or gem** (Ruby, Sapphire, P1–P4, Emerald…) and **CH tier** (#1, T1–T3) — see [Pattern badges](#pattern-badges).
+On **Doppler / Gamma Doppler**, **Fade**, **Marble Fade**, and **Case Hardened** skins, extra badges show **phase or gem**, **fade %**, **F&I / Red Tip**, and **CH tier** — see [Pattern badges](#pattern-badges).
 
 | Page | Route | Notes |
 |------|-------|-------|
@@ -56,14 +56,20 @@ With **200+** items you may still see some site slowness, but the extension shou
 
 | Skin family | Identified by | Badge examples |
 |-------------|---------------|----------------|
-| **Doppler** | Finish Catalog **415–421** (Ruby, Sapphire, Black Pearl, Phase 1–4); **CS:R alt** **617–619** / **852–855** on some knives (e.g. Kukri Sapphire = **619**) | `Ruby · 415`, `Sapphire · 619`, `P2 · 419` |
+| **Doppler** | Finish Catalog **415–421** (Ruby, Sapphire, Black Pearl, Phase 1–4); **CS:R alt** **617–619** (BP **617**, Ruby **618**, Sapphire **619**) / **852–855** on some knives | `BP · 617`, `Sapphire · 619`, `P2 · 419` |
 | **Gamma Doppler** (knives) | Finish Catalog **568–572** (Emerald, Phase 1–4) | `Emerald · 568`, `P3 · 571` |
 | **Glock-18 Gamma Doppler** | Paint index **1119–1123** (CS:R-specific, not 568–572) | `Emerald · 1119`, `P2 · 1121` |
 | **Case Hardened** | Paint **seed** (community tier lists) | `#1`, `T1`, `T2`, `T3` |
+| **Fade** | Paint **seed** (computed %, bundled algorithm) | `99.9%`, `95.6%`, `83.8%` (discreet below 90%) |
+| **Marble Fade** | Paint **seed** (community tier lists) | `F&I`, `2nd`, `Red Tip` |
+
+**Fade %:** calculated offline from seed for every `| Fade` skin (knives + Glock, AWP, etc.). Badges always show when seed is known; **≥ 95%** uses highlight styling.
+
+**Marble Fade:** **Fire & Ice** tiers on Karambit, Bayonet, Flip, Gut. **Max Red Tip** on all other Marble Fade knife types (seed lists from community Steam guides). No external API calls.
 
 **Where badges appear:** same places and toggles as float/seed — **inventory**, **marketplace** (grid + **offer detail** `/marketplace/offer/{id}`), **trades**, **Send Trade Offer**, **Create Offer** (not the Cases shop panel). Respects **Float & seed overlays** and **Trade float & seed overlays**.
 
-**Doppler:** phase is **not** derived from seed — CS:R exposes it as **`skin_index`** (paint index) on inventory items. Most knives use **415–421**; **Kukri / Butterfly / Shadow Daggers** (and similar) may use **617–619** for gems (Sapphire = **619**) and **852–855** for phases. Gamma uses **568–572**; **Glock-18 Gamma Doppler** uses **1119–1123**. Badges show **phase + paint index** (e.g. `Sapphire · 619`, `Emerald · 1119`) when known.
+**Doppler:** phase is **not** derived from seed — CS:R exposes it as **`skin_index`** (paint index) on inventory items. Most knives use **415–421**; **Kukri / Butterfly / Shadow Daggers** (and similar) use **617** (Black Pearl), **618** (Ruby), **619** (Sapphire) for gems and **852–855** for phases. Gamma uses **568–572**; **Glock-18 Gamma Doppler** uses **1119–1123**. Badges show **phase + paint index** (e.g. `BP · 617`, `Sapphire · 619`, `Emerald · 1119`) when known.
 
 #### Marketplace Doppler / Gamma Doppler phases
 
@@ -100,6 +106,7 @@ Horizontal bar above the item grid (same layout on both pages):
 | **Wear** | FN, MW, FT, WW, BS | Same |
 | **Phase** | Phased only, **Gems only**, Ruby/Sapphire/BP/Emerald, P1–P4 | Same options — **known `item_id` only** (see [Marketplace Doppler phases](#marketplace-doppler--gamma-doppler-phases)) |
 | **CH tier** | Tiered only, #1 / T1–T3 blue, #1 / G1–G3 gold | Same (seed tier lists) |
+| **Pattern** | Fade ≥ 95%, Fire & Ice, Red Tip | Same (requires seed) |
 | **Lock** | All / locked only / unlocked only | — |
 | **Float order** | Low → High / High → Low | Same |
 | **Price order** | — | Cheapest / Most expensive (coins) |
@@ -394,7 +401,7 @@ The **`.xpi` on GitHub** is unsigned and **does not install** on Firefox Release
 
 ## Releases
 
-Stable downloads: [GitHub Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) (latest: **v3.8.8**).
+Stable downloads: [GitHub Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) (latest: **v3.8.9**).
 
 | Browser | Install |
 |---------|---------|
@@ -494,7 +501,12 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 
 ## Changelog
 
-### Unreleased (develop)
+### v3.8.9
+
+- **Fix:** Doppler **Black Pearl** on alt-gem knives — **617** = BP, **618** = Ruby (not swapped)
+- **New:** **Fade %** badges on all `| Fade` skins (always show %; highlight ≥ 95%)
+- **New:** **Marble Fade** — Fire & Ice (Karambit/Bayonet/Flip/Gut) and **Red Tip** (all MF knife types)
+- **New:** Browse filters — **Fade ≥ 95%**, **Fire & Ice**, **Red Tip**
 
 ### v3.8.8
 

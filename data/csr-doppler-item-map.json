@@ -1,5 +1,5 @@
 {
-  "_comment": "CS:R CDN skin id (weapon_id min / item_id) → skin_index. Classic Doppler: 415–421. CS:R alt gems: 617–619 (Sapphire=619). Gamma: 568–572 / Glock 1119–1123. Grows via inventory learning.",
+  "_comment": "CS:R CDN skin id (weapon_id min / item_id) → skin_index. Classic Doppler: 415–421. CS:R alt gems: 617 BP, 618 Ruby, 619 Sapphire. Gamma: 568–572 / Glock 1119–1123. Grows via inventory learning.",
   "562": 1119,
   "652": 568,
   "814": 568,
