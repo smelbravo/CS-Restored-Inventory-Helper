@@ -1,6 +1,8 @@
 # Changelog
 
-## 3.8.10
+## 3.9.0
+
+Minor release — pattern badges (shipped in repo as **3.8.9**) plus auto-open resilience.
 
 ### Improvement — Auto case opening resilience
 - **Server / network errors** (5xx, 429, timeouts) no longer stop the whole session on the first failure — retries with backoff (up to **8** consecutive errors)
