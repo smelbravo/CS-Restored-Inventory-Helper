@@ -10,6 +10,9 @@ const CASES_BUY_URL = (caseId) => `https://api.csrestored.fun/inventory/cases/bu
 const CASES_OPEN_URL = (caseId) => `https://api.csrestored.fun/inventory/cases/open/${caseId}`;
 const CASES_OPEN_DELAY_MIN_MS = 400;
 const CASES_OPEN_DELAY_PRESETS = [400, 800, 1500];
+const CASES_OPEN_MINUTES_MAX = 480;
+const CASES_OPEN_MAX_CONSECUTIVE_ERRORS = 8;
+const CASES_OPEN_ERROR_BACKOFF_MS = 2500;
 const CASES_LIST_PAGE_RE = /^\/app\/inventory\/cases$/i;
 
 const RARITY = {
@@ -6889,6 +6892,12 @@ function finalizeCasesOpenDelayInput(showMinWarning = false) {
     return next;
 }
 
+function clampCasesOpenMinutes(m) {
+    const n = parseInt(m, 10);
+    if (!Number.isFinite(n)) return 10;
+    return Math.max(1, Math.min(CASES_OPEN_MINUTES_MAX, n));
+}
+
 function syncDelayPresetButtons() {
     const delayInp = document.getElementById('csrx-cases-open-delay');
     const val = parseInt(String(delayInp?.value ?? '').replace(/[^\d]/g, ''), 10);
@@ -6914,7 +6923,7 @@ function normalizeCasesAutoCfg(raw) {
     const m = parseInt(raw.minutes, 10);
     if (Number.isFinite(d)) out.delayMs = clampCasesOpenDelayMs(d);
     if (Number.isFinite(s)) out.spendLimit = Math.max(0, Math.min(999999999, s));
-    if (Number.isFinite(m)) out.minutes = Math.max(1, Math.min(120, m));
+    if (Number.isFinite(m)) out.minutes = clampCasesOpenMinutes(m);
     if (raw.openMode === 'single' || raw.openMode === 'multi') out.openMode = raw.openMode;
     if (Array.isArray(raw.multiCaseIds)) {
         const ids = [];
@@ -7298,7 +7307,7 @@ function updateCasesAutoOpenSummary() {
 
     const delayMs = clampCasesOpenDelayMs(readCasesOpenDelayInput(document.getElementById('csrx-cases-open-delay'), casesAutoOpenCfg.delayMs));
     const spendLimit = Math.max(0, readInt(document.getElementById('csrx-cases-open-spend'), casesAutoOpenCfg.spendLimit));
-    const minutes = Math.max(1, Math.min(120, readInt(document.getElementById('csrx-cases-open-mins'), casesAutoOpenCfg.minutes)));
+    const minutes = clampCasesOpenMinutes(readInt(document.getElementById('csrx-cases-open-mins'), casesAutoOpenCfg.minutes));
     const coinsLine = cachedUserCoins != null
         ? `${csrT('cases.yourCoins', { coins: `<strong>${formatCoins(cachedUserCoins)}</strong>` })}<br>`
         : '';
@@ -7387,23 +7396,78 @@ function updateCasesAutoOpenSummary() {
 }
 
 async function openCaseOnce(caseId) {
-    const r = await _nativeFetch(CASES_OPEN_URL(caseId), {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: '{}',
-    });
+    let r;
+    try {
+        r = await _nativeFetch(CASES_OPEN_URL(caseId), {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: '{}',
+        });
+    } catch (e) {
+        const err = new Error(e?.message || 'Network error');
+        err.status = 0;
+        throw err;
+    }
     let data = null;
     try { data = await r.json(); } catch (_) {}
     if (!r.ok) {
         const msg = data?.message || data?.detail || `Open failed (${r.status})`;
-        throw new Error(typeof msg === 'string' ? msg : JSON.stringify(msg));
+        const err = new Error(typeof msg === 'string' ? msg : JSON.stringify(msg));
+        err.status = r.status;
+        throw err;
     }
     if (data && typeof data === 'object') {
         const coins = parseCoinVal(data.coins ?? data.coin_balance ?? data.balance);
         if (coins != null) cachedUserCoins = coins;
     }
     return data;
+}
+
+function isCasesOpenErrorRetryable(err) {
+    const status = err?.status;
+    const msg = String(err?.message || '').toLowerCase();
+    if (status === 401 || status === 403 || status === 404) return false;
+    if (/unauthorized|forbidden|invalid case|not found|not enough coin|insufficient coin|insufficient balance|banned/.test(msg)) return false;
+    if (status === 429 || status === 408 || (status >= 500 && status <= 599)) return true;
+    if (status === 0 || status == null) return true;
+    return false;
+}
+
+function handleCasesOpenLoopError(err, consecutiveErrors) {
+    const msg = err?.message || 'Unknown error';
+    const safeMsg = escapeCasesHtml(msg);
+    const next = consecutiveErrors + 1;
+    if (!isCasesOpenErrorRetryable(err)) {
+        return {
+            break: true,
+            consecutiveErrors: next,
+            lastErr: msg,
+            logHtml: `<span style="color:#ef4444">${csrT('cases.log.error', { msg: safeMsg })}</span>`,
+        };
+    }
+    if (next >= CASES_OPEN_MAX_CONSECUTIVE_ERRORS) {
+        return {
+            break: true,
+            consecutiveErrors: next,
+            lastErr: msg,
+            logHtml: `<span style="color:#ef4444">${csrT('cases.log.errorStop', {
+                n: next,
+                msg: safeMsg,
+            })}</span>`,
+        };
+    }
+    return {
+        break: false,
+        consecutiveErrors: next,
+        lastErr: msg,
+        backoffMs: CASES_OPEN_ERROR_BACKOFF_MS,
+        logHtml: `<span style="color:#fbbf24">${csrT('cases.log.errorRetry', {
+            msg: safeMsg,
+            n: next,
+            max: CASES_OPEN_MAX_CONSECUTIVE_ERRORS,
+        })}</span>`,
+    };
 }
 
 function appendCasesOpenLog(htmlLine) {
@@ -7856,7 +7920,7 @@ async function runCasesAutoOpen() {
 
     const delayMs = finalizeCasesOpenDelayInput(true);
     const spendLimit = Math.max(0, readInt(document.getElementById('csrx-cases-open-spend'), casesAutoOpenCfg.spendLimit));
-    const minutes = Math.max(1, Math.min(120, readInt(document.getElementById('csrx-cases-open-mins'), casesAutoOpenCfg.minutes)));
+    const minutes = clampCasesOpenMinutes(readInt(document.getElementById('csrx-cases-open-mins'), casesAutoOpenCfg.minutes));
     const runDurationMs = minutes * 60 * 1000;
 
     if (multi) {
@@ -7952,6 +8016,7 @@ async function runCasesAutoOpen() {
     let lastErr = '';
     let totalSpent = 0;
     let multiIdx = 0;
+    let consecutiveErrors = 0;
 
     if (multi) {
         if (isCasesMultiQuotaMode()) {
@@ -7961,7 +8026,8 @@ async function runCasesAutoOpen() {
             appendCasesOpenLog(`<span style="color:#a3a3a3">${csrT('cases.log.startingMultiQuota', { opens: planTotal, minutes })}</span>`);
             let needDelay = false;
             let opened = 0;
-            for (const picked of plan) {
+            for (let pi = 0; pi < plan.length; pi++) {
+                const picked = plan[pi];
                 if (!isCasesSessionActive(sessionGen)) break;
                 if (Date.now() >= end) break;
                 if (cachedUserCoins != null && cachedUserCoins < picked.price) break;
@@ -7978,20 +8044,28 @@ async function runCasesAutoOpen() {
                     opened++;
                     await processAutoOpenDrop(sessionGen, picked, data, sessionDrops);
                     needDelay = true;
+                    consecutiveErrors = 0;
                 } catch (e) {
-                    lastErr = e?.message || 'Unknown error';
-                    appendCasesOpenLog(`<span style="color:#ef4444">${csrT('cases.log.error', { msg: escapeCasesHtml(lastErr) })}</span>`);
-                    break;
+                    const action = handleCasesOpenLoopError(e, consecutiveErrors);
+                    consecutiveErrors = action.consecutiveErrors;
+                    lastErr = action.lastErr;
+                    appendCasesOpenLog(action.logHtml);
+                    if (action.break) break;
+                    await sleep(action.backoffMs);
+                    pi--;
                 }
             }
         } else {
             appendCasesOpenLog(`<span style="color:#a3a3a3">${csrT('cases.log.startingMulti', { count: queue.length, minutes })}</span>`);
             let needDelay = false;
+            let picked = null;
             while (isCasesSessionActive(sessionGen) && Date.now() < end) {
-                const next = pickNextMultiCase(queue, multiIdx, spendLimit - totalSpent, cachedUserCoins);
-                if (!next) break;
-                multiIdx = next.nextIdx;
-                const picked = next.picked;
+                if (!picked) {
+                    const next = pickNextMultiCase(queue, multiIdx, spendLimit - totalSpent, cachedUserCoins);
+                    if (!next) break;
+                    multiIdx = next.nextIdx;
+                    picked = next.picked;
+                }
 
                 if (needDelay) await sleep(delayMs);
                 if (!isCasesSessionActive(sessionGen)) break;
@@ -8004,10 +8078,15 @@ async function runCasesAutoOpen() {
                     totalSpent += picked.price;
                     await processAutoOpenDrop(sessionGen, picked, data, sessionDrops);
                     needDelay = true;
+                    picked = null;
+                    consecutiveErrors = 0;
                 } catch (e) {
-                    lastErr = e?.message || 'Unknown error';
-                    appendCasesOpenLog(`<span style="color:#ef4444">${csrT('cases.log.error', { msg: escapeCasesHtml(lastErr) })}</span>`);
-                    break;
+                    const action = handleCasesOpenLoopError(e, consecutiveErrors);
+                    consecutiveErrors = action.consecutiveErrors;
+                    lastErr = action.lastErr;
+                    appendCasesOpenLog(action.logHtml);
+                    if (action.break) break;
+                    await sleep(action.backoffMs);
                 }
             }
         }
@@ -8030,10 +8109,16 @@ async function runCasesAutoOpen() {
                 if (!isCasesSessionActive(sessionGen)) break;
                 totalSpent += picked.price;
                 await processAutoOpenDrop(sessionGen, picked, data, sessionDrops);
+                consecutiveErrors = 0;
             } catch (e) {
-                lastErr = e?.message || 'Unknown error';
-                appendCasesOpenLog(`<span style="color:#ef4444">${csrT('cases.log.error', { msg: escapeCasesHtml(lastErr) })}</span>`);
-                break;
+                const action = handleCasesOpenLoopError(e, consecutiveErrors);
+                consecutiveErrors = action.consecutiveErrors;
+                lastErr = action.lastErr;
+                appendCasesOpenLog(action.logHtml);
+                if (action.break) break;
+                await sleep(action.backoffMs);
+                i--;
+                continue;
             }
 
             if (!isCasesSessionActive(sessionGen)) break;
@@ -8163,6 +8248,7 @@ function setupCasesBulkBuy() {
             <div style="flex:1;">
                 <label for="csrx-cases-open-mins" data-i18n="cases.minutes">${csrT('cases.minutes')}</label>
                 <input type="text" id="csrx-cases-open-mins" inputmode="numeric" autocomplete="off" spellcheck="false" value="10" style="margin-top:6px;">
+                <div class="csrx-cases-delay-hint" data-i18n="cases.minutesMaxHint">${csrT('cases.minutesMaxHint', { max: CASES_OPEN_MINUTES_MAX })}</div>
             </div>
         </div>
         <div>
@@ -8299,7 +8385,7 @@ function setupCasesBulkBuy() {
     const handleCfgChange = () => {
         const next = {
             ...casesAutoOpenCfg,
-            minutes: Math.max(1, Math.min(120, readInt(minsInp, casesAutoOpenCfg.minutes))),
+            minutes: clampCasesOpenMinutes(readInt(minsInp, casesAutoOpenCfg.minutes)),
             spendLimit: Math.max(0, readInt(spendInp, casesAutoOpenCfg.spendLimit)),
         };
         scheduleSaveCasesAutoOpenConfig(next);

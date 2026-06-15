@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.8.10
+
+### Improvement — Auto case opening resilience
+- **Server / network errors** (5xx, 429, timeouts) no longer stop the whole session on the first failure — retries with backoff (up to **8** consecutive errors)
+- **Fatal errors** still stop immediately (401/403/404, not enough coins, invalid case)
+- **Time limit** maximum raised from **120** to **480** minutes (default remains **10** min)
+
 ## 3.8.9
 
 ### Fix — CS:R alt Doppler Black Pearl (skin_index 617)

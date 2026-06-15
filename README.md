@@ -4,7 +4,7 @@ Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.f
 
 Works in **Firefox**, **Microsoft Edge**, and **Chromium** browsers (Manifest V3).
 
-**Current version:** `3.8.9`
+**Current version:** `3.8.10`
 
 **Repository:** [github.com/smelbravo/CS-Restored-Inventory-Helper](https://github.com/smelbravo/CS-Restored-Inventory-Helper)
 
@@ -287,8 +287,8 @@ When **Auto case opening** is enabled, the gold **Cases** panel on [`/app/invent
 
 - **Search cases** — filter by name (bulk buy dropdown, single-case select, and multi-case list)
 - **Open mode:** **Single case** (one case type, repeat) or **Multi case** (several types in one session) — v3.8+
-- Configure **delay (ms)** (default and minimum **400**; editable field + **400 / 800 / 1500 ms** presets), **minutes** (time limit), and **spend limit (coins)** — saved in `storage.local` (`csrCasesAutoOpenConfig`)
-- **Start auto open** loops `POST /inventory/cases/open/{caseId}` until limits, stop, or an error
+- **Start auto open** loops `POST /inventory/cases/open/{caseId}` until limits, stop, or repeated errors (transient server errors retry with backoff; fatal errors stop immediately)
+- Configure **delay (ms)** (default and minimum **400**; editable field + **400 / 800 / 1500 ms** presets), **minutes** (time limit, max **480**; default **10**), and **spend limit (coins)** — saved in `storage.local` (`csrCasesAutoOpenConfig`)
 - **Live log** during the run (rarity-colored drops, gold ★ highlighted)
 - **Results** table when the session ends: every skin with **float + wear**, sorted **best float first** (lowest → highest)
 - **Stop** cancels after the current open finishes
@@ -401,7 +401,7 @@ The **`.xpi` on GitHub** is unsigned and **does not install** on Firefox Release
 
 ## Releases
 
-Stable downloads: [GitHub Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) (latest: **v3.8.9**).
+Stable downloads: [GitHub Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) (latest: **v3.8.10**).
 
 | Browser | Install |
 |---------|---------|
@@ -500,6 +500,11 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 | `develop` | Integration branch for next release |
 
 ## Changelog
+
+### v3.8.10
+
+- **Improvement:** Auto-open **retries** on transient server/network errors (up to 8 consecutive failures); fatal errors still stop immediately
+- **Improvement:** Time limit max **480 min** (was 120); default still **10 min**
 
 ### v3.8.9
 
