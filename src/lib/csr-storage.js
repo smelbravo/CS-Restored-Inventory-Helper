@@ -14,6 +14,7 @@
         'csrLockedWeaponIds',
         'csrCasesAutoOpenSellConfig',
         'csrCasesAutoOpenConfig',
+        'csrCaseOpeningStats',
         'csrLanguage',
         'csrAutoUpdateCheck',
     ];
@@ -133,6 +134,10 @@
 
         if (raw.csrCasesAutoOpenConfig && typeof raw.csrCasesAutoOpenConfig === 'object') {
             payload.csrCasesAutoOpenConfig = raw.csrCasesAutoOpenConfig;
+        }
+
+        if (raw.csrCaseOpeningStats && typeof raw.csrCaseOpeningStats === 'object') {
+            payload.csrCaseOpeningStats = raw.csrCaseOpeningStats;
         }
 
         return payload;

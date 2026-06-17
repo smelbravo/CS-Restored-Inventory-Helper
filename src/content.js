@@ -762,6 +762,207 @@ S.textContent = `
     color: #e5e7eb;
     border-color: #3a3a3a;
 }
+.csrx-cases-stats-lead {
+    margin: 0 0 12px;
+    font-size: 0.75rem;
+    line-height: 1.45;
+    color: #a3a3a3;
+}
+.csrx-cases-stats-hero {
+    text-align: center;
+    padding: 18px 14px;
+    margin-bottom: 12px;
+    border-radius: 12px;
+    background: rgba(250, 204, 21, 0.06);
+    border: 1px solid rgba(250, 204, 21, 0.22);
+}
+.csrx-cases-stats-hero-label {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #a3a3a3;
+}
+.csrx-cases-stats-since-num {
+    display: block;
+    margin: 6px 0 4px;
+    font-size: 2.75rem;
+    font-weight: 900;
+    line-height: 1;
+    color: #facc15;
+    font-variant-numeric: tabular-nums;
+}
+.csrx-cases-stats-hero-hint {
+    font-size: 0.6875rem;
+    color: #737373;
+}
+.csrx-cases-stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+.csrx-cases-stats-card {
+    padding: 12px;
+    border-radius: 10px;
+    background: #141414;
+    border: 1px solid #2a2a2a;
+}
+.csrx-cases-stats-card-label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #71717a;
+}
+.csrx-cases-stats-card-value {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #e5e7eb;
+    font-variant-numeric: tabular-nums;
+}
+.csrx-cases-stats-card-value.gold { color: #facc15; }
+.csrx-cases-stats-detail {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+.csrx-cases-stats-detail-block {
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: #141414;
+    border: 1px solid #2a2a2a;
+    font-size: 0.8125rem;
+    line-height: 1.35;
+    color: #e5e7eb;
+}
+.csrx-cases-stats-drop-name {
+    display: block;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    line-height: 1.35;
+    word-break: break-word;
+    color: #e5e7eb;
+}
+.csrx-cases-stats-meta {
+    display: block;
+    margin-top: 4px;
+    font-size: 0.6875rem;
+    color: #a3a3a3;
+}
+.csrx-cases-stats-history-title {
+    margin: 0 0 8px;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #71717a;
+}
+.csrx-cases-stats-history {
+    max-height: 160px;
+    overflow: auto;
+    margin-bottom: 12px;
+}
+.csrx-cases-stats-history-row {
+    padding: 8px 0;
+    border-bottom: 1px solid #242424;
+}
+.csrx-cases-stats-history-row:last-child { border-bottom: none; }
+.csrx-cases-stats-history-name {
+    display: block;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: #facc15;
+    margin-bottom: 2px;
+}
+.csrx-cases-stats-empty {
+    padding: 12px 8px;
+    text-align: center;
+    font-size: 0.8125rem;
+    color: #737373;
+}
+#csrx-cases-stats-reset {
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1px solid #3a3a3a;
+    background: transparent;
+    color: #a3a3a3;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+#csrx-cases-stats-reset:hover {
+    border-color: #525252;
+    color: #e5e7eb;
+}
+#csrx-cases-stats-more {
+    width: 100%;
+    padding: 10px 14px;
+    margin-bottom: 10px;
+    border-radius: 10px;
+    border: 1px solid rgba(250, 204, 21, 0.25);
+    background: rgba(250, 204, 21, 0.06);
+    color: #facc15;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+#csrx-cases-stats-more:hover {
+    background: rgba(250, 204, 21, 0.12);
+    border-color: rgba(250, 204, 21, 0.4);
+}
+.csrx-cases-stats-rarity {
+    margin-bottom: 12px;
+}
+.csrx-cases-stats-rarity-row {
+    margin-bottom: 10px;
+}
+.csrx-cases-stats-rarity-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+    font-size: 0.75rem;
+}
+.csrx-cases-stats-rarity-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.csrx-cases-stats-rarity-name {
+    flex: 1;
+    font-weight: 600;
+    line-height: 1.2;
+}
+.csrx-cases-stats-rarity-count {
+    font-weight: 800;
+    color: #e5e7eb;
+    font-variant-numeric: tabular-nums;
+}
+.csrx-cases-stats-rarity-pct {
+    min-width: 42px;
+    text-align: right;
+    color: #737373;
+    font-variant-numeric: tabular-nums;
+}
+.csrx-cases-stats-rarity-bar {
+    height: 5px;
+    border-radius: 999px;
+    background: #1f1f1f;
+    overflow: hidden;
+}
+.csrx-cases-stats-rarity-bar > span {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    min-width: 0;
+    transition: width 0.25s ease;
+}
 .csrx-cases-mode {
     display: flex;
     flex-direction: column;
@@ -3394,6 +3595,7 @@ function ingestApiPayload(url, data) {
 
     if (/\/inventory\/cases\/open\//i.test(url)) {
         maybeLearnDopplerItemIds(data);
+        if (!data?.error) recordCaseOpeningFromApi(data).catch(() => {});
     }
 
     if (/\/inventory\/?(?:\?|$)/i.test(url) && !/\/inventory\/marketplace/i.test(url) && !/\/users\//i.test(url)) {
@@ -3518,7 +3720,9 @@ window.fetch = async function (...args) {
         if (isCsrTrackedUrl(url)) {
             if (res.ok && method === 'POST') saveMarketListFromRequest(url, method, bodyRaw);
             const ct = (res.headers.get('content-type') || '').toLowerCase();
-            if (ct.includes('json') || ct.includes('javascript')) {
+            const tryJson = ct.includes('json') || ct.includes('javascript')
+                || /\/inventory\/cases\/open\//i.test(url);
+            if (tryJson) {
                 const data = await res.clone().json();
                 ingestApiPayload(url, data);
                 scheduleQuickSellDomScrape();
@@ -6449,6 +6653,276 @@ let casesOpenStats = { opened: 0, gold: 0, lastName: '', lastRarity: null };
 let casesMode = 'bulk';
 const CASES_AUTO_OPEN_CFG_KEY = 'csrCasesAutoOpenConfig';
 const CASES_AUTO_OPEN_SELL_CFG_KEY = 'csrCasesAutoOpenSellConfig';
+const CASES_OPEN_STATS_KEY = 'csrCaseOpeningStats';
+const CASES_OPEN_STATS_HISTORY_MAX = 15;
+let casesLifetimeStats = null;
+let casesStatsExpanded = false;
+let _casesStatsSaveTimer = null;
+let _lastRecordedOpenSig = '';
+let _lastRecordedOpenAt = 0;
+
+function defaultByRarityCounts() {
+    const counts = { gold: 0 };
+    for (let i = 1; i <= 7; i++) counts[i] = 0;
+    return counts;
+}
+
+function normalizeByRarityCounts(raw) {
+    const d = defaultByRarityCounts();
+    if (!raw || typeof raw !== 'object') return d;
+    d.gold = Math.max(0, parseInt(raw.gold, 10) || 0);
+    for (let i = 1; i <= 7; i++) d[i] = Math.max(0, parseInt(raw[i], 10) || 0);
+    return d;
+}
+
+function defaultCaseOpeningStats() {
+    return {
+        totalOpened: 0,
+        totalGold: 0,
+        sinceLastGold: 0,
+        lastGoldName: '',
+        lastGoldAt: null,
+        lastOpenName: '',
+        lastOpenAt: null,
+        lastOpenRarity: null,
+        goldHistory: [],
+        byRarity: defaultByRarityCounts(),
+    };
+}
+
+function normalizeCaseOpeningStats(raw) {
+    const d = defaultCaseOpeningStats();
+    if (!raw || typeof raw !== 'object') return d;
+    d.totalOpened = Math.max(0, parseInt(raw.totalOpened, 10) || 0);
+    d.totalGold = Math.max(0, parseInt(raw.totalGold, 10) || 0);
+    d.sinceLastGold = Math.max(0, parseInt(raw.sinceLastGold, 10) || 0);
+    d.lastGoldName = String(raw.lastGoldName || '');
+    d.lastGoldAt = raw.lastGoldAt != null ? Number(raw.lastGoldAt) : null;
+    d.lastOpenName = String(raw.lastOpenName || '');
+    d.lastOpenAt = raw.lastOpenAt != null ? Number(raw.lastOpenAt) : null;
+    const lr = raw.lastOpenRarity;
+    d.lastOpenRarity = lr === 'gold' ? 'gold' : (lr != null && lr !== '' ? parseInt(lr, 10) : null);
+    if (Array.isArray(raw.goldHistory)) {
+        d.goldHistory = raw.goldHistory.slice(0, CASES_OPEN_STATS_HISTORY_MAX).map((row) => ({
+            name: String(row?.name || ''),
+            at: row?.at != null ? Number(row.at) : null,
+            opens: Math.max(0, parseInt(row?.opens, 10) || 0),
+        })).filter((row) => row.name);
+    }
+    d.byRarity = normalizeByRarityCounts(raw.byRarity);
+    return d;
+}
+
+async function loadCaseOpeningStats() {
+    const data = await csrPrefsRead([CASES_OPEN_STATS_KEY]);
+    casesLifetimeStats = normalizeCaseOpeningStats(data?.[CASES_OPEN_STATS_KEY]);
+    return casesLifetimeStats;
+}
+
+function scheduleSaveCaseOpeningStats() {
+    clearTimeout(_casesStatsSaveTimer);
+    _casesStatsSaveTimer = setTimeout(() => {
+        if (!casesLifetimeStats) return;
+        csrPrefsWrite({ [CASES_OPEN_STATS_KEY]: casesLifetimeStats }).catch(() => {});
+    }, 400);
+}
+
+function resolveCaseOpenDropName(obj) {
+    if (!obj || typeof obj !== 'object') return '';
+    for (const k of ['name', 'item_name', 'weapon_name', 'skin_name', 'display_name', 'title']) {
+        const v = obj[k];
+        if (v != null && String(v).trim()) return String(v).trim();
+    }
+    for (const k of ['weapon', 'skin', 'item']) {
+        if (obj[k] && typeof obj[k] === 'object') {
+            const nested = resolveCaseOpenDropName(obj[k]);
+            if (nested) return nested;
+        }
+    }
+    const tp = parseInt(obj.item_type, 10);
+    if (tp === 0 || tp === 1) return '★ Rare Special Item';
+    return '';
+}
+
+function normalizeCaseOpenDrop(data) {
+    if (!data || typeof data !== 'object') return null;
+    const hasDropFields = !!(data.item || data.dropped_item || data.droppedItem || data.name
+        || data.item_name || data.weapon_id || data.weaponId || data.item_type != null);
+    if (data.error && !hasDropFields) return null;
+
+    const nested = (data.item && typeof data.item === 'object' && data.item)
+        || (data.dropped_item && typeof data.dropped_item === 'object' && data.dropped_item)
+        || (data.droppedItem && typeof data.droppedItem === 'object' && data.droppedItem)
+        || null;
+    const drop = nested ? { ...data, ...nested } : { ...data };
+    if (nested) {
+        if (!drop.name && data.name) drop.name = data.name;
+        if (drop.rarity == null && data.rarity != null) drop.rarity = data.rarity;
+        if (drop.item_rarity != null && drop.rarity == null) drop.rarity = drop.item_rarity;
+        if (drop.item_type == null && data.item_type != null) drop.item_type = data.item_type;
+    }
+    const name = resolveCaseOpenDropName(drop);
+    if (!name) return null;
+    drop.name = name;
+    return drop;
+}
+
+function isCaseDropGoldFromData(drop) {
+    if (!drop) return false;
+    if (String(drop.name || '').includes('★')) return true;
+    const tp = parseInt(drop.item_type, 10);
+    return tp === 0 || tp === 1;
+}
+
+function caseOpenRecordSignature(drop) {
+    const id = drop.weapon_id ?? drop.weaponId ?? drop.item_id ?? '';
+    const name = drop.name || '';
+    const f = drop.float ?? drop.skin_float ?? '';
+    const seed = drop.seed ?? drop.paint_seed ?? '';
+    return `${id}|${name}|${f}|${seed}`;
+}
+
+function caseDropRarityBucket(drop, isGold) {
+    if (isGold) return 'gold';
+    const r = parseInt(drop.rarity ?? drop.item_rarity, 10);
+    if (r >= 1 && r <= 7) return r;
+    return 3;
+}
+
+function casesStatsDropNameHtml(name, rarityKey) {
+    const isGold = rarityKey === 'gold';
+    const style = isGold ? 'color:#facc15;font-weight:800' : rarityStyle(rarityKey);
+    return `<span class="csrx-cases-stats-drop-name" style="${style}">${escapeCasesHtml(name)}</span>`;
+}
+
+async function recordCaseOpeningFromApi(data) {
+    const drop = normalizeCaseOpenDrop(data);
+    if (!drop) return;
+    const sig = caseOpenRecordSignature(drop);
+    const now = Date.now();
+    if (_lastRecordedOpenSig === sig && now - _lastRecordedOpenAt < 1500) return;
+    _lastRecordedOpenSig = sig;
+    _lastRecordedOpenAt = now;
+
+    if (!casesLifetimeStats) await loadCaseOpeningStats();
+    const st = casesLifetimeStats;
+    const isGold = isCaseDropGoldFromData(drop);
+    const name = String(drop.name);
+
+    st.totalOpened += 1;
+    st.sinceLastGold += 1;
+    st.lastOpenName = name;
+    st.lastOpenAt = now;
+
+    if (!st.byRarity) st.byRarity = defaultByRarityCounts();
+    const bucket = caseDropRarityBucket(drop, isGold);
+    st.lastOpenRarity = isGold ? 'gold' : bucket;
+    st.byRarity[bucket] = (st.byRarity[bucket] || 0) + 1;
+
+    if (isGold) {
+        const opensBefore = st.sinceLastGold;
+        st.totalGold += 1;
+        st.sinceLastGold = 0;
+        st.lastGoldName = name;
+        st.lastGoldAt = now;
+        st.goldHistory.unshift({ name, at: now, opens: opensBefore });
+        if (st.goldHistory.length > CASES_OPEN_STATS_HISTORY_MAX) {
+            st.goldHistory.length = CASES_OPEN_STATS_HISTORY_MAX;
+        }
+    }
+
+    scheduleSaveCaseOpeningStats();
+    refreshCasesLifetimeStatsUi();
+}
+
+function formatCasesStatsWhen(ts) {
+    if (!ts) return csrT('cases.stats.never');
+    try {
+        return new Date(ts).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' });
+    } catch (_) {
+        return new Date(ts).toLocaleString();
+    }
+}
+
+function renderCasesStatsRarityBreakdown(st) {
+    const wrap = document.getElementById('csrx-cases-stats-rarity');
+    const moreBtn = document.getElementById('csrx-cases-stats-more');
+    if (!wrap) return;
+    if (moreBtn) moreBtn.textContent = csrT(casesStatsExpanded ? 'cases.stats.showLess' : 'cases.stats.showMore');
+    wrap.hidden = !casesStatsExpanded;
+    if (!casesStatsExpanded) {
+        wrap.innerHTML = '';
+        return;
+    }
+    const counts = st.byRarity || defaultByRarityCounts();
+    const total = st.totalOpened || 0;
+    const rows = [
+        { key: 'gold', label: csrT('cases.stats.rarityGold'), hex: '#facc15' },
+        ...rarityEntries().map(([k, v]) => ({ key: k, label: v.name, hex: v.hex })),
+    ];
+    wrap.innerHTML = `
+        <h4 class="csrx-cases-stats-history-title">${escapeCasesHtml(csrT('cases.stats.rarityTitle'))}</h4>
+        ${rows.map((row) => {
+            const n = counts[row.key] || 0;
+            const pct = total > 0 ? ((n / total) * 100).toFixed(1) : '0.0';
+            const barW = total > 0 ? Math.max(0, Math.min(100, (n / total) * 100)) : 0;
+            return `<div class="csrx-cases-stats-rarity-row">
+                <div class="csrx-cases-stats-rarity-head">
+                    <span class="csrx-cases-stats-rarity-dot" style="background:${row.hex}"></span>
+                    <span class="csrx-cases-stats-rarity-name" style="color:${row.hex}">${escapeCasesHtml(row.label)}</span>
+                    <span class="csrx-cases-stats-rarity-count">${n}</span>
+                    <span class="csrx-cases-stats-rarity-pct">${pct}%</span>
+                </div>
+                <div class="csrx-cases-stats-rarity-bar"><span style="width:${barW}%;background:${row.hex}"></span></div>
+            </div>`;
+        }).join('')}`;
+}
+
+function refreshCasesLifetimeStatsUi() {
+    const panel = document.getElementById('csrx-cases-stats');
+    if (!panel || !casesLifetimeStats) return;
+    const st = casesLifetimeStats;
+    const sinceEl = document.getElementById('csrx-cases-stats-since');
+    const totalEl = document.getElementById('csrx-cases-stats-total');
+    const goldEl = document.getElementById('csrx-cases-stats-gold');
+    const lastGoldEl = document.getElementById('csrx-cases-stats-last-gold');
+    const lastOpenEl = document.getElementById('csrx-cases-stats-last-open');
+    const historyEl = document.getElementById('csrx-cases-stats-history');
+    if (sinceEl) sinceEl.textContent = String(st.sinceLastGold);
+    if (totalEl) totalEl.textContent = String(st.totalOpened);
+    if (goldEl) goldEl.textContent = String(st.totalGold);
+    if (lastGoldEl) {
+        lastGoldEl.innerHTML = st.lastGoldName
+            ? `${casesStatsDropNameHtml(st.lastGoldName, 'gold')}<span class="csrx-cases-stats-meta">${escapeCasesHtml(formatCasesStatsWhen(st.lastGoldAt))}</span>`
+            : `<span class="csrx-cases-stats-meta">${escapeCasesHtml(csrT('cases.stats.never'))}</span>`;
+    }
+    if (lastOpenEl) {
+        lastOpenEl.innerHTML = st.lastOpenName
+            ? `${casesStatsDropNameHtml(st.lastOpenName, st.lastOpenRarity)}<span class="csrx-cases-stats-meta">${escapeCasesHtml(formatCasesStatsWhen(st.lastOpenAt))}</span>`
+            : `<span class="csrx-cases-stats-meta">${escapeCasesHtml(csrT('cases.stats.never'))}</span>`;
+    }
+    if (historyEl) {
+        if (!st.goldHistory.length) {
+            historyEl.innerHTML = `<div class="csrx-cases-stats-empty">${escapeCasesHtml(csrT('cases.stats.noGoldYet'))}</div>`;
+        } else {
+            historyEl.innerHTML = st.goldHistory.map((row) => `
+                <div class="csrx-cases-stats-history-row">
+                    <span class="csrx-cases-stats-history-name">${escapeCasesHtml(row.name)}</span>
+                    <span class="csrx-cases-stats-meta">${escapeCasesHtml(csrT('cases.stats.recentGoldLine', { name: row.name, opens: row.opens }))} · ${escapeCasesHtml(formatCasesStatsWhen(row.at))}</span>
+                </div>`).join('');
+        }
+    }
+    renderCasesStatsRarityBreakdown(st);
+}
+
+async function resetCaseOpeningStats() {
+    if (!confirm(csrT('cases.stats.resetConfirm'))) return;
+    casesLifetimeStats = defaultCaseOpeningStats();
+    casesStatsExpanded = false;
+    await csrPrefsWrite({ [CASES_OPEN_STATS_KEY]: casesLifetimeStats });
+    refreshCasesLifetimeStatsUi();
+    toast(csrT('cases.stats.resetDone'), 'success');
+}
 let casesAutoOpenCfg = {
     delayMs: CASES_OPEN_DELAY_MIN_MS,
     spendLimit: 150000,
@@ -7227,26 +7701,37 @@ function syncCasesModeUi() {
     const tabs = document.getElementById('csrx-cases-tabs');
     const tabBulk = document.getElementById('csrx-cases-tab-bulk');
     const tabOpen = document.getElementById('csrx-cases-tab-open');
+    const tabStats = document.getElementById('csrx-cases-tab-stats');
     const bulkBody = document.getElementById('csrx-cases-bulk');
     const openBody = document.getElementById('csrx-cases-open');
+    const statsBody = document.getElementById('csrx-cases-stats');
+    const pickShared = document.getElementById('csrx-cases-pick-shared');
+    const prog = document.getElementById('csrx-cases-progress');
 
-    if (tabs) tabs.style.display = bulkOn && openOn ? 'flex' : 'none';
+    const showFab = bulkOn || openOn;
+    if (tabs) tabs.style.display = showFab ? 'flex' : 'none';
     if (tabBulk) tabBulk.style.display = bulkOn ? '' : 'none';
     if (tabOpen) tabOpen.style.display = openOn ? '' : 'none';
+    if (tabStats) tabStats.style.display = showFab ? '' : 'none';
 
-    if (bulkOn && !openOn) casesMode = 'bulk';
-    if (openOn && !bulkOn) casesMode = 'open';
-    if (!bulkOn && !openOn) casesMode = 'bulk';
+    if (casesMode === 'bulk' && !bulkOn) casesMode = openOn ? 'open' : 'stats';
+    if (casesMode === 'open' && !openOn) casesMode = bulkOn ? 'bulk' : 'stats';
+    if (!bulkOn && !openOn) casesMode = 'stats';
 
     if (tabBulk) tabBulk.classList.toggle('active', casesMode === 'bulk');
     if (tabOpen) tabOpen.classList.toggle('active', casesMode === 'open');
+    if (tabStats) tabStats.classList.toggle('active', casesMode === 'stats');
 
     if (bulkBody) bulkBody.style.display = casesMode === 'bulk' ? 'flex' : 'none';
     if (openBody) openBody.style.display = casesMode === 'open' ? 'flex' : 'none';
+    if (statsBody) statsBody.style.display = casesMode === 'stats' ? 'flex' : 'none';
+    if (pickShared) pickShared.style.display = casesMode === 'stats' ? 'none' : 'block';
+    if (prog && casesMode === 'stats') prog.style.display = 'none';
 
     syncCasesOpenSubModeUi();
     updateCasesCostSummary();
     updateCasesAutoOpenSummary();
+    if (casesMode === 'stats') refreshCasesLifetimeStatsUi();
 }
 
 function readInt(inp, fallback) {
@@ -7420,6 +7905,7 @@ async function openCaseOnce(caseId) {
     if (data && typeof data === 'object') {
         const coins = parseCoinVal(data.coins ?? data.coin_balance ?? data.balance);
         if (coins != null) cachedUserCoins = coins;
+        recordCaseOpeningFromApi(data).catch(() => {});
     }
     return data;
 }
@@ -8189,8 +8675,9 @@ function setupCasesBulkBuy() {
     <div id="csrx-cases-tabs">
         <button type="button" id="csrx-cases-tab-bulk" class="csrx-cases-tab active" data-i18n="cases.tab.bulk">${csrT('cases.tab.bulk')}</button>
         <button type="button" id="csrx-cases-tab-open" class="csrx-cases-tab" data-i18n="cases.tab.open">${csrT('cases.tab.open')}</button>
+        <button type="button" id="csrx-cases-tab-stats" class="csrx-cases-tab" data-i18n="cases.tab.stats">${csrT('cases.tab.stats')}</button>
     </div>
-    <div>
+    <div id="csrx-cases-pick-shared">
         <div id="csrx-cases-pick-search-wrap">
             <label for="csrx-cases-pick-search" data-i18n="cases.search">${csrT('cases.search')}</label>
             <input type="search" id="csrx-cases-pick-search" placeholder="${csrT('cases.searchPlaceholder')}" autocomplete="off" spellcheck="false">
@@ -8280,6 +8767,39 @@ function setupCasesBulkBuy() {
         <button type="button" id="csrx-cases-open-start" data-i18n="cases.startOpen">${csrT('cases.startOpen')}</button>
         <button type="button" id="csrx-cases-open-stop" data-i18n="cases.stop">${csrT('cases.stop')}</button>
     </div>
+    <div id="csrx-cases-stats" class="csrx-cases-mode" style="display:none;">
+        <p class="csrx-cases-stats-lead" data-i18n="cases.stats.lead">${csrT('cases.stats.lead')}</p>
+        <div class="csrx-cases-stats-hero">
+            <span class="csrx-cases-stats-hero-label" data-i18n="cases.stats.sinceGold">${csrT('cases.stats.sinceGold')}</span>
+            <span class="csrx-cases-stats-since-num" id="csrx-cases-stats-since">0</span>
+            <span class="csrx-cases-stats-hero-hint" data-i18n="cases.stats.sinceGoldHint">${csrT('cases.stats.sinceGoldHint')}</span>
+        </div>
+        <div class="csrx-cases-stats-grid">
+            <div class="csrx-cases-stats-card">
+                <span class="csrx-cases-stats-card-label" data-i18n="cases.stats.totalOpened">${csrT('cases.stats.totalOpened')}</span>
+                <span class="csrx-cases-stats-card-value" id="csrx-cases-stats-total">0</span>
+            </div>
+            <div class="csrx-cases-stats-card">
+                <span class="csrx-cases-stats-card-label" data-i18n="cases.stats.totalGold">${csrT('cases.stats.totalGold')}</span>
+                <span class="csrx-cases-stats-card-value gold" id="csrx-cases-stats-gold">0</span>
+            </div>
+        </div>
+        <div class="csrx-cases-stats-detail">
+            <div class="csrx-cases-stats-detail-block">
+                <span class="csrx-cases-stats-card-label" data-i18n="cases.stats.lastGold">${csrT('cases.stats.lastGold')}</span>
+                <div id="csrx-cases-stats-last-gold"><span class="csrx-cases-stats-meta">${csrT('cases.stats.never')}</span></div>
+            </div>
+            <div class="csrx-cases-stats-detail-block">
+                <span class="csrx-cases-stats-card-label" data-i18n="cases.stats.lastOpen">${csrT('cases.stats.lastOpen')}</span>
+                <div id="csrx-cases-stats-last-open"><span class="csrx-cases-stats-meta">${csrT('cases.stats.never')}</span></div>
+            </div>
+        </div>
+        <h4 class="csrx-cases-stats-history-title" data-i18n="cases.stats.recentGold">${csrT('cases.stats.recentGold')}</h4>
+        <div class="csrx-cases-stats-history" id="csrx-cases-stats-history"></div>
+        <button type="button" id="csrx-cases-stats-more" data-i18n="cases.stats.showMore">${csrT('cases.stats.showMore')}</button>
+        <div id="csrx-cases-stats-rarity" class="csrx-cases-stats-rarity" hidden></div>
+        <button type="button" id="csrx-cases-stats-reset" data-i18n="cases.stats.reset">${csrT('cases.stats.reset')}</button>
+    </div>
     <div id="csrx-cases-progress"><div id="csrx-cases-progress-bar"></div></div>
 </div>`;
     document.body.appendChild(win);
@@ -8294,6 +8814,7 @@ function setupCasesBulkBuy() {
         syncCasesPanelVisibility();
         syncCasesModeUi();
         refreshCasesAutoOpenFromStorage().catch(() => {});
+        loadCaseOpeningStats().then(() => refreshCasesLifetimeStatsUi()).catch(() => {});
         fetchCasesCatalog();
         fetchUserCoins();
         scrapeCoinsFromPage();
@@ -8309,6 +8830,18 @@ function setupCasesBulkBuy() {
         casesMode = 'open';
         syncCasesModeUi();
         refreshCasesAutoOpenFromStorage().catch(() => {});
+    });
+    document.getElementById('csrx-cases-tab-stats')?.addEventListener('click', () => {
+        casesMode = 'stats';
+        syncCasesModeUi();
+        loadCaseOpeningStats().then(() => refreshCasesLifetimeStatsUi()).catch(() => {});
+    });
+    document.getElementById('csrx-cases-stats-more')?.addEventListener('click', () => {
+        casesStatsExpanded = !casesStatsExpanded;
+        refreshCasesLifetimeStatsUi();
+    });
+    document.getElementById('csrx-cases-stats-reset')?.addEventListener('click', () => {
+        resetCaseOpeningStats().catch(() => {});
     });
 
     document.getElementById('csrx-cases-open-mode-single')?.addEventListener('click', () => {
@@ -8508,8 +9041,14 @@ function setupCasesBulkBuy() {
                 syncCasesOpenSubModeUi();
                 updateCasesAutoOpenSummary();
             }
+            if (Object.prototype.hasOwnProperty.call(changes, CASES_OPEN_STATS_KEY)) {
+                casesLifetimeStats = normalizeCaseOpeningStats(changes[CASES_OPEN_STATS_KEY]);
+                refreshCasesLifetimeStatsUi();
+            }
         });
     }
+
+    loadCaseOpeningStats().catch(() => {});
 }
 
 setupCasesBulkBuy();

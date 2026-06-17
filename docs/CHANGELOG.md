@@ -1,5 +1,21 @@
 # Changelog
 
+## 3.10.0
+
+### New — Case opening stats (Cases panel)
+- **Stats** tab on the gold Cases floating panel (`/app/inventory/cases`) — lifetime counters separate from a single auto-open session
+- Tracks **total opens**, **total gold** (★ knives & gloves), **cases since last gold**, last gold / last drop (rarity-colored), and **recent gold history**
+- **See more** expands a full breakdown by rarity (count, %, bars)
+- Counts **site opens** (API hook) and **extension auto-open** (recorded after each successful open)
+- **Reset stats** button; data in `csrCaseOpeningStats` (browser sync + JSON backup when enabled)
+
+### Fix — Case stats not recording during auto-open
+- Auto-open uses native `fetch` and bypassed the API hook — stats now recorded directly after each successful `POST /inventory/cases/open/`
+- Improved API drop normalization (`item_name`, nested `item`, special ★ drops)
+
+### Fix — Stats UI readability
+- Last drop / last gold names use rarity colors on a readable dark card background
+
 ## 3.9.0
 
 Minor release — pattern badges (shipped in repo as **3.8.9**) plus auto-open resilience.

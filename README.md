@@ -1,10 +1,10 @@
 # CS:Restored Inventory Helper
 
-Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.fun) — float and paint seed overlays, **Doppler/Gamma phase**, **Fade %**, **Marble Fade** (Fire & Ice / Red Tip), and **Case Hardened tier** badges, search and filters on inventory/marketplace, a quick-sell panel, **case bulk buy** and **auto case opening** (single or **multi case**, with optional **session auto-sell** and **per-item sell**) on the Cases tab, optional **toolbar settings** to turn each feature on or off, **skin lock** to avoid accidental sells, **multi-language UI** (popup + on-site panels), optional **browser sync** and **JSON backup** for settings, a **live user counter** in the popup header, and an **About** tab with release info and (on Chromium) a GitHub update checker.
+Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.fun) — float and paint seed overlays, **Doppler/Gamma phase**, **Fade %**, **Marble Fade** (Fire & Ice / Red Tip), and **Case Hardened tier** badges, search and filters on inventory/marketplace, a quick-sell panel, **case bulk buy** and **auto case opening** (single or **multi case**, with optional **session auto-sell** and **per-item sell**) on the Cases tab, **lifetime case opening stats** (gold counter, rarity breakdown), optional **toolbar settings** to turn each feature on or off, **skin lock** to avoid accidental sells, **multi-language UI** (popup + on-site panels), optional **browser sync** and **JSON backup** for settings, a **live user counter** in the popup header, and an **About** tab with release info and (on Chromium) a GitHub update checker.
 
 Works in **Firefox**, **Microsoft Edge**, and **Chromium** browsers (Manifest V3).
 
-**Current version:** `3.9.0`
+**Current version:** `3.10.0`
 
 **Repository:** [github.com/smelbravo/CS-Restored-Inventory-Helper](https://github.com/smelbravo/CS-Restored-Inventory-Helper)
 
@@ -163,7 +163,7 @@ Choose a language under **Settings → Language**. Applies to the **toolbar popu
 | **Import settings** | Opens a dedicated import tab (Firefox-friendly), or paste JSON in the popup. Confirms before replacing settings. |
 | **After import** | Open csrestored.fun tabs are notified so locks apply without a full reload (`tabs` permission). |
 
-**Backup JSON includes:** `csrFeatureSettings`, `csrLockedWeaponIds`, `csrCasesAutoOpenSellConfig`, `csrCasesAutoOpenConfig`, `csrLanguage`, `csrAutoUpdateCheck`.
+**Backup JSON includes:** `csrFeatureSettings`, `csrLockedWeaponIds`, `csrCasesAutoOpenSellConfig`, `csrCasesAutoOpenConfig`, `csrCaseOpeningStats`, `csrLanguage`, `csrAutoUpdateCheck`.
 
 **Not in backup:** the browser-sync toggle itself (stays per device). Manual export/import is the way to move settings between Firefox and Chromium.
 
@@ -330,6 +330,23 @@ Configure in the **toolbar popup** under **Auto case opening** (see table above)
 
 Uses the same `POST /inventory/sell/{weapon_id}` endpoint as Quick Sell. Locked skins (`weapon_id` in lock list) are skipped.
 
+### Case opening stats (Cases tab only, v3.10+)
+
+The gold **Cases** panel on [`/app/inventory/cases`](https://csrestored.fun/app/inventory/cases) has a third tab: **Stats** (alongside **Bulk buy** and **Auto open**).
+
+| Stat | What it tracks |
+|------|----------------|
+| **Cases since last gold** | Opens since your last ★ knife or glove |
+| **Total opened** | Lifetime case opens (site + extension auto-open) |
+| **Total gold** | Lifetime ★ knives & gloves |
+| **Last gold / Last drop** | Most recent gold and any drop (rarity-colored name) |
+| **Recent gold** | History of gold drops with case count before each |
+| **See more** | Full breakdown by rarity (count, %, progress bars) |
+
+- Data is stored in `csrCaseOpeningStats` — included in **browser sync** and **JSON backup** when enabled
+- **Reset stats** clears all lifetime counters (session log on Auto open tab is unchanged)
+- Auto-open stats are recorded after each successful open (v3.10+ fix — earlier builds only counted manual site opens)
+
 ### Confirm Sale — marketplace list + quick sell (v3.1+)
 
 When you open **Review & Sell**, the **Confirm Sale** modal shows each verified item with:
@@ -401,7 +418,7 @@ The **`.xpi` on GitHub** is unsigned and **does not install** on Firefox Release
 
 ## Releases
 
-Stable downloads: [GitHub Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) (latest: **v3.9.0**).
+Stable downloads: [GitHub Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) (latest: **v3.10.0**).
 
 | Browser | Install |
 |---------|---------|
@@ -427,14 +444,14 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 3. Open **Inventory** or **Marketplace** — float/seed badges and the search/filter bar appear after items load (usually a few seconds)
 4. On inventory: use the **padlock** (top-left of a card) to lock skins you must not sell by accident
 5. If **Quick Sell & Market** is on: click the **CS:R logo button** (bottom-right) → **Start Picking** → **Review & Sell** → **List on Market** or **Quick Sell**
-6. On **Cases** ([`/app/inventory/cases`](https://csrestored.fun/app/inventory/cases)), open the gold **Cases** button → **Bulk buy** and/or **Auto open**; configure auto-sell rules in the extension popup first if you want automatic selling
+6. On **Cases** ([`/app/inventory/cases`](https://csrestored.fun/app/inventory/cases)), open the gold **Cases** button → **Bulk buy**, **Auto open**, and **Stats**; configure auto-sell rules in the extension popup first if you want automatic selling
 7. On **Play → Trades** / **Send Trade Offer**, overlays and trade search work when those toggles are enabled
 
 ## Permissions
 
 | Permission | Why |
 |------------|-----|
-| `storage` | Feature toggles, locked skin IDs, case auto-open/sell config, language, auto-update preference — in `storage.local` and optionally `storage.sync` |
+| `storage` | Feature toggles, locked skin IDs, case auto-open/sell config, case opening stats, language, auto-update preference — in `storage.local` and optionally `storage.sync` |
 | `downloads` | Save exported JSON settings backup to Downloads |
 | `tabs` | Notify open csrestored.fun tabs after import so locks and settings apply immediately |
 | `*://*.csrestored.fun/*` | Inject UI on the site |
@@ -500,6 +517,13 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 | `develop` | Integration branch for next release |
 
 ## Changelog
+
+### v3.10.0
+
+- **New:** **Stats** tab on Cases panel — lifetime opens, gold counter, cases since last ★, last drop/gold, recent gold history, rarity breakdown (**See more**)
+- **New:** `csrCaseOpeningStats` in browser sync and JSON backup
+- **Fix:** Stats recorded during **extension auto-open** (not only manual site opens)
+- **Fix:** Last drop / last gold readable (rarity-colored names on dark cards)
 
 ### v3.9.0
 
@@ -904,6 +928,7 @@ WHAT IT DOES
 • Confirm Sale modal — per-item quick sell price, market price input, List on Market and Quick Sell buttons with validation
 • Case bulk buy — on the Cases tab (/app/inventory/cases), buy multiple weapon cases at once (quantity 1–99) using your coin balance; purchased cases go to your in-game inventory (toggle in extension settings)
 • Auto case opening — Auto open tab on Cases: delay (default 1000 ms), time limit, spend limit; live log; results sorted by float; optional session auto-sell (manual default, non-gold, or by rarity) configured in toolbar popup; Quick sell session drops after a run
+• Case opening stats (v3.10) — Stats tab on Cases panel: lifetime opens, gold history, cases since last ★, rarity breakdown; syncs with browser sync / JSON backup
 • Multi-language UI — popup Settings tab: English (US/UK), Portuguese (PT/BR), German, Russian, Spanish; rarity names stay English
 • Batched overlays on large grids — float/seed badges load 50 at a time (50+ cards) to reduce lag; scroll to load more
 • Trade partner overlays (v3.8.3) — float, seed, Doppler phase, CH tier on Send Trade Offer Their Items and trade detail via GET /users/{id}/inventory (thanks to query / CSR+ for the API approach)
@@ -982,6 +1007,7 @@ How to test:
 5. Cases (/app/inventory/cases):
    - Gold floating button → **Bulk buy** tab (case dropdown, quantity 1–99, Buy containers) when Case bulk buy toggle is on
    - Same panel → **Auto open** tab: delay (default 1000 ms), minutes, spend limit, Start/Stop, results table sorted by float
+   - Same panel → **Stats** tab: lifetime case counters, gold history, rarity breakdown (See more)
    - Extension popup → **Auto case opening** section: auto-sell manual / non-gold / rarities; when manual, full sell-session controls after a run; **Quick sell all non-gold** always shown for leftovers
    - Panel should sit bottom-right and scroll internally when log/results are long
 6. Send Trade Offer (site modal):
