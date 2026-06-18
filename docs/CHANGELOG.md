@@ -1,5 +1,63 @@
 # Changelog
 
+## 3.12.5
+
+**Recommended release** — bundles **Sell Hub (v3.11)**, **MAU counter (v3.12.0)**, and quick-sell fixes **3.12.1–3.12.5**. Use this build if quick sell showed **failed** while skins actually sold (slow CS:R API / server timeouts).
+
+GitHub release draft: [RELEASE-NOTES-v3.12.5.md](RELEASE-NOTES-v3.12.5.md)
+
+### Fix — “Failed” but skin actually sold (slow API sync)
+- Quick sell waits up to ~15s for inventory to update before marking failed (panel, cases, auto-sell)
+- HTTP 200 with empty body counts as OK again; only explicit API errors reject
+- If sell request succeeded but body unclear, polls `/inventory/` until item disappears
+
+### Fix — Sell Hub stuck on “Selling…”
+- Sells run **sequentially** (batch size = pause between groups, not parallel hammer)
+- **Confirming sales…** phase with retries before closing modal
+- Inventory list shows **before** pattern-map / recent-drops finish loading
+- Direct API fetch first (faster than cold service worker); 45s timeout for large inventories
+
+### New — API latency ping (Sell Hub)
+- Header shows `API 450ms` / `API slow · 8200ms` / `API unreachable` so you know when the site is lagging
+
+## 3.12.4
+
+### Fix — Quick sell verification (panel, cases, auto-sell)
+- Shared `CSR_sellWeapon`: empty HTTP 200 no longer counts as sold (needs coins, success, or weapon echo)
+- `apiSell` confirms each sale against fresh `/inventory/` (retry once if API is slow)
+- Case drops: no longer use `skin_id` as sell id — match real `weapon_id` from inventory by name/float
+
+## 3.12.3
+
+### Fix — Sell Hub false “sold” / skins gone with no coins
+- Sell uses **raw API `weapon_id`** (`_api_weapon_id`), not the disambiguated display id
+- Sell requests go through **background API proxy** (same session as inventory load), not extension-page `fetch`
+- Success only when the API returns **coins** (or explicit success) — empty 200 no longer counts as sold
+- After sell/list: **re-fetch inventory** from server to confirm what actually sold (no optimistic local removal)
+- Review modal re-validates selection against fresh inventory before selling
+
+## 3.12.2
+
+### Fix — Sell Hub stuck on “Loading inventory…”
+- Inventory loads first via authenticated `/inventory/` (not public profile endpoint)
+- API calls: background proxy timeout + direct `fetch` fallback (Brave/Chromium)
+- Pattern map load no longer blocks the list (4 s cap; GitHub fetch could hang forever)
+
+### Change — Quick sell batch size default **2**
+- Default batch size is now **2** (panel slider, popup, cases auto-sell, Sell Hub)
+- Hint under batch slider: slow site/API + high batch may fail to sell skins
+
+### Fix — Batch size slider track invisible in Brave
+- Visible track on the range input (`#2a2a2a` / `#4a4a4a`) instead of transparent-only pseudo-elements
+
+## 3.12.1
+
+### Fix — Quick sell mass failures (inventory panel, cases, Sell Hub)
+- Sell API aligned with site / CSR+: `POST /inventory/sell/{id}` with **empty body** first (was always `{ weapon_id }` only)
+- Retries on **429 / 5xx**; parses JSON error bodies; learns request shape when you quick sell on the site once
+- **280 ms** pause between bulk-sell batches to reduce rate limits when the API is busy
+- Weapon ID match fix in confirm modal validation (string vs number)
+
 ## 3.12.0
 
 ### New — Anonymous active-user stats (real usage, not downloads)

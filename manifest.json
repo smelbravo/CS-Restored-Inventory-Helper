@@ -4,7 +4,7 @@
 
   "name": "CS:Restored Inventory Helper",
 
-  "version": "3.12.0",
+  "version": "3.12.5",
 
   "description": "Float, seed, Doppler/Fade/Marble Fade/CH pattern badges, quick sell, Sell Hub, cases, trades, sync, and skin lock for CS:Restored (csrestored.fun). Unofficial extension.",
 
@@ -70,6 +70,7 @@
         "src/lib/i18n-packs-generated.js",
         "src/lib/i18n.js",
         "src/lib/settings.js",
+        "src/lib/csr-sell-api.js",
         "src/lib/skin-patterns.js",
         "src/content.js"
       ],

@@ -21,6 +21,7 @@
         <span class="sh-coins-val" id="sh-coins-val">—</span>
       </div>
       <button type="button" id="sh-refresh" class="sh-btn ghost" data-i18n="sellHub.refresh">Refresh</button>
+      <span class="sh-api-ping" id="sh-api-ping" aria-live="polite"></span>
       <a id="sh-site-link" class="sh-link" href="https://csrestored.fun/app/inventory" target="_blank" rel="noopener" data-i18n="sellHub.openSite">Open inventory on site ↗</a>
     </div>
   </header>
@@ -44,7 +45,7 @@
         <button type="button" id="sh-sell-rarity" class="sh-btn ghost" data-i18n="sellHub.sellByRarity">Select rarity…</button>
         <label class="sh-batch">
           <span data-i18n="sellHub.batchSize">Batch</span>
-          <input type="text" id="sh-batch" inputmode="numeric" value="5" maxlength="2" />
+          <input type="text" id="sh-batch" inputmode="numeric" value="2" maxlength="2" />
         </label>
         <button type="button" id="sh-review" class="sh-btn primary" disabled data-i18n="sellHub.review">Review &amp; sell</button>
       </div>
@@ -90,6 +91,7 @@
   <script src="../lib/i18n-packs.js"></script>
   <script src="../lib/i18n-packs-generated.js"></script>
   <script src="../lib/i18n.js"></script>
+  <script src="../lib/csr-sell-api.js"></script>
   <script src="../lib/sell-hub-core.js"></script>
   <script src="sell-hub.js"></script>
 </body>

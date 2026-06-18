@@ -346,7 +346,12 @@ function parseRequestBody(bodyRaw) {
 function saveMarketListFromRequest(url, method, bodyRaw) {
     if (!url?.includes('api.csrestored.fun')) return;
     if ((method || 'GET').toUpperCase() !== 'POST') return;
-    if (/\/inventory\/sell\//i.test(url) && !/marketplace/i.test(url)) return;
+    if (/\/inventory\/sell\//i.test(url) && !/marketplace/i.test(url)) {
+        if (typeof CSR_rememberSiteSellRequest === 'function') {
+            CSR_rememberSiteSellRequest(url, bodyRaw);
+        }
+        return;
+    }
     const isMpAdd = /\/marketplace\/add\/?$/i.test(url) || (/\/marketplace/i.test(url) && /\/add/i.test(url));
     if (!isMpAdd && !/marketplace.*\/(create|list|offer)/i.test(url)) return;
 
@@ -1636,16 +1641,36 @@ select.csrx-sel option { background: #0a0a0a; color: #e5e5e5; }
     min-width: 24px;
     text-align: center;
 }
+.csrx-batch-hint {
+    margin: 6px 0 0;
+    font-size: 10px;
+    line-height: 1.35;
+    color: #666;
+}
 input[type=range].csrx-range {
     -webkit-appearance: none;
     appearance: none;
     width: 100%;
-    background: transparent;
+    height: 14px;
+    background: #2a2a2a;
+    border-radius: 7px;
+    accent-color: #ef4444;
+    cursor: pointer;
 }
-input[type=range].csrx-range::-webkit-slider-runnable-track,
+input[type=range].csrx-range::-webkit-slider-runnable-track {
+    height: 4px;
+    background: #4a4a4a;
+    border-radius: 2px;
+}
 input[type=range].csrx-range::-moz-range-track {
-    height: 2px;
-    background: #1f1f1f;
+    height: 4px;
+    background: #4a4a4a;
+    border-radius: 2px;
+    border: none;
+}
+input[type=range].csrx-range::-moz-range-progress {
+    height: 4px;
+    background: #ef4444;
     border-radius: 2px;
 }
 input[type=range].csrx-range::-webkit-slider-thumb {
@@ -5960,9 +5985,10 @@ win.innerHTML = `
         <div class="csrx-slider-wrap">
             <div class="csrx-slider-row">
                 <span class="csrx-slider-lbl" data-i18n="qs.batchSize">${csrT('qs.batchSize')}</span>
-                <span class="csrx-slider-val" id="csrx-spdval">5</span>
+                <span class="csrx-slider-val" id="csrx-spdval">2</span>
             </div>
-            <input type="range" id="csrx-spd" class="csrx-range" min="1" max="20" value="5">
+            <input type="range" id="csrx-spd" class="csrx-range" min="1" max="20" value="2">
+            <p class="csrx-batch-hint" data-i18n="qs.batchHint">${csrT('qs.batchHint')}</p>
         </div>
     </div>
 </div>`;
@@ -6095,22 +6121,37 @@ async function apiInv() {
         return arr.sort((a,b)=>parseInt(a.rarity)-parseInt(b.rarity));
     } catch(e){return [];}
 }
+async function inventoryHasWeaponId(wid) {
+    const id = parseInt(wid, 10);
+    if (!Number.isFinite(id) || id <= 0) return false;
+    const inv = await apiInv();
+    return inv.some((i) => parseInt(i.weapon_id, 10) === id);
+}
+
 async function apiSell(wid) {
+    if (typeof CSR_sellWeapon !== 'function') return false;
+    const id = parseInt(wid, 10);
+    if (!Number.isFinite(id) || id <= 0) return false;
     try {
-        const url = `https://api.csrestored.fun/inventory/sell/${wid}`;
-        const r=await fetch(url,{
-            method:'POST',credentials:'include',
-            headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({weapon_id:parseInt(wid)})
+        const res = await CSR_sellWeapon(id, {
+            retries: 3,
+            confirm: true,
+            isStillOwned: inventoryHasWeaponId,
         });
-        if (r.ok) {
+        if (res.data) {
             try {
-                const d = await r.clone().json();
-                cacheQuickSellFromApiData(url, d);
+                cacheQuickSellFromApiData(`https://api.csrestored.fun/inventory/sell/${id}`, res.data);
             } catch (_) {}
         }
-        return r.ok;
-    } catch(e){return false;}
+        if (res.rejected) return false;
+        return !!res.ok;
+    } catch (_) {
+        try {
+            return !(await inventoryHasWeaponId(id));
+        } catch (__) {
+            return false;
+        }
+    }
 }
 
 async function apiListOnMarket(weaponId, priceCoins) {
@@ -6328,7 +6369,7 @@ document.addEventListener('click',e=>{
 function validateItems(entries,freshInv) {
     return entries.map(({cardEl,weaponId})=>{
         if(weaponId==null)return{cardEl,weaponId,item:null,status:'not_found',msg:'Not matched'};
-        const fresh=freshInv.find(i=>i.weapon_id===weaponId);
+        const fresh=freshInv.find(i=>parseInt(i.weapon_id,10)===parseInt(weaponId,10));
         if(!fresh)return{cardEl,weaponId,item:null,status:'sold_or_missing',msg:'No longer in inventory'};
         if(cardEl){const imgId=getImgItemId(cardEl);if(imgId!=null&&imgId!==fresh.item_id)return{cardEl,weaponId,item:fresh,status:'mismatch',msg:'Image mismatch'};}
         return{cardEl,weaponId,item:fresh,status:'ok',msg:'Verified'};
@@ -6562,7 +6603,7 @@ function setModalBusy(busy, label) {
 }
 
 async function runQuickSell(toSell) {
-    const spd = parseInt(document.getElementById('csrx-spd').value, 10) || 5;
+    const spd = parseInt(document.getElementById('csrx-spd').value, 10) || 2;
     const bar = document.getElementById('csrx-mbar');
     let sold = 0;
     let failed = 0;
@@ -6578,12 +6619,13 @@ async function runQuickSell(toSell) {
         }));
         bar.style.width = Math.round(Math.min(i + spd, toSell.length) / toSell.length * 100) + '%';
         setStatus(csrT('toast.quickSelling', { sold, total: toSell.length }), 'syncing');
+        if (i + spd < toSell.length) await new Promise((r) => setTimeout(r, 280));
     }
     return { sold, failed };
 }
 
 async function runListOnMarket(toList) {
-    const spd = parseInt(document.getElementById('csrx-spd').value, 10) || 5;
+    const spd = parseInt(document.getElementById('csrx-spd').value, 10) || 2;
     const bar = document.getElementById('csrx-mbar');
     let listed = 0;
     let failed = 0;
@@ -7050,7 +7092,7 @@ let casesAutoOpenSellCfg = {
     mode: 'manual',
     timing: 'end',
     rarities: { 1: false, 2: false, 3: false, 4: false, 5: false, 6: false, 7: false },
-    batchSize: 5,
+    batchSize: 2,
 };
 let _casesCfgSaveTimer = null;
 
@@ -7542,7 +7584,7 @@ function normalizeCasesAutoSellCfg(raw) {
         mode: 'manual',
         timing: 'end',
         rarities: { 1: false, 2: false, 3: false, 4: false, 5: false, 6: false, 7: false },
-        batchSize: 5,
+        batchSize: 2,
     };
     if (!raw || typeof raw !== 'object') return out;
     if (raw.mode === 'manual' || raw.mode === 'nonGold' || raw.mode === 'rarities') out.mode = raw.mode;
@@ -8117,7 +8159,7 @@ function extractWeaponIdFromOpenData(data) {
         const n = parseInt(v, 10);
         return Number.isFinite(n) && n > 0 ? n : null;
     };
-    for (const k of ['weapon_id', 'weaponId', 'skin_id', 'skinId']) {
+    for (const k of ['weapon_id', 'weaponId', 'skin_instance_id', 'instance_id', 'inventory_id']) {
         const w = tryVal(data[k]);
         if (w != null) return w;
     }
@@ -8139,13 +8181,17 @@ async function resolveSessionDropWeaponIds(drops, options = {}) {
     const delayMs = options.delayMs ?? 400;
 
     for (let attempt = 0; attempt < retries; attempt++) {
-        const need = drops.filter(d => !d.weaponId && !d.sold);
-        if (!need.length) return drops;
-
         const inv = await apiInv();
-        const used = new Set(drops.filter(d => d.weaponId).map(d => d.weaponId));
-        for (const d of need) {
-            const cands = inv.filter(i => {
+        const invIdSet = new Set(inv.map((i) => parseInt(i.weapon_id, 10)).filter(Number.isFinite));
+        const used = new Set();
+        for (const d of drops) {
+            if (d.sold || !d.weaponId) continue;
+            if (invIdSet.has(parseInt(d.weaponId, 10))) used.add(d.weaponId);
+        }
+
+        for (const d of drops) {
+            if (d.sold) continue;
+            const cands = inv.filter((i) => {
                 if (used.has(i.weapon_id)) return false;
                 if (String(i.name || '') !== String(d.name || '')) return false;
                 if (d.rarity != null && parseInt(i.rarity, 10) !== parseInt(d.rarity, 10)) return false;
@@ -8160,7 +8206,7 @@ async function resolveSessionDropWeaponIds(drops, options = {}) {
             }
         }
 
-        if (!drops.some(d => !d.weaponId && !d.sold)) return drops;
+        if (!drops.some((d) => !d.weaponId && !d.sold)) return drops;
         if (attempt < retries - 1) await sleep(delayMs);
     }
     return drops;
@@ -8183,7 +8229,7 @@ function getCasesSessionSellBatchSize() {
     const inp = document.getElementById('csrx-cases-open-sell-spd');
     const n = parseInt(String(inp?.value ?? '').trim(), 10);
     if (Number.isFinite(n)) return Math.max(1, Math.min(20, n));
-    return casesAutoOpenSellCfg.batchSize || 5;
+    return casesAutoOpenSellCfg.batchSize || 2;
 }
 
 function getSellableSessionDrops(filterFn) {
@@ -8414,6 +8460,7 @@ async function runCasesSessionQuickSell(filterFn, label, options = {}) {
         }));
         if (bar) bar.style.width = `${Math.round(Math.min(i + spd, toSell.length) / toSell.length * 100)}%`;
         appendCasesOpenLog(`<span style="color:#a3a3a3">${csrT('cases.log.selling', { mode: silent ? csrT('cases.log.modeAuto') : csrT('cases.log.modeManual'), sold, total: toSell.length })}</span>`);
+        if (i + spd < toSell.length) await new Promise((r) => setTimeout(r, 280));
     }
 
     casesOpenSelling = false;

@@ -4,7 +4,7 @@ Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.f
 
 Works in **Firefox**, **Microsoft Edge**, and **Chromium** browsers (Manifest V3).
 
-**Current version:** `3.12.0`
+**Current version:** `3.12.5` (release **v3.12.5** — Sell Hub, MAU counter, quick-sell reliability)
 
 **Repository:** [github.com/smelbravo/CS-Restored-Inventory-Helper](https://github.com/smelbravo/CS-Restored-Inventory-Helper)
 
@@ -218,7 +218,7 @@ When **Auto case opening** is enabled, the toolbar popup shows a **dedicated sub
 | **Auto-sell session drops** | Manual — each item or bulk / Auto: all non-gold (★ kept) / Auto: selected rarities | **Manual** |
 | **Rarity checkboxes** | Consumer → Contraband (when “selected rarities” is on) | All off |
 | **When to auto-sell** | When session ends / After each case opens | When session ends |
-| **Auto-sell batch size** | 1–20 | 5 |
+| **Auto-sell batch size** | 1–20 | **2** |
 
 - Auto-sell applies **only to skins dropped in the current auto-open run** — never your full inventory.
 - **Manual** is the default — sell each drop with **Sell** on its row, or use bulk buttons (non-gold / by rarity).
@@ -255,7 +255,7 @@ When **Quick Sell & Market** is enabled in the popup, the floating **CS:R button
 - **Start Picking** — click cards to select items to sell (respects skin lock; duplicate skins matched by float/seed overlay, v3.7.5+)
 - **Review & Sell** — confirm selection in a modal with validation
 - **Sell by Rarity** — bulk sell all items of a chosen rarity tier (respects skin lock)
-- **Batch size** (under **Speed**) — how many items are sold or listed **in parallel** during bulk Quick Sell or List on Market (see below)
+- **Batch size** (under **Speed**) — how many items are sold or listed **per round** during bulk Quick Sell or List on Market (see below). Default **2** — safer when the CS:R API is slow or rate-limited.
 
 Hidden on marketplace and trade pages. With the toggle off, the floating button and panel do not appear.
 
@@ -267,13 +267,14 @@ Controls parallel API requests when you **Quick Sell** or **List on Market** fro
 
 | Setting | Range | Default |
 |---------|-------|---------|
-| **Batch size** | 1–20 | 5 |
+| **Batch size** | 1–20 | **2** |
 
-- The extension processes items in **chunks** of this size (e.g. 30 items at batch size **5** → 6 rounds of 5 parallel requests).
-- **Higher** (15–20) = faster bulk operations, but more load on the server — may fail or hit rate limits.
-- **Lower** (1–3) = slower, but usually more reliable if you see errors.
+- The extension processes items in **chunks** of this size (e.g. 30 items at batch size **2** → 15 rounds of 2 requests, with a short pause between rounds).
+- **Higher** (10–20) = faster bulk operations, but more load on the server — may fail or hit rate limits when CS:R adds **API timeouts** or is under load.
+- **Lower** (1–2) = slower, but **recommended** for reliable quick sell (tested stable at batch **2** even with 30+ items).
+- A **hint** under the Speed slider warns when the site/API is slow — keep batch low to avoid false failures.
 
-Example reply for players: *“Batch size is how many skins get sold or listed at the same time during bulk Quick Sell / List on Market. Higher = faster; lower = safer if requests fail.”*
+Example reply for players: *“Batch size is how many skins get sold or listed at the same time during bulk Quick Sell / List on Market. Use **2** if you see failed sells or lag; higher only when the API is fast.”*
 
 ### Sell Hub — standalone page (v3.11+)
 
@@ -290,8 +291,12 @@ When **Sell Hub (standalone page)** is enabled in the popup, a **green floating 
 | **Sell animation** | Items sold **one by one** with card pulse + progress bar |
 | **Coins** | Live balance in the header (space-separated thousands); updates after sells |
 | **Account** | Subtitle shows your **nickname** (Discord ID in tooltip) |
+| **API ping** (v3.12.5+) | Header shows `API 450ms` / `API slow · 8200ms` / `API unreachable` — use this before bulk selling on huge inventories |
+| **Confirming sales** (v3.12.5+) | After quick sell, a **Confirming sales…** step polls inventory until items disappear (handles slow CS:R API sync) |
 
-API calls use a **background service worker** (`credentials: include`) so Brave/Chromium keep the site session. Toggle off in popup **Sell & protect** → **Sell Hub (standalone page)** to hide the FAB.
+API calls use a **background service worker** plus **direct fetch fallback** (`credentials: include`) so Brave/Chromium keep the site session. Inventory list loads **before** pattern-map / recent-drops finish (faster first paint on 500+ items). Toggle off in popup **Sell & protect** → **Sell Hub (standalone page)** to hide the FAB.
+
+**Quick sell on Sell Hub:** uses raw API `weapon_id`, sequential sells with batch pause, and server-side confirmation — not optimistic UI removal. If CS:R adds **timeouts** on `POST /inventory/sell/{id}`, keep batch size **2** and watch the API ping.
 
 Recent drop times are stored locally in `csrRecentDrops` (up to 400 entries) for **Last dropped** sort — not included in browser sync / JSON backup.
 
@@ -443,7 +448,9 @@ The **`.xpi` on GitHub** is unsigned and **does not install** on Firefox Release
 
 ## Releases
 
-Stable downloads: [GitHub Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) (latest: **v3.12.0**).
+Stable downloads: [GitHub Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) (latest: **v3.12.5**).
+
+Draft release notes for maintainers: [docs/RELEASE-NOTES-v3.12.5.md](docs/RELEASE-NOTES-v3.12.5.md)
 
 | Browser | Install |
 |---------|---------|
@@ -505,7 +512,7 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 | `POST /inventory/cases/open/{caseId}` | Auto-open one case (auto case opening) |
 | `GET /users/@me` | Sell Hub — nickname and coin balance in header |
 
-Background worker (`src/background.js`) proxies authenticated API calls for the Sell Hub page (`csr:api` messages).
+Background worker (`src/background.js`) proxies authenticated API calls for the Sell Hub page (`csr:api` messages). Quick sell uses shared `src/lib/csr-sell-api.js` (empty body, retries, inventory confirmation when API is slow).
 
 ## Project structure
 
@@ -518,6 +525,7 @@ Background worker (`src/background.js`) proxies authenticated API calls for the 
 │   ├── content.js             # Content script (overlays, filters, quick-sell UI, Sell Hub FAB)
 │   ├── lib/
 │   │   ├── csr-storage.js     # Local + sync prefs, export/import, recent drops
+│   │   ├── csr-sell-api.js    # Shared quick-sell API (panel, cases, Sell Hub)
 │   │   ├── sell-hub-core.js   # Shared Sell Hub API + pricing
 │   │   ├── settings.js        # Feature toggles & skin locks
 │   │   ├── skin-patterns.js   # Doppler / Case Hardened patterns
@@ -555,6 +563,15 @@ Background worker (`src/background.js`) proxies authenticated API calls for the 
 | `develop` | Integration branch for next release |
 
 ## Changelog
+
+### v3.12.5 *(current — quick-sell reliability + Sell Hub polish)*
+
+Full detail: [CHANGELOG.md](docs/CHANGELOG.md) · GitHub release draft: [RELEASE-NOTES-v3.12.5.md](docs/RELEASE-NOTES-v3.12.5.md)
+
+- **Fix:** Quick sell no longer shows **failed** when the skin actually sold but CS:R API was slow (inventory polling up to ~15s; shared `csr-sell-api.js`)
+- **Fix:** Sell Hub — loading hang, false sold state, wrong weapon id, stuck **Selling…** modal; **API latency ping** in header
+- **Change:** Default batch size **2** everywhere (panel, popup, cases, Sell Hub) + UI hint when API is slow
+- **Includes everything since v3.11.0** if you skipped intermediate GitHub releases: **Sell Hub**, **MAU counter**, case stats, pattern badges, etc. (see sections below)
 
 ### v3.12.0
 
@@ -938,7 +955,7 @@ With **50+** item cards, float/seed badges load in **batches of 50** (visible ca
 
 - **Marketplace Doppler/Gamma phases:** listing API has no `skin_index`. Phase badges and **phase browse filter** only when **`item_id` → paint index** is known (inventory learning, import map, or bundled `data/csr-doppler-item-map.json`). Otherwise listings show float/seed only and are hidden when a phase filter is active.
 - **Other player's items** in trades / Their Items: uses `GET /users/{id}/inventory` when you open **Send Trade Offer → Their Items** or view a trade detail (float, seed, Doppler phase, CH tier when the API returns them). Requires you to be logged in; the API must allow viewing that player's inventory. Trade list rows without opening detail may still lack overlays until partner inventory is loaded.
-- **Case open / bulk sell rate limits:** CS:R may return **Too Many Requests** when many players open cases or quick-sell at once, or when delay/batch size is too aggressive. Lower delay between opens, use auto-sell batch size 1–2, or wait and retry — not caused by large inventory overlays.
+- **Case open / bulk sell rate limits:** CS:R may return **Too Many Requests** when many players open cases or quick-sell at once, or when delay/batch size is too aggressive. The site may also apply **timeouts** on quick sell — the request can succeed while the response is slow or empty; the extension **polls inventory** before marking failed (v3.12.5+). Lower delay between opens, use batch size **1–2**, check **Sell Hub API ping**, or wait and retry — not caused by large inventory overlays.
 - **Pin images** missing on the site are a **CS:R website** issue (assets not uploaded yet), not the extension.
 
 ## Disclaimer
@@ -982,9 +999,9 @@ WHAT IT DOES
 • Doppler / Gamma Doppler phase badges (Ruby, Sapphire, P1–P4, Emerald…) and Case Hardened tier badges (#1, T1–T3) on inventory and trades; on marketplace only when you have owned that Doppler item_id (API has no skin_index per listing)
 • Search & filters — filter by name, rarity, wear, phase (inventory + Create Offer), CH tier, float order, and (on marketplace) price; works on Inventory, Marketplace, and Create Offer; bar stays in place when the site sidebar expands
 • Quick Sell & Market panel — floating helper on inventory: pick items, sell by rarity, review before selling, list on marketplace or quick sell in bulk
-• Sell Hub (v3.11) — standalone extension page (green FAB on inventory): search, sort (rarity/float/last dropped/name with direction toggle), bulk quick sell & marketplace list — less lag on huge inventories
-• Batch size control — choose how many items are sold or listed in parallel (1–20) for faster or safer bulk operations
-• Confirm Sale modal — per-item quick sell price, market price input, List on Market and Quick Sell buttons with validation
+• Sell Hub (v3.11+) — standalone extension page (green FAB on inventory): search, sort, bulk quick sell & marketplace list, API latency ping — less lag on huge inventories
+• Batch size control — default **2**; choose 1–20 for faster or safer bulk quick sell / list on market
+• Confirm Sale modal — per-item quick sell price, market price input, List on Market and Quick Sell; inventory confirmation when CS:R API is slow (v3.12.5)
 • Case bulk buy — on the Cases tab (/app/inventory/cases), buy multiple weapon cases at once (quantity 1–99) using your coin balance; purchased cases go to your in-game inventory (toggle in extension settings)
 • Auto case opening — Auto open tab on Cases: delay (default 1000 ms), time limit, spend limit; live log; results sorted by float; optional session auto-sell (manual default, non-gold, or by rarity) configured in toolbar popup; Quick sell session drops after a run
 • Case opening stats (v3.10) — Stats tab on Cases panel: lifetime opens, gold history, cases since last ★, rarity breakdown; syncs with browser sync / JSON backup

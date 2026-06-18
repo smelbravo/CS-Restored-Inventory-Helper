@@ -133,10 +133,14 @@
         }
     }
 
-    function applyCoinsFromApi(data, fallbackDelta) {
-        const fromApi = SH.extractCoins(data);
-        if (fromApi != null) {
-            userCoins = fromApi;
+    function itemSellId(item) {
+        return SH.sellWeaponIdFromItem(item);
+    }
+
+    function applyCoinsFromApi(result, fallbackDelta) {
+        const coins = result?.coins ?? SH.extractCoins(result?.data ?? result);
+        if (coins != null) {
+            userCoins = coins;
             renderCoins(true);
             return;
         }
@@ -175,6 +179,26 @@
 
     function t(key, vars) {
         return typeof csrT === 'function' ? csrT(key, vars) : key;
+    }
+
+    async function updateApiPing() {
+        const el = $('sh-api-ping');
+        if (!el || typeof SH.pingApi !== 'function') return;
+        el.textContent = t('sellHub.apiChecking');
+        const ms = await SH.pingApi();
+        if (ms == null) {
+            el.textContent = t('sellHub.apiOffline');
+            el.className = 'sh-api-ping bad';
+        } else if (ms > 5000) {
+            el.textContent = t('sellHub.apiSlow', { ms });
+            el.className = 'sh-api-ping warn';
+        } else if (ms > 2000) {
+            el.textContent = t('sellHub.apiOk', { ms });
+            el.className = 'sh-api-ping warn';
+        } else {
+            el.textContent = t('sellHub.apiOk', { ms });
+            el.className = 'sh-api-ping good';
+        }
     }
 
     function extUrl(path) {
@@ -561,17 +585,14 @@
 
         try {
             await loadLocks();
-            await loadCoins(false);
-            if (typeof CSR_loadItemIdFinishMap === 'function') {
-                await CSR_loadItemIdFinishMap();
-            }
-            allItems = await SH.fetchInventory(pageUserId);
-            if (typeof CSR_learnItemIdFinishBatch === 'function') {
-                CSR_learnItemIdFinishBatch(allItems);
-            }
-            await loadRecentDropIndex();
-            await noteNewInventoryItems(allItems);
+            const coinsP = loadCoins(false).catch(() => {});
+            const pingP = updateApiPing();
+
+            allItems = await SH.fetchOwnInventory();
+
             if (!allItems.length) {
+                await coinsP;
+                await pingP;
                 $('sh-loading').textContent = t('sellHub.noItems');
                 return;
             }
@@ -580,6 +601,20 @@
             $('sh-list-wrap').hidden = false;
             buildRaritySelect();
             applyFilters();
+
+            if (typeof CSR_learnItemIdFinishBatch === 'function') {
+                CSR_learnItemIdFinishBatch(allItems);
+            }
+            noteNewInventoryItems(allItems).catch(() => {});
+            loadRecentDropIndex().then(() => applyFilters()).catch(() => {});
+            if (typeof CSR_loadItemIdFinishMap === 'function') {
+                Promise.race([
+                    CSR_loadItemIdFinishMap(),
+                    new Promise((resolve) => { setTimeout(resolve, 3000); }),
+                ]).catch(() => {});
+            }
+            await coinsP;
+            await pingP;
         } catch (e) {
             $('sh-loading').hidden = true;
             $('sh-error').hidden = false;
@@ -648,9 +683,38 @@
         updateStats();
     }
 
-    function openModal() {
-        modalItems = getSelectedItems();
-        if (!modalItems.length) return;
+    async function openModal() {
+        const picked = getSelectedItems();
+        if (!picked.length) return;
+
+        setBusy(true);
+        $('sh-review').disabled = true;
+        try {
+            const fresh = await SH.fetchOwnInventory();
+            const bySellId = new Map();
+            for (const it of fresh) {
+                const sid = itemSellId(it);
+                if (sid) bySellId.set(sid, it);
+            }
+            modalItems = [];
+            for (const it of picked) {
+                const sid = itemSellId(it);
+                const match = sid ? bySellId.get(sid) : null;
+                if (match) modalItems.push(match);
+            }
+            allItems = fresh;
+            if (!modalItems.length) {
+                applyFilters();
+                toast(t('toast.quickSoldFailed', { n: picked.length }), 'err');
+                return;
+            }
+        } catch (e) {
+            toast(t('sellHub.loadError', { msg: e?.message || 'Network error' }), 'err');
+            return;
+        } finally {
+            setBusy(false);
+        }
+
         const body = $('sh-modal-body');
         const rmTitle = esc(t('qs.removeFromList'));
         body.innerHTML = modalItems.map((item) => {
@@ -749,7 +813,7 @@
 
     function getBatchSize() {
         const n = parseInt($('sh-batch')?.value, 10);
-        return Number.isFinite(n) ? Math.max(1, Math.min(20, n)) : 5;
+        return Number.isFinite(n) ? Math.max(1, Math.min(20, n)) : 2;
     }
 
     function setBusy(on) {
@@ -765,40 +829,72 @@
         setBusy(true);
         setModalBusy(true, t('toast.modalSelling'));
         $('sh-modal-progress').hidden = false;
-        let sold = 0;
-        let failed = 0;
-        const soldIds = new Set();
-        const total = modalItems.length;
 
-        for (let i = 0; i < modalItems.length; i++) {
-            const item = modalItems[i];
-            const wid = itemWeaponId(item);
-            const card = findModalCard(wid);
-            card?.classList.add('selling');
-            setModalStatus(t('toast.quickSelling', { sold, total }));
-            setModalProgress(i, total);
+        const targets = modalItems
+            .map((item) => ({ item, sellId: itemSellId(item) }))
+            .filter((x) => x.sellId);
+        const beforeIds = new Set(targets.map((x) => x.sellId));
+        const bs = getBatchSize();
+        const total = targets.length;
+        let sent = 0;
 
-            const qs = SH.getQuickSellPrice(item);
-            const result = await SH.sellWeapon(wid);
-            if (result.ok) {
-                sold++;
-                soldIds.add(wid);
+        for (let i = 0; i < targets.length; i += bs) {
+            const chunk = targets.slice(i, i + bs);
+            for (const { item, sellId } of chunk) {
+                const card = findModalCard(itemWeaponId(item));
+                card?.classList.add('selling');
+                setModalStatus(t('toast.quickSelling', { sold: sent, total }));
+                setModalProgress(sent, total);
+
+                const result = await SH.sellWeapon(sellId);
+                sent++;
+                if (!result.rejected) {
+                    applyCoinsFromApi(result, SH.getQuickSellPrice(item));
+                }
                 card?.classList.remove('selling');
-                card?.classList.add('sold');
-                applyCoinsFromApi(result, qs);
-            } else {
-                failed++;
-                card?.classList.remove('selling');
+                if (!result.rejected) card?.classList.add('pending');
             }
+            if (i + bs < targets.length) await new Promise((r) => setTimeout(r, 280));
         }
 
-        setModalProgress(total, total);
-        setModalStatus(t('toast.quickSelling', { sold, total }));
-        allItems = allItems.filter((i) => !soldIds.has(itemWeaponId(i)));
-        soldIds.forEach((id) => selected.delete(id));
+        setModalBusy(true, t('sellHub.confirming'));
+        setModalStatus(t('sellHub.confirming'));
+
+        let sold = 0;
+        let failed = 0;
+        try {
+            const result = await SH.confirmSoldIds(beforeIds, (gone, all) => {
+                setModalStatus(t('sellHub.confirmingProgress', { gone, all }));
+                setModalProgress(gone, all);
+            });
+            sold = result.sold;
+            failed = result.failed;
+            allItems = result.items.length ? result.items : allItems;
+
+            const after = new Set(allItems.map((it) => itemSellId(it)).filter(Boolean));
+            for (const item of modalItems) {
+                const sid = itemSellId(item);
+                const card = findModalCard(itemWeaponId(item));
+                if (!sid || !beforeIds.has(sid)) continue;
+                if (!after.has(sid)) {
+                    card?.classList.remove('pending');
+                    card?.classList.add('sold');
+                    const wid = itemWeaponId(item);
+                    if (wid) selected.delete(wid);
+                } else {
+                    card?.classList.remove('pending', 'sold');
+                }
+            }
+        } catch (_) {
+            sold = 0;
+            failed = total;
+        }
+
         await loadCoins(false);
         setBusy(false);
         setModalBusy(false);
+        setModalProgress(total, total);
+        setModalStatus(t('toast.quickSelling', { sold, total }));
         setTimeout(() => {
             closeModal();
             applyFilters();
@@ -818,7 +914,7 @@
             const item = modalItems.find((i) => itemWeaponId(i) === wid);
             const price = SH.parseMarketPrice(card.querySelector('.sh-market-inp')?.value);
             if (!price) { missing++; return; }
-            toList.push({ item, price, wid });
+            toList.push({ item, price, wid, sellId: itemSellId(item) });
         });
         if (missing) {
             toast(t('toast.enterMarketPrice'), 'err');
@@ -829,34 +925,48 @@
         setBusy(true);
         setModalBusy(true, t('toast.modalListing'));
         $('sh-modal-progress').hidden = false;
-        let listed = 0;
-        let failed = 0;
-        const listedIds = new Set();
+        const beforeIds = new Set(toList.map((x) => x.sellId).filter(Boolean));
         const total = toList.length;
 
         for (let i = 0; i < toList.length; i++) {
-            const { item, price, wid } = toList[i];
+            const { item, price, wid, sellId } = toList[i];
             const card = findModalCard(wid);
             card?.classList.add('selling');
-            setModalStatus(t('toast.listing', { listed, total }));
+            setModalStatus(t('toast.listing', { listed: i, total }));
             setModalProgress(i, total);
 
-            const ok = await SH.listOnMarket(wid, price);
+            const ok = await SH.listOnMarket(sellId || wid, price);
             if (ok) {
-                listed++;
-                listedIds.add(wid);
                 card?.classList.remove('selling');
                 card?.classList.add('sold');
             } else {
-                failed++;
                 card?.classList.remove('selling');
             }
         }
 
+        let listed = 0;
+        let failed = 0;
+        try {
+            allItems = await SH.fetchOwnInventory();
+            const afterIds = new Set(allItems.map((it) => itemSellId(it)).filter(Boolean));
+            for (const id of beforeIds) {
+                if (!afterIds.has(id)) listed++;
+                else failed++;
+            }
+            for (const { item, sellId } of toList) {
+                if (sellId && !afterIds.has(sellId)) {
+                    const wid = itemWeaponId(item);
+                    if (wid) selected.delete(wid);
+                }
+            }
+        } catch (_) {
+            listed = 0;
+            failed = total;
+        }
+
         setModalProgress(total, total);
         setModalStatus(t('toast.listing', { listed, total }));
-        allItems = allItems.filter((i) => !listedIds.has(itemWeaponId(i)));
-        listedIds.forEach((id) => selected.delete(id));
+        await loadCoins(false);
         setBusy(false);
         setModalBusy(false);
         setTimeout(() => {
@@ -873,6 +983,7 @@
         $('sh-refresh').addEventListener('click', () => {
             loadInventory();
             loadCoins(false);
+            updateApiPing();
         });
         $('sh-search').addEventListener('input', () => applyFilters());
         $('sh-rarity').addEventListener('change', () => applyFilters());

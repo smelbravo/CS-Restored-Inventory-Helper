@@ -33,7 +33,7 @@ const SELL_DEFAULTS = {
     mode: 'manual',
     timing: 'end',
     rarities: { 1: false, 2: false, 3: false, 4: false, 5: false, 6: false, 7: false },
-    batchSize: 5,
+    batchSize: 2,
 };
 
 const runtime = typeof browser !== 'undefined' ? browser : chrome;

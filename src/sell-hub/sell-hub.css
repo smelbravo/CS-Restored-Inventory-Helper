@@ -37,6 +37,14 @@ html, body {
 .sh-title { font-weight: 800; font-size: 1.05rem; letter-spacing: -0.02em; }
 .sh-sub { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
 .sh-top-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.sh-api-ping {
+  font-size: 0.68rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.sh-api-ping.good { color: #86efac; }
+.sh-api-ping.warn { color: #fbbf24; }
+.sh-api-ping.bad { color: #f87171; }
 .sh-coins {
   display: flex;
   align-items: center;
@@ -441,6 +449,11 @@ html, body {
   border-color: rgba(239, 68, 68, 0.45);
   box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.2);
   animation: sh-card-pulse 0.9s ease-in-out infinite;
+}
+.sh-mcard.pending {
+  border-color: rgba(251, 191, 36, 0.45);
+  box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.15);
+  animation: none;
 }
 .sh-mcard.sold {
   opacity: 0.2;

@@ -13,27 +13,118 @@
         return typeof browser !== 'undefined' ? browser : chrome;
     }
 
-    function apiRequest(path, method = 'GET', body = null) {
+    const API_BASE = 'https://api.csrestored.fun';
+    const API_MSG_TIMEOUT_MS = 26000;
+
+    function snowflakeStr(val) {
+        if (val == null) return null;
+        if (typeof val === 'string') {
+            const s = val.trim();
+            return s || null;
+        }
+        if (typeof val === 'number' && Number.isFinite(val)) return String(Math.trunc(val));
+        return String(val);
+    }
+
+    function parseApiBodyText(text) {
+        try {
+            const safe = String(text).replace(/([:\[,]\s*)(-?\d{16,})(?=\s*[,}\]])/g, '$1"$2"');
+            return JSON.parse(safe);
+        } catch (_) {
+            return text;
+        }
+    }
+
+    function apiRequestViaBackground(path, method, body, timeoutMs) {
         const rt = runtime();
         return new Promise((resolve, reject) => {
+            let settled = false;
+            const timer = setTimeout(() => {
+                if (settled) return;
+                settled = true;
+                reject(new Error('timeout'));
+            }, timeoutMs);
+
             rt.runtime.sendMessage({
                 type: 'csr:api',
                 path,
                 method,
                 body,
+                timeoutMs,
             }, (resp) => {
+                if (settled) return;
+                settled = true;
+                clearTimeout(timer);
                 const err = rt.runtime.lastError;
                 if (err) {
                     reject(new Error(String(err.message || err)));
                     return;
                 }
                 if (!resp?.ok) {
-                    reject(new Error(resp?.error || resp?.timeout ? 'timeout' : `HTTP ${resp?.status || '?'}`));
+                    reject(new Error(resp?.error || (resp?.timeout ? 'timeout' : `HTTP ${resp?.status || '?'}`)));
                     return;
                 }
                 resolve(resp.data);
             });
         });
+    }
+
+    async function apiRequestDirect(path, method = 'GET', body = null, timeoutMs = 20000) {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+        try {
+            const init = { method, credentials: 'include', signal: ctrl.signal };
+            if (body != null && method !== 'GET' && method !== 'HEAD') {
+                init.headers = { 'content-type': 'application/json' };
+                init.body = typeof body === 'string' ? body : JSON.stringify(body);
+            }
+            const r = await fetch(API_BASE + path, init);
+            const text = await r.text();
+            const data = parseApiBodyText(text);
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            return data;
+        } catch (e) {
+            if (e?.name === 'AbortError') throw new Error('timeout');
+            throw e;
+        } finally {
+            clearTimeout(timer);
+        }
+    }
+
+    async function apiRequest(path, method = 'GET', body = null, opts = {}) {
+        const timeoutMs = Number(opts.timeoutMs) > 0
+            ? Number(opts.timeoutMs)
+            : (method === 'GET' ? 20000 : 25000);
+        const msgTimeout = Math.min(API_MSG_TIMEOUT_MS, timeoutMs + 6000);
+        const preferDirect = opts.preferDirect !== false;
+        const fns = preferDirect
+            ? [
+                () => apiRequestDirect(path, method, body, timeoutMs),
+                () => apiRequestViaBackground(path, method, body, msgTimeout),
+            ]
+            : [
+                () => apiRequestViaBackground(path, method, body, msgTimeout),
+                () => apiRequestDirect(path, method, body, timeoutMs),
+            ];
+        const errors = [];
+        for (const fn of fns) {
+            try {
+                return await fn();
+            } catch (e) {
+                errors.push(e);
+            }
+        }
+        throw errors[0] || new Error('API request failed');
+    }
+
+    async function pingApi() {
+        const t0 = performance.now();
+        try {
+            await apiRequest('/users/@me', 'GET', null, { timeoutMs: 15000, preferDirect: true });
+            return Math.round(performance.now() - t0);
+        } catch (_) {
+            return null;
+        }
     }
 
     function parseCoinVal(v) {
@@ -213,9 +304,25 @@
             .sort((a, b) => parseInt(a.rarity, 10) - parseInt(b.rarity, 10));
     }
 
+    async function fetchOwnInventory() {
+        const data = await apiRequest('/inventory/', 'GET', null, {
+            preferDirect: true,
+            timeoutMs: 45000,
+        });
+        return normalizeInventoryArray(data);
+    }
+
     async function fetchInventory(userId) {
         const id = userId ? String(userId).trim() : '';
         let lastErr = null;
+
+        try {
+            const data = await apiRequest('/inventory/');
+            const own = normalizeInventoryArray(data);
+            if (own.length) return own;
+        } catch (e) {
+            lastErr = e;
+        }
 
         if (id) {
             try {
@@ -223,16 +330,11 @@
                 const arr = normalizeInventoryArray(data);
                 if (arr.length) return arr;
             } catch (e) {
-                lastErr = e;
+                lastErr = lastErr || e;
             }
         }
 
-        try {
-            const data = await apiRequest('/inventory/');
-            return normalizeInventoryArray(data);
-        } catch (e) {
-            throw lastErr || e;
-        }
+        throw lastErr || new Error('Empty inventory');
     }
 
     function extractCoins(data) {
@@ -242,14 +344,11 @@
 
     function parseUserProfile(data) {
         if (!data || typeof data !== 'object') return null;
-        const id = data.id ?? data.user_id ?? data.discord_id;
+        const id = snowflakeStr(data.id ?? data.user_id ?? data.discord_id);
         const username = String(
             data.username ?? data.name ?? data.display_name ?? data.nickname ?? '',
         ).trim();
-        return {
-            id: id != null ? String(id) : null,
-            username,
-        };
+        return { id, username };
     }
 
     async function fetchUserProfile(userId) {
@@ -299,19 +398,80 @@
         return { coins, profile };
     }
 
-    async function sellWeapon(wid) {
-        const id = parseInt(wid, 10);
-        if (!id) return { ok: false, coins: null };
-        try {
-            const data = await apiRequest(`/inventory/sell/${id}`, 'POST', { weapon_id: id });
-            return { ok: true, coins: extractCoins(data) };
-        } catch (_) {
-            return { ok: false, coins: null };
+    function sellWeaponIdFromItem(item) {
+        if (!item) return null;
+        const api = parsePosInt(item._api_weapon_id);
+        if (api) return api;
+        return parsePosInt(item.weapon_id);
+    }
+
+    function sleep(ms) {
+        return new Promise((r) => setTimeout(r, ms));
+    }
+
+    function sellBodyRejected(data) {
+        if (typeof CSR_sellBodyRejected === 'function') return CSR_sellBodyRejected(data);
+        if (data == null || data === '' || typeof data !== 'object') return false;
+        if (data.error) return true;
+        if (data.success === false) return true;
+        const msg = String(data.message || data.detail || '').toLowerCase();
+        return !!(msg && /(fail|invalid|not found|no longer|locked|listed|cannot|can't|unavailable)/i.test(msg));
+    }
+
+    async function confirmSoldIds(beforeIds, onProgress) {
+        const want = new Set([...beforeIds].filter(Boolean));
+        if (!want.size) return { sold: 0, failed: 0, items: [] };
+        const delays = [300, 600, 1200, 2000, 3500, 5000, 6500];
+        let items = [];
+        for (let i = 0; i <= delays.length; i++) {
+            if (i > 0) await sleep(delays[i - 1]);
+            try {
+                items = await fetchOwnInventory();
+            } catch (_) {
+                continue;
+            }
+            const after = new Set(items.map((it) => sellWeaponIdFromItem(it)).filter(Boolean));
+            const gone = [...want].filter((id) => !after.has(id)).length;
+            if (onProgress) onProgress(gone, want.size);
+            if (gone >= want.size) break;
         }
+        const after = new Set(items.map((it) => sellWeaponIdFromItem(it)).filter(Boolean));
+        const sold = [...want].filter((id) => !after.has(id)).length;
+        return { sold, failed: want.size - sold, items };
+    }
+
+    async function sellWeapon(wid) {
+        const id = parsePosInt(wid);
+        if (!id) return { ok: false, coins: null, data: null, rejected: false };
+
+        const path = `/inventory/sell/${encodeURIComponent(id)}`;
+        const bodies = [null, {}, { weapon_id: id }];
+        const maxRounds = 3;
+        let lastData = null;
+
+        for (let round = 0; round < maxRounds; round++) {
+            for (const body of bodies) {
+                try {
+                    const data = await apiRequest(path, 'POST', body, { preferDirect: true, timeoutMs: 30000 });
+                    lastData = data;
+                    if (sellBodyRejected(data)) {
+                        return { ok: false, coins: extractCoins(data), data, rejected: true };
+                    }
+                    return { ok: true, coins: extractCoins(data), data, rejected: false };
+                } catch (e) {
+                    const msg = String(e?.message || e);
+                    if (msg.includes('429') || msg.includes('HTTP 5')) {
+                        await sleep(400 * (round + 1));
+                        break;
+                    }
+                }
+            }
+        }
+        return { ok: false, coins: extractCoins(lastData), data: lastData, rejected: false };
     }
 
     async function listOnMarket(wid, priceCoins) {
-        const id = parseInt(wid, 10);
+        const id = sellWeaponIdFromItem(typeof wid === 'object' ? wid : null) || parsePosInt(wid);
         const price = parseMarketPrice(priceCoins);
         if (!id || !price) return false;
         try {
@@ -342,7 +502,11 @@
         parseMarketPrice,
         getQuickSellPrice,
         getSuggestedMarketPrice,
+        sellWeaponIdFromItem,
+        pingApi,
+        confirmSoldIds,
         fetchInventory,
+        fetchOwnInventory,
         fetchUserCoins,
         fetchUserProfile,
         fetchUserSession,
