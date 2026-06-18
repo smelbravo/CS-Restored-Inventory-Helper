@@ -19,6 +19,7 @@ const DEFAULTS = { ...(globalThis.CSR_SETTINGS_DEFAULTS || {
     floatOverlays: true,
     browseFilters: true,
     quickSellPanel: true,
+    sellHubPage: true,
     caseBulkBuy: true,
     caseAutoOpen: true,
     tradeSearch: true,

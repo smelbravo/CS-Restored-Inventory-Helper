@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sell Hub — CS:Restored Inventory Helper</title>
+  <link rel="stylesheet" href="sell-hub.css" />
+</head>
+<body>
+  <header class="sh-topbar">
+    <div class="sh-brand">
+      <img id="sh-icon" width="28" height="28" alt="" />
+      <div>
+        <div class="sh-title" data-i18n="sellHub.title">Sell Hub</div>
+        <div class="sh-sub" data-i18n="sellHub.subtitle">Lightweight sell &amp; list — your inventory only</div>
+      </div>
+    </div>
+    <div class="sh-top-actions">
+      <div class="sh-coins" id="sh-coins" hidden title="">
+        <span class="sh-coin-ico" aria-hidden="true"><svg viewBox="0 0 20 20" width="18" height="18"><circle cx="10" cy="10" r="9" fill="#facc15" stroke="#b45309" stroke-width="0.8"/><circle cx="10" cy="10" r="5.3" fill="#d97706"/><circle cx="10" cy="10" r="2.6" fill="#fef08a"/></svg></span>
+        <span class="sh-coins-val" id="sh-coins-val">—</span>
+      </div>
+      <button type="button" id="sh-refresh" class="sh-btn ghost" data-i18n="sellHub.refresh">Refresh</button>
+      <a id="sh-site-link" class="sh-link" href="https://csrestored.fun/app/inventory" target="_blank" rel="noopener" data-i18n="sellHub.openSite">Open inventory on site ↗</a>
+    </div>
+  </header>
+
+  <main class="sh-main">
+    <section class="sh-toolbar" id="sh-toolbar" hidden>
+      <div class="sh-stats" id="sh-stats"></div>
+      <div class="sh-controls">
+        <input type="search" id="sh-search" class="sh-search" data-i18n-placeholder="sellHub.searchPlaceholder" placeholder="Search weapon or skin…" autocomplete="off" spellcheck="false" />
+        <select id="sh-rarity" class="sh-select" aria-label="Rarity filter"></select>
+        <div class="sh-sort" id="sh-sort">
+          <button type="button" data-sort="rarity" class="on"><span class="sh-sort-lbl" data-i18n="sellHub.sortRarity">Rarity</span><span class="sh-sort-arrow" aria-hidden="true"></span></button>
+          <button type="button" data-sort="float"><span class="sh-sort-lbl" data-i18n="sellHub.sortFloat">Float</span><span class="sh-sort-arrow" aria-hidden="true"></span></button>
+          <button type="button" data-sort="recent"><span class="sh-sort-lbl" data-i18n="sellHub.sortRecent">Last dropped</span><span class="sh-sort-arrow" aria-hidden="true"></span></button>
+          <button type="button" data-sort="name"><span class="sh-sort-lbl" data-i18n="sellHub.sortName">Name</span><span class="sh-sort-arrow" aria-hidden="true"></span></button>
+        </div>
+      </div>
+      <div class="sh-actions">
+        <button type="button" id="sh-select-all" class="sh-btn ghost" data-i18n="sellHub.selectAll">Select all (filtered)</button>
+        <button type="button" id="sh-clear-sel" class="sh-btn ghost" data-i18n="sellHub.clearSelection">Clear</button>
+        <button type="button" id="sh-sell-rarity" class="sh-btn ghost" data-i18n="sellHub.sellByRarity">Select rarity…</button>
+        <label class="sh-batch">
+          <span data-i18n="sellHub.batchSize">Batch</span>
+          <input type="text" id="sh-batch" inputmode="numeric" value="5" maxlength="2" />
+        </label>
+        <button type="button" id="sh-review" class="sh-btn primary" disabled data-i18n="sellHub.review">Review &amp; sell</button>
+      </div>
+      <div class="sh-progress" id="sh-progress" hidden><div id="sh-progress-bar"></div></div>
+    </section>
+
+    <section class="sh-loading" id="sh-loading" data-i18n="sellHub.loading">Loading inventory…</section>
+    <section class="sh-error" id="sh-error" hidden></section>
+    <section class="sh-list-wrap" id="sh-list-wrap" hidden>
+      <div class="sh-list" id="sh-list"></div>
+      <div class="sh-load-more" id="sh-load-more" hidden data-i18n="sellHub.loadMore">Load more…</div>
+    </section>
+  </main>
+
+  <div class="sh-modal-backdrop" id="sh-modal-backdrop" hidden>
+    <div class="sh-modal" id="sh-modal" role="dialog" aria-labelledby="sh-modal-title">
+      <header class="sh-modal-hdr">
+        <div>
+          <h2 id="sh-modal-title" data-i18n="qs.confirm.title">Confirm Sale</h2>
+          <p id="sh-modal-sub" data-i18n="qs.confirm.subtitle">Quick sell or list on marketplace</p>
+        </div>
+        <button type="button" id="sh-modal-close" class="sh-icon-btn" aria-label="Close">×</button>
+      </header>
+      <div class="sh-modal-progress" id="sh-modal-progress" hidden><div id="sh-modal-bar"></div></div>
+      <div class="sh-modal-status" id="sh-modal-status" hidden></div>
+      <div class="sh-modal-body" id="sh-modal-body"></div>
+      <footer class="sh-modal-ftr">
+        <div class="sh-modal-summary" id="sh-modal-summary"></div>
+        <div class="sh-modal-btns">
+          <button type="button" id="sh-modal-cancel" class="sh-btn ghost" data-i18n="qs.cancelSale">Cancel</button>
+          <button type="button" id="sh-modal-list" class="sh-btn" data-i18n="qs.listMarket">List on Market</button>
+          <button type="button" id="sh-modal-sell" class="sh-btn primary" data-i18n="qs.quickSell">Quick Sell</button>
+        </div>
+      </footer>
+    </div>
+  </div>
+
+  <div class="sh-toast" id="sh-toast" hidden></div>
+
+  <script src="../lib/csr-storage.js"></script>
+  <script src="../lib/settings.js"></script>
+  <script src="../lib/skin-patterns.js"></script>
+  <script src="../lib/i18n-packs.js"></script>
+  <script src="../lib/i18n-packs-generated.js"></script>
+  <script src="../lib/i18n.js"></script>
+  <script src="../lib/sell-hub-core.js"></script>
+  <script src="sell-hub.js"></script>
+</body>
+</html>

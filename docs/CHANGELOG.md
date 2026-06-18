@@ -1,5 +1,28 @@
 # Changelog
 
+## 3.11.0
+
+### New — Sell Hub (standalone page)
+- **Sell Hub** — lightweight extension tab for bulk **quick sell** and **marketplace list** outside the CS:R site UI (less lag on huge inventories)
+- **Green FAB** on `/app/inventory` opens `sell-hub.html` (toggle: popup **Sell Hub (standalone page)**)
+- Search, rarity filter, batch size, select all / clear / sell by rarity
+- **Sort:** rarity (default **high → low**), float, **last dropped**, name — click active sort again to reverse (↑/↓)
+- **New drop** badge (48 h) from `csrRecentDrops` (auto-open, site case opens, new items on refresh)
+- **Review modal** — quick sell + market prices, remove (×) per card, footer totals, one-by-one sell animation + progress
+- **Coins** in header (live updates, space-separated thousands); **nickname** from `GET /users/@me`
+- **Skin lock** integrated (same list as inventory; respects per-`weapon_id` locks)
+
+### New — Background service worker
+- `src/background.js` proxies authenticated API calls (`csr:api`) for Sell Hub — session cookies work in Brave/Chromium
+
+### Fix — Skin lock on duplicate skins
+- Locking one copy no longer locks every duplicate (e.g. multiple AWP | Man-o'-war) — per `weapon_id` disambiguation
+- Sell Hub thumbnails use catalog `item_id` for CDN images
+
+### Fix — Case opening stats (all auto-open modes)
+- Stats and recent drops recorded from `processAutoOpenDrop` for single, multi cycle, multi quota, and auto-sell paths
+- Site case-open hook deduped when extension already recorded the drop
+
 ## 3.10.0
 
 ### New — Case opening stats (Cases panel)

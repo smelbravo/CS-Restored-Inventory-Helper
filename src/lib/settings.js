@@ -12,6 +12,7 @@
         floatOverlays: true,
         browseFilters: true,
         quickSellPanel: true,
+        sellHubPage: true,
         caseBulkBuy: true,
         caseAutoOpen: true,
         tradeSearch: true,

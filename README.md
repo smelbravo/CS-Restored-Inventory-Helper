@@ -1,10 +1,10 @@
 # CS:Restored Inventory Helper
 
-Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.fun) — float and paint seed overlays, **Doppler/Gamma phase**, **Fade %**, **Marble Fade** (Fire & Ice / Red Tip), and **Case Hardened tier** badges, search and filters on inventory/marketplace, a quick-sell panel, **case bulk buy** and **auto case opening** (single or **multi case**, with optional **session auto-sell** and **per-item sell**) on the Cases tab, **lifetime case opening stats** (gold counter, rarity breakdown), optional **toolbar settings** to turn each feature on or off, **skin lock** to avoid accidental sells, **multi-language UI** (popup + on-site panels), optional **browser sync** and **JSON backup** for settings, a **live user counter** in the popup header, and an **About** tab with release info and (on Chromium) a GitHub update checker.
+Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.fun) — float and paint seed overlays, **Doppler/Gamma phase**, **Fade %**, **Marble Fade** (Fire & Ice / Red Tip), and **Case Hardened tier** badges, search and filters on inventory/marketplace, a quick-sell panel, **Sell Hub** (standalone sell/list page for large inventories), **case bulk buy** and **auto case opening** (single or **multi case**, with optional **session auto-sell** and **per-item sell**) on the Cases tab, **lifetime case opening stats** (gold counter, rarity breakdown), optional **toolbar settings** to turn each feature on or off, **skin lock** to avoid accidental sells, **multi-language UI** (popup + on-site panels), optional **browser sync** and **JSON backup** for settings, a **live user counter** in the popup header, and an **About** tab with release info and (on Chromium) a GitHub update checker.
 
 Works in **Firefox**, **Microsoft Edge**, and **Chromium** browsers (Manifest V3).
 
-**Current version:** `3.10.0`
+**Current version:** `3.11.0`
 
 **Repository:** [github.com/smelbravo/CS-Restored-Inventory-Helper](https://github.com/smelbravo/CS-Restored-Inventory-Helper)
 
@@ -133,7 +133,7 @@ Each feature can be turned on or off; preferences are saved in **`storage.local`
 | Group | Toggles (top → bottom) |
 |-------|-------------------------|
 | **Inventory & browse** | Float & seed overlays → Search & filters |
-| **Sell & protect** | Skin lock → Quick Sell & Market |
+| **Sell & protect** | Skin lock → Quick Sell & Market → **Sell Hub (standalone page)** |
 | **Trades** | Trade float & seed overlays → Trade offer search |
 | **Cases** | Case bulk buy → Auto case opening (+ auto-sell rules) |
 
@@ -198,6 +198,7 @@ Popup header shows an approximate **ONLINE** count (CounterAPI, namespace `csr-i
 | **Search & filters** | Browse bar on inventory, marketplace, and Create Offer |
 | **Skin lock** | Padlock on inventory cards (see table below) |
 | **Quick Sell & Market** | Bottom-right CS:R button, helper panel, and Confirm Sale flow |
+| **Sell Hub (standalone page)** | Green FAB on inventory — opens a lightweight extension page to search, sort, select, quick sell, and list on marketplace (less lag on huge inventories) |
 | **Trade float & seed overlays** | Float/seed on trade pages and Send Trade Offer (turn off to reduce lag; requires **Float & seed overlays** on) |
 | **Trade offer search** | Compact search bar in Send Trade Offer (My Items / Their Items) |
 | **Case bulk buy** | Floating panel on [Cases](https://csrestored.fun/app/inventory/cases) — pick case + quantity, buy to in-game inventory |
@@ -269,6 +270,26 @@ Controls parallel API requests when you **Quick Sell** or **List on Market** fro
 - **Lower** (1–3) = slower, but usually more reliable if you see errors.
 
 Example reply for players: *“Batch size is how many skins get sold or listed at the same time during bulk Quick Sell / List on Market. Higher = faster; lower = safer if requests fail.”*
+
+### Sell Hub — standalone page (v3.11+)
+
+When **Sell Hub (standalone page)** is enabled in the popup, a **green floating button** appears on **your inventory** (`/app/inventory`). It opens a dedicated extension tab — not embedded in the CS:R site — so large inventories stay responsive.
+
+| Feature | What it does |
+|---------|----------------|
+| **Search & rarity filter** | Find skins by name or tier |
+| **Sort** | Rarity, float, **last dropped**, or name — click the active sort again to reverse (↑/↓); default **rarity high → low** |
+| **New drop badge** | Skins opened in the last **48 h** (auto-open, site case open, or new inventory items) |
+| **Selection** | Select all (filtered), clear, sell by rarity |
+| **Skin lock** | Same lock list as inventory — per `weapon_id` (duplicate skins no longer lock together) |
+| **Review & sell modal** | Quick sell + marketplace prices; remove (×) per card; footer totals for both |
+| **Sell animation** | Items sold **one by one** with card pulse + progress bar |
+| **Coins** | Live balance in the header (space-separated thousands); updates after sells |
+| **Account** | Subtitle shows your **nickname** (Discord ID in tooltip) |
+
+API calls use a **background service worker** (`credentials: include`) so Brave/Chromium keep the site session. Toggle off in popup **Sell & protect** → **Sell Hub (standalone page)** to hide the FAB.
+
+Recent drop times are stored locally in `csrRecentDrops` (up to 400 entries) for **Last dropped** sort — not included in browser sync / JSON backup.
 
 ### Case bulk buy (Cases tab only, v3.3+)
 
@@ -345,7 +366,7 @@ The gold **Cases** panel on [`/app/inventory/cases`](https://csrestored.fun/app/
 
 - Data is stored in `csrCaseOpeningStats` — included in **browser sync** and **JSON backup** when enabled
 - **Reset stats** clears all lifetime counters (session log on Auto open tab is unchanged)
-- Auto-open stats are recorded after each successful open (v3.10+ fix — earlier builds only counted manual site opens)
+- Auto-open stats are recorded after each successful open in **all auto-open modes** (single, multi cycle, multi quota, manual/auto-sell timing)
 
 ### Confirm Sale — marketplace list + quick sell (v3.1+)
 
@@ -418,7 +439,7 @@ The **`.xpi` on GitHub** is unsigned and **does not install** on Firefox Release
 
 ## Releases
 
-Stable downloads: [GitHub Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) (latest: **v3.10.0**).
+Stable downloads: [GitHub Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) (latest: **v3.11.0**).
 
 | Browser | Install |
 |---------|---------|
@@ -444,14 +465,15 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 3. Open **Inventory** or **Marketplace** — float/seed badges and the search/filter bar appear after items load (usually a few seconds)
 4. On inventory: use the **padlock** (top-left of a card) to lock skins you must not sell by accident
 5. If **Quick Sell & Market** is on: click the **CS:R logo button** (bottom-right) → **Start Picking** → **Review & Sell** → **List on Market** or **Quick Sell**
-6. On **Cases** ([`/app/inventory/cases`](https://csrestored.fun/app/inventory/cases)), open the gold **Cases** button → **Bulk buy**, **Auto open**, and **Stats**; configure auto-sell rules in the extension popup first if you want automatic selling
-7. On **Play → Trades** / **Send Trade Offer**, overlays and trade search work when those toggles are enabled
+6. For huge inventories: use the green **Sell Hub** FAB (when enabled) for a faster sell/list workflow outside the site UI
+7. On **Cases** ([`/app/inventory/cases`](https://csrestored.fun/app/inventory/cases)), open the gold **Cases** button → **Bulk buy**, **Auto open**, and **Stats**; configure auto-sell rules in the extension popup first if you want automatic selling
+8. On **Play → Trades** / **Send Trade Offer**, overlays and trade search work when those toggles are enabled
 
 ## Permissions
 
 | Permission | Why |
 |------------|-----|
-| `storage` | Feature toggles, locked skin IDs, case auto-open/sell config, case opening stats, language, auto-update preference — in `storage.local` and optionally `storage.sync` |
+| `storage` | Feature toggles, locked skin IDs, recent drop index, case auto-open/sell config, case opening stats, language, auto-update preference — in `storage.local` and optionally `storage.sync` |
 | `downloads` | Save exported JSON settings backup to Downloads |
 | `tabs` | Notify open csrestored.fun tabs after import so locks and settings apply immediately |
 | `*://*.csrestored.fun/*` | Inject UI on the site |
@@ -459,7 +481,7 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 | `https://cdn.csrestored.fun/*` | Skin images in the sell modal |
 | `https://api.github.com/*` | Check for new releases from the About tab (Chromium only) |
 | `https://api.counterapi.dev/*` | Optional live user counter in popup header (one ping per hour) |
-| `icons/*.png`, `docs/CHANGELOG.md` (web accessible) | Extension logo on the floating button, panel, popup; changelog in About tab |
+| `icons/*.png`, `docs/CHANGELOG.md`, `src/sell-hub/*` (web accessible) | Extension logo on the floating button, panel, popup; changelog in About tab; Sell Hub page assets |
 
 ## API endpoints used
 
@@ -476,6 +498,9 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 | `GET /inventory/cases` | Case shop list (bulk buy panel) |
 | `POST /inventory/cases/buy/{caseId}` | Buy one weapon case (bulk buy loops per quantity) |
 | `POST /inventory/cases/open/{caseId}` | Auto-open one case (auto case opening) |
+| `GET /users/@me` | Sell Hub — nickname and coin balance in header |
+
+Background worker (`src/background.js`) proxies authenticated API calls for the Sell Hub page (`csr:api` messages).
 
 ## Project structure
 
@@ -484,14 +509,20 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 ├── LICENSE
 ├── README.md
 ├── src/
-│   ├── content.js             # Content script (overlays, filters, quick-sell UI)
+│   ├── background.js          # Service worker — API proxy for Sell Hub
+│   ├── content.js             # Content script (overlays, filters, quick-sell UI, Sell Hub FAB)
 │   ├── lib/
-│   │   ├── csr-storage.js     # Local + sync prefs, export/import
+│   │   ├── csr-storage.js     # Local + sync prefs, export/import, recent drops
+│   │   ├── sell-hub-core.js   # Shared Sell Hub API + pricing
 │   │   ├── settings.js        # Feature toggles & skin locks
 │   │   ├── skin-patterns.js   # Doppler / Case Hardened patterns
 │   │   ├── i18n.js            # Translation API (csrT, csrLoadLanguage, …)
 │   │   ├── i18n-packs.js      # Locale packs (pt-PT, pt-BR)
 │   │   └── i18n-packs-generated.js  # Full de/ru/es — scripts/build-locale-packs.js
+│   ├── sell-hub/
+│   │   ├── sell-hub.html      # Standalone Sell Hub page
+│   │   ├── sell-hub.js
+│   │   └── sell-hub.css
 │   └── popup/
 │       ├── popup.html         # Toolbar popup (Features + Settings + About)
 │       ├── popup.js
@@ -517,6 +548,18 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 | `develop` | Integration branch for next release |
 
 ## Changelog
+
+### v3.11.0
+
+- **New:** **Sell Hub** — standalone extension page for bulk quick sell and marketplace listing (green FAB on inventory); less lag on huge inventories
+- **New:** Sort by rarity, float, **last dropped**, or name — click again to reverse direction (↑/↓); default **rarity high → low**
+- **New:** **New drop** badge (48 h) and `csrRecentDrops` index (auto-open, site opens, new inventory items)
+- **New:** Background **service worker** for authenticated API calls from Sell Hub (Brave/Chromium session cookies)
+- **New:** Popup toggle **Sell Hub (standalone page)** under Sell & protect
+- **Improvement:** Sell Hub modal — marketplace total footer, remove (×) per card, one-by-one sell animation, live coin balance (formatted)
+- **Improvement:** Sell Hub header shows **nickname** (`GET /users/@me`)
+- **Fix:** Skin lock on **duplicate** skins — locks per `weapon_id`, not per skin type; thumbnails restored
+- **Fix:** Case opening **stats** recorded in all auto-open modes (multi cycle, multi quota, single, auto-sell timing)
 
 ### v3.10.0
 
@@ -910,7 +953,7 @@ MIT — see [LICENSE](LICENSE).
 ### Summary (short description)
 
 ```
-Float, seed, quick sell, cases bulk buy & auto open, session auto-sell, 7 languages, skin lock. CS:Restored (csrestored.fun). Unofficial — browser session only.
+Float, seed, quick sell, Sell Hub, cases bulk buy & auto open, session auto-sell, 7 languages, skin lock. CS:Restored (csrestored.fun). Unofficial — browser session only.
 ```
 
 ### About / Description (Firefox — public)
@@ -924,6 +967,7 @@ WHAT IT DOES
 • Doppler / Gamma Doppler phase badges (Ruby, Sapphire, P1–P4, Emerald…) and Case Hardened tier badges (#1, T1–T3) on inventory and trades; on marketplace only when you have owned that Doppler item_id (API has no skin_index per listing)
 • Search & filters — filter by name, rarity, wear, phase (inventory + Create Offer), CH tier, float order, and (on marketplace) price; works on Inventory, Marketplace, and Create Offer; bar stays in place when the site sidebar expands
 • Quick Sell & Market panel — floating helper on inventory: pick items, sell by rarity, review before selling, list on marketplace or quick sell in bulk
+• Sell Hub (v3.11) — standalone extension page (green FAB on inventory): search, sort (rarity/float/last dropped/name with direction toggle), bulk quick sell & marketplace list — less lag on huge inventories
 • Batch size control — choose how many items are sold or listed in parallel (1–20) for faster or safer bulk operations
 • Confirm Sale modal — per-item quick sell price, market price input, List on Market and Quick Sell buttons with validation
 • Case bulk buy — on the Cases tab (/app/inventory/cases), buy multiple weapon cases at once (quantity 1–99) using your coin balance; purchased cases go to your in-game inventory (toggle in extension settings)
@@ -1000,6 +1044,7 @@ How to test:
    - Padlock top-left on cards — lock a skin, then try Quick Sell / Sell by Rarity (locked skins skipped)
    - Search & filter bar above the item grid (name, rarity, wear, float sort)
    - Bottom-right CS:R logo button → quick-sell panel (Start Picking, Sell by Rarity, batch size) when toggle is on
+   - Green **Sell Hub** FAB (when Sell Hub toggle is on) → standalone sell/list page with sort, locks, and review modal
 4. Marketplace (/app/inventory/marketplace):
    - Badges below the price on each listing
    - Same search/filter bar; try searching "M4A4", filters for rarity/wear, price and float sort

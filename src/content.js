@@ -657,6 +657,7 @@ S.textContent = `
 }
 
 #csrx-fab.csrx-feature-off,
+#csrx-sellhub-fab.csrx-feature-off,
 #csrx-win.csrx-feature-off,
 #csrx-cases-fab.csrx-feature-off,
 #csrx-cases-win.csrx-feature-off {
@@ -1385,6 +1386,28 @@ S.textContent = `
     object-fit: cover;
     display: block;
     border-radius: 10px;
+}
+#csrx-sellhub-fab {
+    position: fixed;
+    bottom: 88px;
+    right: 24px;
+    width: 48px;
+    height: 48px;
+    background: #0a0a0a;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 2147483640;
+    box-shadow: 0 4px 20px rgba(34, 197, 94, 0.35);
+    transition: all 0.2s cubic-bezier(0.34,1.56,0.64,1);
+    border: 2px solid #22c55e;
+    padding: 0;
+}
+#csrx-sellhub-fab:hover {
+    transform: scale(1.07) translateY(-2px);
+    box-shadow: 0 8px 28px rgba(34, 197, 94, 0.5);
 }
 
 #csrx-win {
@@ -3595,7 +3618,11 @@ function ingestApiPayload(url, data) {
 
     if (/\/inventory\/cases\/open\//i.test(url)) {
         maybeLearnDopplerItemIds(data);
-        if (!data?.error) recordCaseOpeningFromApi(data).catch(() => {});
+        if (!data?.error && !_skipNextCaseOpenHookRecord) {
+            recordCaseOpeningFromApi(data).catch(() => {});
+            recordRecentDropFromCaseOpen(data);
+        }
+        _skipNextCaseOpenHookRecord = false;
     }
 
     if (/\/inventory\/?(?:\?|$)/i.test(url) && !/\/inventory\/marketplace/i.test(url) && !/\/users\//i.test(url)) {
@@ -5834,6 +5861,36 @@ fab.innerHTML = `<img alt="CS:R Inventory Helper" src="${extUrl('icons/icon-128.
 document.body.appendChild(fab);
 fab.classList.add('csrx-feature-off');
 
+function userIdFromPagePath() {
+    const m = location.pathname.match(/\/user\/(\d{15,21})/);
+    return m ? m[1] : null;
+}
+
+async function openSellHubPage() {
+    if (!csrIsFeatureEnabled('sellHubPage')) return;
+    const rt = typeof browser !== 'undefined' ? browser : chrome;
+    let id = userIdFromPagePath() || loggedInUserId || cachedSiteUserId;
+    if (!id) id = await fetchLoggedInUserId();
+    const qs = id ? `?id=${encodeURIComponent(String(id))}` : '';
+    const url = rt.runtime.getURL(`src/sell-hub/sell-hub.html${qs}`);
+    try {
+        await rt.tabs.create({ url });
+    } catch (_) {
+        window.open(url, '_blank');
+    }
+}
+
+const sellHubFab = document.createElement('button');
+sellHubFab.type = 'button';
+sellHubFab.id = 'csrx-sellhub-fab';
+sellHubFab.title = csrT('sellHub.fabTitle');
+sellHubFab.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#86efac" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>`;
+document.body.appendChild(sellHubFab);
+sellHubFab.classList.add('csrx-feature-off');
+sellHubFab.addEventListener('click', () => {
+    openSellHubPage().catch(() => {});
+});
+
 const win = document.createElement('div');
 win.id = 'csrx-win';
 win.innerHTML = `
@@ -6161,6 +6218,14 @@ function csrIsItemSellBlocked(item) {
     return csrIsFeatureEnabled('skinLock') && item?.weapon_id != null && csrIsWeaponLocked(item.weapon_id);
 }
 
+function syncSellHubFabVisibility() {
+    const el = document.getElementById('csrx-sellhub-fab');
+    if (!el) return;
+    const on = csrIsFeatureEnabled('sellHubPage') && isInventoryPage();
+    el.classList.toggle('csrx-feature-off', !on);
+    el.style.display = on ? 'flex' : 'none';
+}
+
 function syncQuickSellPanelVisibility() {
     const panelOn = csrIsFeatureEnabled('quickSellPanel');
     fab.classList.toggle('csrx-feature-off', !panelOn);
@@ -6170,16 +6235,19 @@ function syncQuickSellPanelVisibility() {
         win.style.display = 'none';
         fab.style.display = 'none';
         if (selMode) exitSel();
+        syncSellHubFabVisibility();
         return;
     }
     if (!isInventoryPage()) {
         win.style.display = 'none';
         fab.style.display = 'none';
         if (selMode) exitSel();
+        syncSellHubFabVisibility();
         return;
     }
     win.style.display = winOpen ? 'flex' : 'none';
     fab.style.display = winOpen ? 'none' : 'flex';
+    syncSellHubFabVisibility();
 }
 
 let winOpen=false;
@@ -6660,6 +6728,7 @@ let casesStatsExpanded = false;
 let _casesStatsSaveTimer = null;
 let _lastRecordedOpenSig = '';
 let _lastRecordedOpenAt = 0;
+let _skipNextCaseOpenHookRecord = false;
 
 function defaultByRarityCounts() {
     const counts = { gold: 0 };
@@ -6722,9 +6791,27 @@ async function loadCaseOpeningStats() {
 function scheduleSaveCaseOpeningStats() {
     clearTimeout(_casesStatsSaveTimer);
     _casesStatsSaveTimer = setTimeout(() => {
-        if (!casesLifetimeStats) return;
-        csrPrefsWrite({ [CASES_OPEN_STATS_KEY]: casesLifetimeStats }).catch(() => {});
+        flushCaseOpeningStats().catch(() => {});
     }, 400);
+}
+
+async function flushCaseOpeningStats() {
+    clearTimeout(_casesStatsSaveTimer);
+    _casesStatsSaveTimer = null;
+    if (!casesLifetimeStats) return;
+    await csrPrefsWrite({ [CASES_OPEN_STATS_KEY]: casesLifetimeStats });
+}
+
+function caseOpenNestedPayload(data) {
+    if (!data || typeof data !== 'object') return null;
+    for (const k of [
+        'item', 'dropped_item', 'droppedItem', 'reward', 'drop', 'result',
+        'unboxed_item', 'unboxedItem', 'skin', 'weapon', 'data',
+    ]) {
+        const v = data[k];
+        if (v && typeof v === 'object' && !Array.isArray(v)) return v;
+    }
+    return null;
 }
 
 function resolveCaseOpenDropName(obj) {
@@ -6744,16 +6831,17 @@ function resolveCaseOpenDropName(obj) {
     return '';
 }
 
-function normalizeCaseOpenDrop(data) {
-    if (!data || typeof data !== 'object') return null;
-    const hasDropFields = !!(data.item || data.dropped_item || data.droppedItem || data.name
-        || data.item_name || data.weapon_id || data.weaponId || data.item_type != null);
+function normalizeCaseOpenDrop(data, hints) {
+    const hres = hints && typeof hints === 'object' ? hints : null;
+    if (!data || typeof data !== 'object') {
+        if (!hres?.name) return null;
+        data = { ...hres };
+    }
+    const nested = caseOpenNestedPayload(data);
+    const hasDropFields = !!(nested || data.name || data.item_name || data.weapon_id
+        || data.weaponId || data.item_type != null || data.rarity != null || data.item_rarity != null);
     if (data.error && !hasDropFields) return null;
 
-    const nested = (data.item && typeof data.item === 'object' && data.item)
-        || (data.dropped_item && typeof data.dropped_item === 'object' && data.dropped_item)
-        || (data.droppedItem && typeof data.droppedItem === 'object' && data.droppedItem)
-        || null;
     const drop = nested ? { ...data, ...nested } : { ...data };
     if (nested) {
         if (!drop.name && data.name) drop.name = data.name;
@@ -6761,8 +6849,16 @@ function normalizeCaseOpenDrop(data) {
         if (drop.item_rarity != null && drop.rarity == null) drop.rarity = drop.item_rarity;
         if (drop.item_type == null && data.item_type != null) drop.item_type = data.item_type;
     }
-    const name = resolveCaseOpenDropName(drop);
-    if (!name) return null;
+    if (hints && typeof hints === 'object') {
+        if (hints.name) drop.name = hints.name;
+        if (hints.rarity != null) drop.rarity = hints.rarity;
+        if (hints.float != null) drop.float = hints.float;
+        if (hints.weapon_id != null) drop.weapon_id = hints.weapon_id;
+    }
+    let name = resolveCaseOpenDropName(drop);
+    if (!name && hints?.name) name = String(hints.name).trim();
+    if (!name && drop.rarity != null) name = `Rarity ${drop.rarity} drop`;
+    if (!name) name = 'Unknown drop';
     drop.name = name;
     return drop;
 }
@@ -6795,12 +6891,30 @@ function casesStatsDropNameHtml(name, rarityKey) {
     return `<span class="csrx-cases-stats-drop-name" style="${style}">${escapeCasesHtml(name)}</span>`;
 }
 
-async function recordCaseOpeningFromApi(data) {
-    const drop = normalizeCaseOpenDrop(data);
+function recordRecentDropFromCaseOpen(data) {
+    if (typeof csrRecordRecentDrops !== 'function' || !data || typeof data !== 'object') return;
+    const name = data?.name ? String(data.name) : resolveCaseOpenDropName(data);
+    if (!name) return;
+    const weaponId = extractWeaponIdFromOpenData(data);
+    const floatVal = extractFloatFromOpenData(data);
+    const seedRaw = data?.seed ?? data?.paint_seed;
+    const seed = seedRaw != null ? parseInt(seedRaw, 10) : null;
+    csrRecordRecentDrops({
+        weapon_id: weaponId,
+        at: Date.now(),
+        name,
+        float: floatVal,
+        seed: Number.isFinite(seed) ? seed : null,
+    }).catch(() => {});
+}
+
+async function recordCaseOpeningFromApi(data, hints) {
+    const drop = normalizeCaseOpenDrop(data, hints);
     if (!drop) return;
     const sig = caseOpenRecordSignature(drop);
     const now = Date.now();
-    if (_lastRecordedOpenSig === sig && now - _lastRecordedOpenAt < 1500) return;
+    const fromExtension = !!(hints && hints.name);
+    if (!fromExtension && _lastRecordedOpenSig === sig && now - _lastRecordedOpenAt < 800) return;
     _lastRecordedOpenSig = sig;
     _lastRecordedOpenAt = now;
 
@@ -7731,7 +7845,9 @@ function syncCasesModeUi() {
     syncCasesOpenSubModeUi();
     updateCasesCostSummary();
     updateCasesAutoOpenSummary();
-    if (casesMode === 'stats') refreshCasesLifetimeStatsUi();
+    if (casesMode === 'stats') {
+        loadCaseOpeningStats().then(() => refreshCasesLifetimeStatsUi()).catch(() => {});
+    }
 }
 
 function readInt(inp, fallback) {
@@ -7881,6 +7997,7 @@ function updateCasesAutoOpenSummary() {
 }
 
 async function openCaseOnce(caseId) {
+    _skipNextCaseOpenHookRecord = true;
     let r;
     try {
         r = await _nativeFetch(CASES_OPEN_URL(caseId), {
@@ -7905,7 +8022,6 @@ async function openCaseOnce(caseId) {
     if (data && typeof data === 'object') {
         const coins = parseCoinVal(data.coins ?? data.coin_balance ?? data.balance);
         if (coins != null) cachedUserCoins = coins;
-        recordCaseOpeningFromApi(data).catch(() => {});
     }
     return data;
 }
@@ -8348,14 +8464,36 @@ function pickNextMultiCase(queue, startIdx, spendLeft, coins) {
 }
 
 async function processAutoOpenDrop(sessionGen, picked, data, sessionDrops) {
-    if (!isCasesSessionActive(sessionGen)) return false;
-
-    const name = data?.name ? String(data.name) : csrT('cases.unknownItem');
-    const rarity = data?.rarity != null ? parseInt(data.rarity, 10) : null;
+    const name = data?.name ? String(data.name) : resolveCaseOpenDropName(data) || csrT('cases.unknownItem');
+    const rarity = data?.rarity != null ? parseInt(data.rarity, 10)
+        : (data?.item_rarity != null ? parseInt(data.item_rarity, 10) : null);
     const floatVal = extractFloatFromOpenData(data);
     const weaponId = extractWeaponIdFromOpenData(data);
 
-    sessionDrops.push({ name, rarity, float: floatVal, weaponId, sold: false });
+    recordCaseOpeningFromApi(data, {
+        name,
+        rarity,
+        float: floatVal,
+        weapon_id: weaponId,
+    }).catch(() => {});
+
+    if (typeof csrRecordRecentDrops === 'function') {
+        const seed = data?.seed != null ? parseInt(data.seed, 10)
+            : (data?.paint_seed != null ? parseInt(data.paint_seed, 10) : null);
+        csrRecordRecentDrops({
+            weapon_id: weaponId,
+            at: Date.now(),
+            name,
+            float: floatVal,
+            seed: Number.isFinite(seed) ? seed : null,
+        }).catch(() => {});
+    }
+
+    if (!isCasesSessionActive(sessionGen)) return false;
+
+    sessionDrops.push({
+        name, rarity, float: floatVal, weaponId, sold: false, at: Date.now(),
+    });
     const drop = sessionDrops[sessionDrops.length - 1];
 
     casesOpenStats.opened++;
@@ -8525,10 +8663,10 @@ async function runCasesAutoOpen() {
 
                 try {
                     const data = await openCaseOnce(picked.id);
-                    if (!isCasesSessionActive(sessionGen)) break;
                     totalSpent += picked.price;
                     opened++;
                     await processAutoOpenDrop(sessionGen, picked, data, sessionDrops);
+                    if (!isCasesSessionActive(sessionGen)) break;
                     needDelay = true;
                     consecutiveErrors = 0;
                 } catch (e) {
@@ -8560,9 +8698,9 @@ async function runCasesAutoOpen() {
 
                 try {
                     const data = await openCaseOnce(picked.id);
-                    if (!isCasesSessionActive(sessionGen)) break;
                     totalSpent += picked.price;
                     await processAutoOpenDrop(sessionGen, picked, data, sessionDrops);
+                    if (!isCasesSessionActive(sessionGen)) break;
                     needDelay = true;
                     picked = null;
                     consecutiveErrors = 0;
@@ -8592,9 +8730,9 @@ async function runCasesAutoOpen() {
 
             try {
                 const data = await openCaseOnce(picked.id);
-                if (!isCasesSessionActive(sessionGen)) break;
                 totalSpent += picked.price;
                 await processAutoOpenDrop(sessionGen, picked, data, sessionDrops);
+                if (!isCasesSessionActive(sessionGen)) break;
                 consecutiveErrors = 0;
             } catch (e) {
                 const action = handleCasesOpenLoopError(e, consecutiveErrors);
@@ -8626,6 +8764,17 @@ async function runCasesAutoOpen() {
 
     if (isCasesSessionActive(sessionGen)) {
         await resolveSessionDropWeaponIds(sessionDrops, { retries: 4, delayMs: 400 });
+        if (typeof csrRecordRecentDrops === 'function') {
+            const entries = sessionDrops
+                .filter((d) => d.weaponId && !d.sold)
+                .map((d) => ({
+                    weapon_id: d.weaponId,
+                    at: d.at || Date.now(),
+                    name: d.name,
+                    float: d.float,
+                }));
+            if (entries.length) csrRecordRecentDrops(entries).catch(() => {});
+        }
         casesSessionDrops = sessionDrops.filter(d => !d.sold);
         if (isCasesAutoSellEnabled() && casesAutoOpenSellCfg.timing === 'end') {
             await runCasesSessionQuickSell(
@@ -8636,6 +8785,8 @@ async function runCasesAutoOpen() {
         }
         renderCasesOpenResults(casesSessionDrops);
     }
+
+    await flushCaseOpeningStats();
 
     if (sessionGen !== casesOpenActiveGen) return;
 

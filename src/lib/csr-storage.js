@@ -93,6 +93,7 @@
         quickSellPanel: true,
         caseBulkBuy: true,
         caseAutoOpen: true,
+        sellHubPage: true,
         tradeSearch: true,
         tradeFloatOverlays: true,
         skinLock: true,
@@ -292,6 +293,8 @@
     }
 
     const DOPPLER_MAP_STORAGE_KEY = 'csrItemIdFinishMap';
+    const RECENT_DROPS_KEY = 'csrRecentDrops';
+    const RECENT_DROPS_MAX = 400;
     const DOPPLER_MAP_FINISH_IDS = new Set([
         415, 416, 417, 418, 419, 420, 421,
         617, 618, 619, 852, 853, 854, 855,
@@ -348,6 +351,68 @@
         };
     }
 
+    function recentDropRowKey(row) {
+        if (row?.weapon_id != null) return `w${row.weapon_id}`;
+        const name = String(row?.name || '').trim();
+        const fl = row?.float != null ? Number(row.float).toFixed(6) : '';
+        const seed = row?.seed != null ? String(row.seed) : '';
+        return `s${name}|${fl}|${seed}`;
+    }
+
+    function normalizeRecentDrops(raw) {
+        if (!Array.isArray(raw)) return [];
+        const out = [];
+        for (const row of raw) {
+            if (!row || typeof row !== 'object') continue;
+            const weapon_id = row.weapon_id != null ? parseInt(row.weapon_id, 10) : null;
+            const at = row.at != null ? Number(row.at) : 0;
+            const name = String(row.name || '').trim();
+            const fl = row.float != null && !Number.isNaN(parseFloat(row.float)) ? parseFloat(row.float) : null;
+            const seed = row.seed != null ? parseInt(row.seed, 10) : null;
+            if (!weapon_id && !name) continue;
+            out.push({
+                weapon_id: Number.isFinite(weapon_id) && weapon_id > 0 ? weapon_id : null,
+                at: Number.isFinite(at) && at > 0 ? at : Date.now(),
+                name,
+                float: fl,
+                seed: Number.isFinite(seed) ? seed : null,
+            });
+        }
+        return out;
+    }
+
+    async function csrGetRecentDrops() {
+        const data = await storageGet('local', [RECENT_DROPS_KEY]);
+        return normalizeRecentDrops(data[RECENT_DROPS_KEY]);
+    }
+
+    async function csrRecordRecentDrops(entries) {
+        const list = Array.isArray(entries) ? entries : [entries];
+        if (!list.length) return csrGetRecentDrops();
+        const cur = await csrGetRecentDrops();
+        const byKey = new Map(cur.map((r) => [recentDropRowKey(r), r]));
+        const now = Date.now();
+        for (const e of list) {
+            if (!e || typeof e !== 'object') continue;
+            const weapon_id = e.weapon_id != null ? parseInt(e.weapon_id, 10) : null;
+            const row = {
+                weapon_id: Number.isFinite(weapon_id) && weapon_id > 0 ? weapon_id : null,
+                at: e.at != null ? Number(e.at) : now,
+                name: String(e.name || '').trim(),
+                float: e.float != null && !Number.isNaN(parseFloat(e.float)) ? parseFloat(e.float) : null,
+                seed: e.seed != null ? parseInt(e.seed, 10) : null,
+            };
+            if (!row.weapon_id && !row.name) continue;
+            byKey.set(recentDropRowKey(row), row);
+        }
+        const merged = [...byKey.values()]
+            .sort((a, b) => b.at - a.at)
+            .slice(0, RECENT_DROPS_MAX);
+        await storageSet('local', { [RECENT_DROPS_KEY]: merged });
+        return merged;
+    }
+
+    global.CSR_RECENT_DROPS_KEY = RECENT_DROPS_KEY;
     global.CSR_SYNCABLE_KEYS = SYNCABLE_KEYS;
     global.CSR_SYNC_TOGGLE_KEY = SYNC_TOGGLE_KEY;
     global.CSR_MAX_LOCKED_IDS = MAX_LOCKED_IDS;
@@ -360,6 +425,8 @@
     global.csrImportSettings = csrImportSettings;
     global.csrExportDopplerMap = csrExportDopplerMap;
     global.csrImportDopplerMap = csrImportDopplerMap;
+    global.csrGetRecentDrops = csrGetRecentDrops;
+    global.csrRecordRecentDrops = csrRecordRecentDrops;
     global.csrIsFirefoxBrowser = csrIsFirefoxBrowser;
 
 })(typeof globalThis !== 'undefined' ? globalThis : window);
