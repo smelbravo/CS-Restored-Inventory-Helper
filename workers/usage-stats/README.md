@@ -37,8 +37,8 @@ wrangler d1 execute csr-inv-helper-usage --remote --file=schema.sql
 wrangler deploy
 ```
 
-7. Note the URL, e.g. `https://csr-inv-helper-usage.<your-subdomain>.workers.dev`
-8. Set the same URL in **`src/lib/usage-stats-config.js`** → `CSR_USAGE_STATS_API`
+7. Note the URL, e.g. `https://csr-inv-helper-usage.<subdomain>.workers.dev`
+8. Set the same URL in **`src/lib/usage-stats-config.js`** → `CSR_USAGE_STATS_API` and in **`manifest.json`** → `host_permissions`
 9. Rebuild / reload the extension.
 
 ## Endpoints

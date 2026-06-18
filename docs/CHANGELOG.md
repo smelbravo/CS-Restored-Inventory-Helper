@@ -3,11 +3,16 @@
 ## 3.12.0
 
 ### New — Anonymous active-user stats (real usage, not downloads)
-- **ACTIVE** counter in popup — **MAU** (installs with heartbeat in last **30 days**)
-- Daily anonymous heartbeat from background worker: random `install_id`, version, browser only
-- **Cloudflare Worker + D1** (`workers/usage-stats/`) — free tier; deploy instructions in README
+- **ACTIVE** counter in popup — **MAU** (installs with heartbeat in last **30 days**); tooltip shows **DAU** and **online (1h)**
+- Daily anonymous heartbeat: random `install_id`, extension version, browser family only
+- **Cloudflare Worker + D1** (`workers/usage-stats/`) — free tier; see `workers/usage-stats/README.md`
+- Popup registers on open (direct `fetch`); background worker + daily `alarms` as backup
 - Replaces CounterAPI “online now” counter (v3.7.1–v3.11)
-- Privacy policy updated; Firefox declares `technicalAndInteraction` data collection
+- Privacy policy updated; Firefox `data_collection_permissions: technicalAndInteraction`
+- Permissions: `alarms`; host permission for deployed stats worker URL
+
+### Fix — popup counter stuck on “—”
+- Firefox/Brave: no longer blocks on `runtime.sendMessage` to background; heartbeat from popup with timeout-safe background ping
 
 ## 3.11.0
 

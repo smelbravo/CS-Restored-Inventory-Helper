@@ -2,3 +2,4 @@
 releases/
 release-notes/
 extension-zip/
+workers/usage-stats/.wrangler/

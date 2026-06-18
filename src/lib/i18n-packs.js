@@ -93,6 +93,7 @@
             'popup.usageStats.active': 'ATIVOS',
             'popup.usageStats.period': '30 DIAS',
             'popup.usageStats.title': 'Utilizadores ativos nos últimos 30 dias (instalações anónimas). Hoje: {dau}. Online (1h): {online}.',
+            'popup.usageStats.unavailable': 'Estatísticas temporariamente indisponíveis — verifica a ligação ou tenta mais tarde.',
             'toast.autoOpenBusy': 'Auto-open ou auto-sell já está a correr.',
             'popup.reset': 'Repor predefinições',
             'popup.lockCount.none': 'Nenhuma skin bloqueada',

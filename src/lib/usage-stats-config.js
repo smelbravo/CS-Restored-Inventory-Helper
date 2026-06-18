@@ -4,5 +4,5 @@
  */
 (function (global) {
     'use strict';
-    global.CSR_USAGE_STATS_API = 'https://csr-inv-helper-usage.smelbravo.workers.dev';
+    global.CSR_USAGE_STATS_API = 'https://csr-inv-helper-usage.smel.workers.dev';
 })(typeof globalThis !== 'undefined' ? globalThis : self);

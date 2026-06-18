@@ -106,6 +106,7 @@
         'popup.usageStats.active': 'ACTIVE',
         'popup.usageStats.period': 'LAST 30D',
         'popup.usageStats.title': 'Active users in the last 30 days (anonymous installs). Today: {dau}. Online (1h): {online}.',
+        'popup.usageStats.unavailable': 'Usage stats temporarily unavailable — check connection or try again later.',
         'popup.reset': 'Reset defaults',
         'popup.lockCount.none': 'No locked skins',
         'popup.lockCount.one': '{n} skin locked',

@@ -54,7 +54,7 @@
 
     "https://api.github.com/*",
 
-    "https://csr-inv-helper-usage.smelbravo.workers.dev/*"
+    "https://csr-inv-helper-usage.smel.workers.dev/*"
 
   ],
 

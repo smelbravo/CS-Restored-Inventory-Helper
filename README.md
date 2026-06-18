@@ -1,6 +1,6 @@
 # CS:Restored Inventory Helper
 
-Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.fun) — float and paint seed overlays, **Doppler/Gamma phase**, **Fade %**, **Marble Fade** (Fire & Ice / Red Tip), and **Case Hardened tier** badges, search and filters on inventory/marketplace, a quick-sell panel, **Sell Hub** (standalone sell/list page for large inventories), **case bulk buy** and **auto case opening** (single or **multi case**, with optional **session auto-sell** and **per-item sell**) on the Cases tab, **lifetime case opening stats** (gold counter, rarity breakdown), optional **toolbar settings** to turn each feature on or off, **skin lock** to avoid accidental sells, **multi-language UI** (popup + on-site panels), optional **browser sync** and **JSON backup** for settings, a **live user counter** in the popup header, and an **About** tab with release info and (on Chromium) a GitHub update checker.
+Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.fun) — float and paint seed overlays, **Doppler/Gamma phase**, **Fade %**, **Marble Fade** (Fire & Ice / Red Tip), and **Case Hardened tier** badges, search and filters on inventory/marketplace, a quick-sell panel, **Sell Hub** (standalone sell/list page for large inventories), **case bulk buy** and **auto case opening** (single or **multi case**, with optional **session auto-sell** and **per-item sell**) on the Cases tab, **lifetime case opening stats** (gold counter, rarity breakdown), optional **toolbar settings** to turn each feature on or off, **skin lock** to avoid accidental sells, **multi-language UI** (popup + on-site panels), optional **browser sync** and **JSON backup** for settings, an **active users counter** (real MAU, not store downloads) in the popup header, and an **About** tab with release info and (on Chromium) a GitHub update checker.
 
 Works in **Firefox**, **Microsoft Edge**, and **Chromium** browsers (Manifest V3).
 
@@ -124,7 +124,7 @@ Click the **extension icon** in the browser toolbar (Firefox / Chrome / Edge). T
 |-----|------------------|
 | **Features** | Feature toggles grouped by category (see below) + auto case opening / auto-sell subsection |
 | **Settings** | **Language**, optional **browser sync**, **export / import** JSON backup |
-| **About** | Version, live user counter, description, links (GitHub, AMO, Privacy, License), bundled **What's new** changelog, and update tools |
+| **About** | Version, **ACTIVE** users (last 30 days), description, links (GitHub, AMO, Privacy, License), bundled **What's new** changelog, and update tools |
 
 Each feature can be turned on or off; preferences are saved in **`storage.local`** by default, or in **`storage.sync`** when browser sync is enabled (extension storage — not site cookies).
 
@@ -173,7 +173,7 @@ Implementation: `csr-storage.js` — unified prefs API for local and sync storag
 
 #### Active users counter (v3.12+)
 
-Popup header shows **ACTIVE** users in the **last 30 days** (MAU) from an anonymous heartbeat to a developer-operated Cloudflare Worker. One ping per day per install (plus when you open the popup if stale). Sends only a random install ID, extension version, and browser family — see [PRIVACY.md](docs/PRIVACY.md).
+Popup header shows **ACTIVE** users in the **last 30 days** (MAU) from an anonymous heartbeat to a developer-operated **Cloudflare Worker** (`workers/usage-stats/`). One ping per day per install (and when you open the popup). Sends only a random install ID, extension version, and browser family — see [PRIVACY.md](docs/PRIVACY.md). Tooltip shows **today** and **online (last hour)**. Deploy the worker once — see [workers/usage-stats/README.md](workers/usage-stats/README.md).
 
 #### Live user counter (v3.7.1–v3.11, replaced in v3.12)
 
@@ -443,7 +443,7 @@ The **`.xpi` on GitHub** is unsigned and **does not install** on Firefox Release
 
 ## Releases
 
-Stable downloads: [GitHub Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) (latest: **v3.11.0**).
+Stable downloads: [GitHub Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) (latest: **v3.12.0**).
 
 | Browser | Install |
 |---------|---------|
@@ -477,15 +477,15 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 
 | Permission | Why |
 |------------|-----|
-| `alarms` | Schedule at most one anonymous usage heartbeat per day |
-| `storage` | Feature toggles, locked skin IDs, anonymous install ID, case auto-open/sell config, case opening stats, language, auto-update preference — in `storage.local` and optionally `storage.sync` |
+| `alarms` | Schedule at most one anonymous usage heartbeat per day from the background service worker |
+| `storage` | Feature toggles, locked skin IDs, anonymous install ID (`csrInstallId`), recent drop index, case config, language, auto-update preference — in `storage.local` and optionally `storage.sync` |
 | `downloads` | Save exported JSON settings backup to Downloads |
 | `tabs` | Notify open csrestored.fun tabs after import so locks and settings apply immediately |
 | `*://*.csrestored.fun/*` | Inject UI on the site |
 | `https://api.csrestored.fun/*` | Read inventory, marketplace, and trade data |
 | `https://cdn.csrestored.fun/*` | Skin images in the sell modal |
 | `https://api.github.com/*` | Check for new releases from the About tab (Chromium only) |
-| `https://csr-inv-helper-usage.*.workers.dev/*` | Anonymous usage heartbeat + active-user stats (popup MAU counter) |
+| `https://csr-inv-helper-usage.smel.workers.dev/*` | Anonymous usage heartbeat + **ACTIVE** user stats (popup MAU counter) |
 | `icons/*.png`, `docs/CHANGELOG.md`, `src/sell-hub/*` (web accessible) | Extension logo on the floating button, panel, popup; changelog in About tab; Sell Hub page assets |
 
 ## API endpoints used
@@ -559,8 +559,10 @@ Background worker (`src/background.js`) proxies authenticated API calls for the 
 ### v3.12.0
 
 - **New:** **ACTIVE** popup counter — real **MAU** (last 30 days) via anonymous daily heartbeat
-- **New:** Cloudflare Worker + D1 (`workers/usage-stats/`) — deploy guide included
-- **Change:** Replaces CounterAPI online counter; privacy policy + Firefox data declaration updated
+- **New:** Cloudflare Worker + D1 (`workers/usage-stats/`) — free tier; deploy guide in repo
+- **New:** Popup sends heartbeat directly (reliable on Firefox/Brave); tooltip shows DAU + online (1h)
+- **Change:** Replaces CounterAPI online counter; privacy policy + Firefox `technicalAndInteraction` declaration
+- **Permission:** `alarms`; host permission for stats worker URL
 
 ### v3.11.0
 
@@ -992,6 +994,7 @@ WHAT IT DOES
 • Trade float & seed overlays — toggle float/seed on trade pages and Send Trade Offer (disable to reduce lag)
 • Trade offer search — compact search bar in Send Trade Offer (My Items / Their Items)
 • Toolbar settings popup — Features tab (toggles) + Settings tab (language); preferences saved in extension storage
+• Active users counter (v3.12) — popup shows ACTIVE installs in the last 30 days (anonymous heartbeat; see Privacy policy)
 • Skin lock — padlock on inventory cards to block accidental quick sell from the extension (does not block the site’s own Weapon Details button)
 
 WHERE IT WORKS

@@ -11,6 +11,9 @@ const AUTO_UPDATE_KEY = 'csrAutoUpdateCheck';
 const REPO = 'smelbravo/CS-Restored-Inventory-Helper';
 const GITHUB_RELEASES = `https://github.com/${REPO}/releases/latest`;
 const USAGE_STATS_API = (typeof CSR_USAGE_STATS_API === 'string' ? CSR_USAGE_STATS_API : '').replace(/\/$/, '');
+const USAGE_INSTALL_ID_KEY = 'csrInstallId';
+const USAGE_HEARTBEAT_AT_KEY = 'csrUsageHeartbeatAt';
+const USAGE_HEARTBEAT_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const BACKUP_STATUS_KEY = 'csr:backupStatus';
 const PENDING_IMPORT_KEY = 'csr:pendingImport';
 
@@ -657,15 +660,103 @@ function bootAbout() {
 }
 
 /** Anonymous MAU from usage-stats worker; fails silent if unreachable. */
+function usageRuntime() {
+    return typeof browser !== 'undefined' ? browser : chrome;
+}
+
+function randomInstallId() {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+        const r = (Math.random() * 16) | 0;
+        return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+    });
+}
+
+function usageBrowserFamily() {
+    const ua = navigator.userAgent || '';
+    if (/Firefox\//i.test(ua) && !/Seamonkey/i.test(ua)) return 'firefox';
+    if (/Edg\//i.test(ua)) return 'edge';
+    if (/Chrome\//i.test(ua)) return 'chrome';
+    return 'chromium';
+}
+
+async function ensureUsageHeartbeat(force = false) {
+    if (!USAGE_STATS_API) return false;
+    const rt = usageRuntime();
+    const now = Date.now();
+    const data = await storageLocalGet([USAGE_INSTALL_ID_KEY, USAGE_HEARTBEAT_AT_KEY]);
+    let installId = data[USAGE_INSTALL_ID_KEY];
+    if (!installId || !/^[0-9a-f-]{36}$/i.test(String(installId))) {
+        installId = randomInstallId();
+        await storageLocalSet({ [USAGE_INSTALL_ID_KEY]: installId });
+    }
+    const last = Number(data[USAGE_HEARTBEAT_AT_KEY] || 0);
+    if (!force && now - last < USAGE_HEARTBEAT_INTERVAL_MS) return true;
+
+    let version = '';
+    try {
+        version = rt.runtime.getManifest().version || '';
+    } catch (_) { /* ignore */ }
+
+    try {
+        const r = await fetch(`${USAGE_STATS_API}/v1/heartbeat`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+                install_id: installId,
+                version,
+                browser: usageBrowserFamily(),
+            }),
+        });
+        if (r.ok) {
+            await storageLocalSet({ [USAGE_HEARTBEAT_AT_KEY]: now });
+            return true;
+        }
+    } catch (_) { /* silent */ }
+    return false;
+}
+
+function storageLocalGet(keys) {
+    const rt = usageRuntime();
+    return new Promise((resolve) => {
+        rt.storage.local.get(keys, (data) => resolve(data || {}));
+    });
+}
+
+function storageLocalSet(obj) {
+    const rt = usageRuntime();
+    return new Promise((resolve) => {
+        rt.storage.local.set(obj, () => resolve());
+    });
+}
+
+function pingBackgroundUsage() {
+    const rt = usageRuntime();
+    return Promise.race([
+        new Promise((resolve, reject) => {
+            try {
+                rt.runtime.sendMessage({ type: 'csr:usage-ping', force: true }, (resp) => {
+                    const err = rt.runtime.lastError;
+                    if (err) reject(err);
+                    else resolve(resp);
+                });
+            } catch (e) {
+                reject(e);
+            }
+        }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1500)),
+    ]).catch(() => {});
+}
+
 async function loadUsageStats() {
     const numEl = document.getElementById('lu-num');
     if (!numEl) return;
     numEl.classList.add('loading');
     try {
-        const rt = typeof browser !== 'undefined' ? browser : chrome;
-        await rt.runtime.sendMessage({ type: 'csr:usage-ping' }).catch(() => {});
+        pingBackgroundUsage();
+        await ensureUsageHeartbeat(true);
         if (!USAGE_STATS_API) throw new Error('no_api');
-        const r = await fetch(`${USAGE_STATS_API}/v1/stats`);
+        const r = await fetch(`${USAGE_STATS_API}/v1/stats`, { cache: 'no-store' });
         if (!r.ok) throw new Error('HTTP ' + r.status);
         const data = await r.json();
         const mau = Number(data.mau || 0);
@@ -678,12 +769,9 @@ async function loadUsageStats() {
             });
         }
     } catch (_) {
-        const dot = document.getElementById('live-users-dot');
-        const row = document.getElementById('live-users');
-        if (dot) dot.hidden = true;
-        if (row) row.hidden = true;
-        const badge = document.getElementById('side-ver');
-        if (badge) badge.classList.add('compact');
+        numEl.textContent = '—';
+        const aside = document.querySelector('.top-hdr-aside');
+        if (aside) aside.title = csrT('popup.usageStats.unavailable');
     } finally {
         numEl.classList.remove('loading');
     }
