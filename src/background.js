@@ -1,5 +1,7 @@
 'use strict';
 
+importScripts('./lib/usage-stats-config.js', './lib/usage-stats-sw.js');
+
 const API_BASE = 'https://api.csrestored.fun';
 
 function onApiMessage(msg, sendResponse) {
@@ -53,7 +55,17 @@ function onApiMessage(msg, sendResponse) {
 
 const rt = typeof browser !== 'undefined' ? browser : chrome;
 rt.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-    if (!msg || msg.type !== 'csr:api') return;
+    if (!msg) return;
+    if (msg.type === 'csr:usage-ping') {
+        const force = msg.force === true;
+        if (typeof CSR_sendUsageHeartbeat === 'function') {
+            CSR_sendUsageHeartbeat(force).then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false }));
+        } else {
+            sendResponse({ ok: false });
+        }
+        return true;
+    }
+    if (msg.type !== 'csr:api') return;
     onApiMessage(msg, sendResponse);
     return true;
 });

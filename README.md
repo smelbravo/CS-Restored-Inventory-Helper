@@ -4,7 +4,7 @@ Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.f
 
 Works in **Firefox**, **Microsoft Edge**, and **Chromium** browsers (Manifest V3).
 
-**Current version:** `3.11.0`
+**Current version:** `3.12.0`
 
 **Repository:** [github.com/smelbravo/CS-Restored-Inventory-Helper](https://github.com/smelbravo/CS-Restored-Inventory-Helper)
 
@@ -171,9 +171,13 @@ When you enable browser sync after importing, **local settings win** over stale 
 
 Implementation: `csr-storage.js` — unified prefs API for local and sync storage.
 
-#### Live user counter (v3.7.1+)
+#### Active users counter (v3.12+)
 
-Popup header shows an approximate **ONLINE** count (CounterAPI, namespace `csr-inv-helper/online`). One anonymous ping per install per hour when you open the popup. Fails silently if the service is unreachable.
+Popup header shows **ACTIVE** users in the **last 30 days** (MAU) from an anonymous heartbeat to a developer-operated Cloudflare Worker. One ping per day per install (plus when you open the popup if stale). Sends only a random install ID, extension version, and browser family — see [PRIVACY.md](docs/PRIVACY.md).
+
+#### Live user counter (v3.7.1–v3.11, replaced in v3.12)
+
+Earlier versions used CounterAPI for an approximate online count when opening the popup.
 
 #### Language codes (v3.5+)
 
@@ -473,14 +477,15 @@ Firefox Add-ons listing copy (local drafts): [`../amo-listing/`](../amo-listing/
 
 | Permission | Why |
 |------------|-----|
-| `storage` | Feature toggles, locked skin IDs, recent drop index, case auto-open/sell config, case opening stats, language, auto-update preference — in `storage.local` and optionally `storage.sync` |
+| `alarms` | Schedule at most one anonymous usage heartbeat per day |
+| `storage` | Feature toggles, locked skin IDs, anonymous install ID, case auto-open/sell config, case opening stats, language, auto-update preference — in `storage.local` and optionally `storage.sync` |
 | `downloads` | Save exported JSON settings backup to Downloads |
 | `tabs` | Notify open csrestored.fun tabs after import so locks and settings apply immediately |
 | `*://*.csrestored.fun/*` | Inject UI on the site |
 | `https://api.csrestored.fun/*` | Read inventory, marketplace, and trade data |
 | `https://cdn.csrestored.fun/*` | Skin images in the sell modal |
 | `https://api.github.com/*` | Check for new releases from the About tab (Chromium only) |
-| `https://api.counterapi.dev/*` | Optional live user counter in popup header (one ping per hour) |
+| `https://csr-inv-helper-usage.*.workers.dev/*` | Anonymous usage heartbeat + active-user stats (popup MAU counter) |
 | `icons/*.png`, `docs/CHANGELOG.md`, `src/sell-hub/*` (web accessible) | Extension logo on the floating button, panel, popup; changelog in About tab; Sell Hub page assets |
 
 ## API endpoints used
@@ -529,6 +534,8 @@ Background worker (`src/background.js`) proxies authenticated API calls for the 
 │       ├── popup.css
 │       ├── import-backup.html # Dedicated import page (Firefox-friendly)
 │       └── import-backup.js
+├── workers/
+│   └── usage-stats/           # Cloudflare Worker + D1 — anonymous MAU counter
 ├── data/
 │   └── csr-doppler-item-map.json
 ├── docs/
@@ -548,6 +555,12 @@ Background worker (`src/background.js`) proxies authenticated API calls for the 
 | `develop` | Integration branch for next release |
 
 ## Changelog
+
+### v3.12.0
+
+- **New:** **ACTIVE** popup counter — real **MAU** (last 30 days) via anonymous daily heartbeat
+- **New:** Cloudflare Worker + D1 (`workers/usage-stats/`) — deploy guide included
+- **Change:** Replaces CounterAPI online counter; privacy policy + Firefox data declaration updated
 
 ### v3.11.0
 

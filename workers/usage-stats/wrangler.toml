@@ -1,0 +1,10 @@
+name = "csr-inv-helper-usage"
+main = "src/index.js"
+compatibility_date = "2024-06-01"
+
+# After: wrangler d1 create csr-inv-helper-usage
+# Paste database_id below and run: wrangler d1 execute csr-inv-helper-usage --remote --file=schema.sql
+[[d1_databases]]
+binding = "DB"
+database_name = "csr-inv-helper-usage"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"

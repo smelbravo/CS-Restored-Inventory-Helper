@@ -4,7 +4,7 @@
 
   "name": "CS:Restored Inventory Helper",
 
-  "version": "3.11.0",
+  "version": "3.12.0",
 
   "description": "Float, seed, Doppler/Fade/Marble Fade/CH pattern badges, quick sell, Sell Hub, cases, trades, sync, and skin lock for CS:Restored (csrestored.fun). Unofficial extension.",
 
@@ -24,7 +24,9 @@
 
     "downloads",
 
-    "tabs"
+    "tabs",
+
+    "alarms"
 
   ],
 
@@ -52,7 +54,7 @@
 
     "https://api.github.com/*",
 
-    "https://api.counterapi.dev/*"
+    "https://csr-inv-helper-usage.smelbravo.workers.dev/*"
 
   ],
 
@@ -107,7 +109,7 @@
 
       "data_collection_permissions": {
 
-        "required": ["none"]
+        "required": ["technicalAndInteraction"]
 
       }
 

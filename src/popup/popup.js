@@ -10,8 +10,7 @@ const AUTO_UPDATE_KEY = 'csrAutoUpdateCheck';
 
 const REPO = 'smelbravo/CS-Restored-Inventory-Helper';
 const GITHUB_RELEASES = `https://github.com/${REPO}/releases/latest`;
-const LIVE_USERS_COUNTER = 'https://api.counterapi.dev/v1/csr-inv-helper/online';
-const LIVE_USERS_COUNTED_KEY = 'csr:liveUsersCounted';
+const USAGE_STATS_API = (typeof CSR_USAGE_STATS_API === 'string' ? CSR_USAGE_STATS_API : '').replace(/\/$/, '');
 const BACKUP_STATUS_KEY = 'csr:backupStatus';
 const PENDING_IMPORT_KEY = 'csr:pendingImport';
 
@@ -277,11 +276,6 @@ function applyPopupI18n() {
         const key = el.dataset.i18nTitle;
         if (key) el.title = csrT(key);
     });
-    const luNum = document.getElementById('lu-num');
-    if (luNum) {
-        const n = Number(String(luNum.textContent).replace(/[^\d]/g, ''));
-        if (Number.isFinite(n) && luNum.textContent !== '—') updateLiveUsersLabel(n);
-    }
     updateBrowserSyncDesc();
     const lang = csrGetLanguage();
     document.documentElement.lang = lang.slice(0, 2);
@@ -658,36 +652,31 @@ function bootAbout() {
     showVersion();
     renderChangelog();
     bindUpdateUi();
-    loadLiveUsers();
+    loadUsageStats();
     if (!IS_FIREFOX && autoUpdateEnabled) checkForUpdate(false);
 }
 
-/** Community counter — one increment per install per hour; fails silent. */
-function updateLiveUsersLabel(count) {
-    const lbl = document.getElementById('lu-lbl');
-    if (!lbl) return;
-    const n = Number(count);
-    const key = Number.isFinite(n) && n === 1 ? 'popup.liveUsers.user' : 'popup.liveUsers.users';
-    lbl.textContent = csrT(key);
-}
-
-async function loadLiveUsers() {
+/** Anonymous MAU from usage-stats worker; fails silent if unreachable. */
+async function loadUsageStats() {
     const numEl = document.getElementById('lu-num');
     if (!numEl) return;
     numEl.classList.add('loading');
     try {
-        const last = Number(localStorage.getItem(LIVE_USERS_COUNTED_KEY) || 0);
-        const fresh = Date.now() - last > 3600e3;
-        const url = fresh ? `${LIVE_USERS_COUNTER}/up` : LIVE_USERS_COUNTER;
-        const r = await fetch(url);
+        const rt = typeof browser !== 'undefined' ? browser : chrome;
+        await rt.runtime.sendMessage({ type: 'csr:usage-ping' }).catch(() => {});
+        if (!USAGE_STATS_API) throw new Error('no_api');
+        const r = await fetch(`${USAGE_STATS_API}/v1/stats`);
         if (!r.ok) throw new Error('HTTP ' + r.status);
         const data = await r.json();
-        if (fresh) localStorage.setItem(LIVE_USERS_COUNTED_KEY, String(Date.now()));
-        const n = Number(data.count || 0);
-        numEl.textContent = n.toLocaleString();
-        updateLiveUsersLabel(n);
+        const mau = Number(data.mau || 0);
+        numEl.textContent = mau.toLocaleString();
         const aside = document.querySelector('.top-hdr-aside');
-        if (aside) aside.title = csrT('popup.liveUsers.title');
+        if (aside) {
+            aside.title = csrT('popup.usageStats.title', {
+                dau: Number(data.dau || 0).toLocaleString(),
+                online: Number(data.online || 0).toLocaleString(),
+            });
+        }
     } catch (_) {
         const dot = document.getElementById('live-users-dot');
         const row = document.getElementById('live-users');

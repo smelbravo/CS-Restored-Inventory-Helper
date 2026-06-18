@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.12.0
+
+### New — Anonymous active-user stats (real usage, not downloads)
+- **ACTIVE** counter in popup — **MAU** (installs with heartbeat in last **30 days**)
+- Daily anonymous heartbeat from background worker: random `install_id`, version, browser only
+- **Cloudflare Worker + D1** (`workers/usage-stats/`) — free tier; deploy instructions in README
+- Replaces CounterAPI “online now” counter (v3.7.1–v3.11)
+- Privacy policy updated; Firefox declares `technicalAndInteraction` data collection
+
 ## 3.11.0
 
 ### New — Sell Hub (standalone page)
