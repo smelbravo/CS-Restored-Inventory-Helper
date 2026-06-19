@@ -2,7 +2,7 @@
 
 ## 3.12.5
 
-**Recommended release** — bundles **Sell Hub (v3.11)**, **MAU counter (v3.12.0)**, and quick-sell fixes **3.12.1–3.12.5**. Use this build if quick sell showed **failed** while skins actually sold (slow CS:R API / server timeouts).
+**Recommended release** — bundles **Case opening stats (v3.10)**, **Sell Hub (v3.11)**, **MAU counter (v3.12.0)**, and quick-sell fixes **3.12.1–3.12.5**. Use this build if quick sell showed **failed** while skins actually sold (slow CS:R API / server timeouts).
 
 GitHub release draft: [RELEASE-NOTES-v3.12.5.md](RELEASE-NOTES-v3.12.5.md)
 

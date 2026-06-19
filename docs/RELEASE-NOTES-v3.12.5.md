@@ -2,11 +2,20 @@
 
 **Release date:** *(publish on GitHub Releases)*
 
-This is the recommended update if you are on **v3.10.x or older**, or if quick sell / Sell Hub showed **failed** while skins actually sold. It bundles features merged since the last public GitHub release (**Sell Hub**, **MAU counter**, case stats) plus quick-sell reliability fixes for slow CS:R API / server-side timeouts.
+This is the recommended update if you are on **v3.9.x or older**, or if quick sell / Sell Hub showed **failed** while skins actually sold. It bundles features merged since the last public GitHub release (**Case opening stats**, **Sell Hub**, **MAU counter**) plus quick-sell reliability fixes for slow CS:R API / server-side timeouts.
 
 ---
 
 ## Highlights
+
+### Case opening stats (v3.10 — first time on store for many users)
+- **Stats** tab on the gold **Cases** panel (`/app/inventory/cases`) — third tab alongside **Bulk buy** and **Auto open**
+- **Lifetime tracking:** total opens, total gold (★ knives/gloves), **cases since last gold**, last drop / last gold (rarity-colored names)
+- **Recent gold history** — each gold with how many cases since the previous one
+- **See more** — full breakdown by rarity (count, %, progress bars)
+- Counts **site opens + extension auto-open** (all modes: single, multi cycle, multi quota, auto-sell timing)
+- Stored in `csrCaseOpeningStats` — included in **browser sync** and **JSON backup**
+- **Reset stats** in the Stats tab (session log on Auto open is separate)
 
 ### Sell Hub (v3.11 — first time on store for many users)
 - **Green FAB** on `/app/inventory` → standalone extension tab for bulk **quick sell** and **marketplace list**
@@ -36,6 +45,14 @@ This is the recommended update if you are on **v3.10.x or older**, or if quick s
 | **3.12.3** | Sell Hub wrong weapon id / false sold / no coins |
 | **3.12.2** | Sell Hub loading hang; batch default 2; Brave slider track |
 | **3.12.1** | Mass quick-sell failures (empty body, 429 retries, 280 ms batch pause) |
+
+### Also in this release (shipped earlier on `develop`)
+
+| Version | Summary |
+|---------|---------|
+| **3.10.0** | **Case opening stats** tab — lifetime opens, gold counter, rarity breakdown, sync/backup |
+| **3.11.0** | **Sell Hub** standalone page |
+| **3.12.0** | **ACTIVE** MAU counter (Cloudflare Worker) |
 
 ---
 

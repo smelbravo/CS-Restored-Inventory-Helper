@@ -4,7 +4,7 @@ Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.f
 
 Works in **Firefox**, **Microsoft Edge**, and **Chromium** browsers (Manifest V3).
 
-**Current version:** `3.12.5` (release **v3.12.5** — Sell Hub, MAU counter, quick-sell reliability)
+**Current version:** `3.12.5` (release **v3.12.5** — Sell Hub, case opening stats, MAU counter, quick-sell reliability)
 
 **Repository:** [github.com/smelbravo/CS-Restored-Inventory-Helper](https://github.com/smelbravo/CS-Restored-Inventory-Helper)
 
@@ -571,7 +571,7 @@ Full detail: [CHANGELOG.md](docs/CHANGELOG.md) · GitHub release draft: [RELEASE
 - **Fix:** Quick sell no longer shows **failed** when the skin actually sold but CS:R API was slow (inventory polling up to ~15s; shared `csr-sell-api.js`)
 - **Fix:** Sell Hub — loading hang, false sold state, wrong weapon id, stuck **Selling…** modal; **API latency ping** in header
 - **Change:** Default batch size **2** everywhere (panel, popup, cases, Sell Hub) + UI hint when API is slow
-- **Includes everything since v3.11.0** if you skipped intermediate GitHub releases: **Sell Hub**, **MAU counter**, case stats, pattern badges, etc. (see sections below)
+- **Includes since last public GitHub release** (if you skipped v3.11 / v3.12): **Sell Hub**, **Case opening stats**, **MAU counter**, quick-sell fixes — see **v3.10**, **v3.11**, **v3.12** below
 
 ### v3.12.0
 
