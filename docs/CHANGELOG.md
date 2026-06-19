@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.12.6
+
+### Fix — Firefox AMO validation (v3.12.5 submit)
+- Background: `scripts` fallback paired with `service_worker` for Firefox
+- Removed invalid `data_collection_permissions` block (MAU heartbeat still documented in Privacy policy; optional consent UI pending Mozilla schema)
+
 ## 3.12.5
 
 **Recommended release** — bundles **Case opening stats (v3.10)**, **Sell Hub (v3.11)**, **MAU counter (v3.12.0)**, and quick-sell fixes **3.12.1–3.12.5**. Use this build if quick sell showed **failed** while skins actually sold (slow CS:R API / server timeouts).

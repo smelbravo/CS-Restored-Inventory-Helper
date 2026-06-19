@@ -4,7 +4,7 @@ Unofficial browser extension for [Counter-Strike: Restored](https://csrestored.f
 
 Works in **Firefox**, **Microsoft Edge**, and **Chromium** browsers (Manifest V3).
 
-**Current version:** `3.12.5` (release **v3.12.5** — Sell Hub, case opening stats, MAU counter, quick-sell reliability)
+**Current version:** `3.12.6` (release **v3.12.6** — same as v3.12.5 + Firefox AMO manifest fix)
 
 **Repository:** [github.com/smelbravo/CS-Restored-Inventory-Helper](https://github.com/smelbravo/CS-Restored-Inventory-Helper)
 
@@ -448,7 +448,7 @@ The **`.xpi` on GitHub** is unsigned and **does not install** on Firefox Release
 
 ## Releases
 
-Stable downloads: [GitHub Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) (latest: **v3.12.5**).
+Stable downloads: [GitHub Releases](https://github.com/smelbravo/CS-Restored-Inventory-Helper/releases) (latest: **v3.12.6**).
 
 Draft release notes for maintainers: [docs/RELEASE-NOTES-v3.12.5.md](docs/RELEASE-NOTES-v3.12.5.md)
 
